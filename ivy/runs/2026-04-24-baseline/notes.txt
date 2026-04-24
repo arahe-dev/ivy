@@ -1,0 +1,6 @@
+# Notes for this run:
+# - hardware
+# - substrate commit/build
+# - prompt id
+# - anomalies or failures
+

@@ -1,0 +1,4 @@
+# Fill with exact command used for this baseline run.
+# Example shape (adjust paths/flags to your local substrate setup):
+# ./main -m /models/qwen2.5-7b-instruct-q4_k_m.gguf -p "<prompt>" -n 256 --ctx-size 8192 --seed 42 --temp 0
+

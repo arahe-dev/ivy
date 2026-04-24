@@ -1,0 +1,28 @@
+run:
+  id: "2026-04-24-baseline"
+  mode: "baseline_stock_substrate"
+  seed: 42
+
+model:
+  name: "Qwen2.5-7B-Instruct"
+  source: "local_gguf"
+  path: "/models/qwen2.5-7b-instruct-q4_k_m.gguf"
+
+substrate:
+  engine: "llama.cpp"
+  backend: "local_cpu_or_gpu"
+  build: "release"
+
+runtime:
+  context_length: 8192
+  max_new_tokens: 256
+  temperature: 0.0
+
+artifacts:
+  root: "runs/2026-04-24-baseline"
+  files:
+    - "command.txt"
+    - "output.txt"
+    - "timings.txt"
+    - "notes.txt"
+
