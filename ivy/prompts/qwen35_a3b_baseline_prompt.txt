@@ -1,0 +1,11 @@
+You are an SRE assistant. Read the memo and respond with exactly 6 concise bullets.
+Memo:
+- Codename: Atlas Finch
+- Regions: ap-south-1 primary, us-east-1 backup
+- Release train: r2026.04
+- SLA: 99.95%
+- Issue: latency spikes every 17 minutes during compaction
+- Trial mitigation: stagger windows + cap merge fanout
+- Constraint: no schema changes this quarter
+Question: 5 factual bullets + 1 mitigation recommendation with rationale.
+

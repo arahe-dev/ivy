@@ -1,0 +1,563 @@
+You are an SRE assistant. Read the incident memo and answer with exactly 6 concise bullets: 5 factual bullets and 1 mitigation recommendation with rationale.
+
+Incident memo:
+- Service: IVY inference gateway
+- Primary region: ap-south-1
+- Backup region: us-east-1
+- Release train: r2026.04
+- SLA target: 99.95%
+- Symptom: latency spikes every 17 minutes during compaction
+- User impact: p95 completion latency rises while p50 stays mostly stable
+- Current mitigation: stagger compaction windows and cap merge fanout
+- Constraint: no schema changes this quarter
+- Watch items: GPU memory pressure, queue depth, prompt prefill time, decode throughput
+
+Question: summarize the incident facts and recommend the safest next mitigation.
+
+Detailed context:
+Context block 1:
+- Service shard: ivy-gateway-1
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.1
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 2:
+- Service shard: ivy-gateway-2
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.2
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 3:
+- Service shard: ivy-gateway-3
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.3
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 4:
+- Service shard: ivy-gateway-4
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.4
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 5:
+- Service shard: ivy-gateway-5
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.5
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 6:
+- Service shard: ivy-gateway-6
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.6
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 7:
+- Service shard: ivy-gateway-7
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.7
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 8:
+- Service shard: ivy-gateway-8
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.8
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 9:
+- Service shard: ivy-gateway-9
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.9
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 10:
+- Service shard: ivy-gateway-10
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.10
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 11:
+- Service shard: ivy-gateway-11
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.11
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 12:
+- Service shard: ivy-gateway-12
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.12
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 13:
+- Service shard: ivy-gateway-13
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.13
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 14:
+- Service shard: ivy-gateway-14
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.14
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 15:
+- Service shard: ivy-gateway-15
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.15
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 16:
+- Service shard: ivy-gateway-16
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.16
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 17:
+- Service shard: ivy-gateway-17
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.17
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 18:
+- Service shard: ivy-gateway-18
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.18
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 19:
+- Service shard: ivy-gateway-19
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.19
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 20:
+- Service shard: ivy-gateway-20
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.20
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 21:
+- Service shard: ivy-gateway-21
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.21
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 22:
+- Service shard: ivy-gateway-22
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.22
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 23:
+- Service shard: ivy-gateway-23
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.23
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 24:
+- Service shard: ivy-gateway-24
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.24
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 25:
+- Service shard: ivy-gateway-25
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.25
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 26:
+- Service shard: ivy-gateway-26
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.26
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 27:
+- Service shard: ivy-gateway-27
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.27
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 28:
+- Service shard: ivy-gateway-28
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.28
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 29:
+- Service shard: ivy-gateway-29
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.29
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 30:
+- Service shard: ivy-gateway-30
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.30
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 31:
+- Service shard: ivy-gateway-31
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.31
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 32:
+- Service shard: ivy-gateway-32
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.32
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 33:
+- Service shard: ivy-gateway-33
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.33
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 34:
+- Service shard: ivy-gateway-34
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.34
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 35:
+- Service shard: ivy-gateway-35
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.35
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 36:
+- Service shard: ivy-gateway-36
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.36
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 37:
+- Service shard: ivy-gateway-37
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.37
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 38:
+- Service shard: ivy-gateway-38
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.38
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 39:
+- Service shard: ivy-gateway-39
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.39
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 40:
+- Service shard: ivy-gateway-40
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.40
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 41:
+- Service shard: ivy-gateway-41
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.41
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 42:
+- Service shard: ivy-gateway-42
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.42
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 43:
+- Service shard: ivy-gateway-43
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.43
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 44:
+- Service shard: ivy-gateway-44
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.44
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 45:
+- Service shard: ivy-gateway-45
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.45
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 46:
+- Service shard: ivy-gateway-46
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.46
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 47:
+- Service shard: ivy-gateway-47
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.47
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 48:
+- Service shard: ivy-gateway-48
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.48
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 49:
+- Service shard: ivy-gateway-49
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.49
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 50:
+- Service shard: ivy-gateway-50
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.50
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 51:
+- Service shard: ivy-gateway-51
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.51
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 52:
+- Service shard: ivy-gateway-52
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.52
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 53:
+- Service shard: ivy-gateway-53
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.53
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 54:
+- Service shard: ivy-gateway-54
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.54
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 55:
+- Service shard: ivy-gateway-55
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.55
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 56:
+- Service shard: ivy-gateway-56
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.56
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 57:
+- Service shard: ivy-gateway-57
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.57
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 58:
+- Service shard: ivy-gateway-58
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.58
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 59:
+- Service shard: ivy-gateway-59
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.59
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 60:
+- Service shard: ivy-gateway-60
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.60
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 61:
+- Service shard: ivy-gateway-61
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.61
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 62:
+- Service shard: ivy-gateway-62
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.62
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 63:
+- Service shard: ivy-gateway-63
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.63
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 64:
+- Service shard: ivy-gateway-64
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.64
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 65:
+- Service shard: ivy-gateway-65
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.65
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 66:
+- Service shard: ivy-gateway-66
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.66
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 67:
+- Service shard: ivy-gateway-67
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.67
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Context block 68:
+- Service shard: ivy-gateway-68
+- Region: ap-south-1 primary with us-east-1 standby
+- Release: r2026.04.68
+- Observed issue: latency spike aligns with compaction and cache refresh
+- Operational constraint: no schema changes and no runtime fork for this test
+- Evidence: prompt prefill changes first, decode remains mostly stable
+- Expected answer style: cite facts, separate observations from mitigations, avoid speculation
+Answer:
+-

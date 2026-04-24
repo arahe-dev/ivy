@@ -1,0 +1,37 @@
+name: circular_kv_lite_v0_middle_fifo
+
+paths:
+  model: C:\bread_v2\gguf\Qwen3.6-35B-A3B-UD-IQ2_XXS.gguf
+  runtime: C:\Users\arahe\dev\llama.cpp\build\bin\Release\llama-server.exe
+  prompt_file: C:\ivy\ivy\prompts\qwen35_a3b_middle_fifo_prompt.txt
+
+experiment:
+  package: circular_kv_lite
+  version: v0
+  policy_mode: circular_kv_lite_v0
+  kv_capacity_windows: 16
+
+server:
+  host: 127.0.0.1
+  port: 8101
+  n_parallel: 1
+  ctx_size: 8192
+  threads: 14
+  threads_batch: 14
+  flash_attn: on
+  n_gpu_layers: 99
+  n_cpu_moe: 16
+  no_webui: true
+
+generation:
+  seed: 12345
+  temperature: 0.0
+  top_k: 1
+  top_p: 1.0
+  min_p: 0.0
+  repeat_penalty: 1.0
+  n_predict: 160
+  cache_prompt: true
+
+output:
+  run_root: C:\ivy\ivy\runs

@@ -1,0 +1,36 @@
+# IVY: keep the repo focused on code + manifests + docs.
+# Exclude run artifacts, slot saves, logs, and ad-hoc benchmark folders.
+
+# --- Run artifacts (generated) ---
+runs/
+ivy/runs/
+
+# --- Slot save / restore artifacts ---
+**/slot_saves/
+**/*.bin
+
+# --- Logs / dumps ---
+**/*_err.log
+**/*_out.log
+**/*.log
+**/*.jsonl
+
+# --- Local benchmark/scratch folders (top-level) ---
+baseline_confirm/
+benchmarks/
+final_tune/
+hybrid_phase1/
+hybrid_rootcause_fix/
+hybrid_scale/
+hybrid_scale_ctx8192/
+moe_sweep/
+save_restore_test/
+server_moe_local_opt/
+server_moe_validate/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+
