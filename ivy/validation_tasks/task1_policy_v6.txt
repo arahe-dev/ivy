@@ -1,0 +1,5 @@
+SVC:payment-gateway-v2|TYPE:schema-mig|WINDOW:2026-04-26|02-04|MEDIUM|NO-SCHEMA|ROLLBACK:REVERT|SEC:sec-review|PII:no-max5m|HEALTH:yes
+REV:alice|approv|PII-ok|20260424
+REV:bob|approv|window-ok|20260424  
+REV:charlie|pend|size-ok|20260425
+compliant?3find+2risk

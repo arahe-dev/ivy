@@ -1,0 +1,17 @@
+You are an SRE assistant. Read the incident memo and answer with exactly 6 concise bullets: 5 factual bullets and 1 mitigation recommendation with rationale.
+
+Incident memo:
+- Service: IVY inference gateway | Primary: ap-south-1 | Backup: us-east-1 | Release: r2026.04 | SLA: 99.95%
+- Symptom: latency spikes every 17min during compaction | Impact: p95 rises p50 stable
+- Current: stagger compaction windows cap merge fanout | Constraint: no schema changes
+- Watch: GPU memory queue depth prefill time decode throughput
+
+Question: summarize incident facts recommend safest next mitigation.
+
+Detailed context:
+1|ivy-gateway-1|ap-south-1|r2026.04.1|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+2|ivy-gateway-2|ap-south-1|r2026.04.2|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+3|ivy-gateway-3|ap-south-1|r2026.04.3|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+4|ivy-gateway-4|ap-south-1|r2026.04.4|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+5|ivy-gateway-5|ap-south-1|r2026.04.5|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+Answer:

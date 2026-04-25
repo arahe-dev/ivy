@@ -1,0 +1,17 @@
+You are a data analyst. Extract key metrics from the quarterly report and answer with exactly 5 bullet points: growth, retention, engagement, revenue, and forecast.
+
+Quarterly Report Q1-2026:
+- Service: analytics-dashboard | Reporting Period: 2026-01-01 to 2026-03-31 | Data Source: analytics_events.all
+
+Metrics by region:
+
+Context block 1: north-america | DAU: 1.2M | Growth: +15% QoQ | Retention: 78% | Revenue: $4.2M | Forecast: +12%
+Context block 2: europe | DAU: 980K | Growth: +22% QoQ | Retention: 82% | Revenue: $3.8M | Forecast: +18%
+Context block 3: asia-pacific | DAU: 750K | Growth: +35% QoQ | Retention: 71% | Revenue: $2.1M | Forecast: +25%
+Context block 4: latin-america | DAU: 420K | Growth: +28% QoQ | Retention: 65% | Revenue: $890K | Forecast: +20%
+Context block 5: middle-east | DAU: 180K | Growth: +41% QoQ | Retention: 58% | Revenue: $420K | Forecast: +30%
+Context block 6: africa | DAU: 95K | Growth: +52% QoQ | Retention: 45% | Revenue: $180K | Forecast: +35%
+Context block 7: oceania | DAU: 120K | Growth: +19% QoQ | Retention: 74% | Revenue: $340K | Forecast: +15%
+Context block 8: south-asia | DAU: 310K | Growth: +38% QoQ | Retention: 62% | Revenue: $620K | Forecast: +28%
+
+Answer:

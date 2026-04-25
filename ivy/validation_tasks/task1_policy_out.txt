@@ -1,0 +1,12 @@
+{"role":"SRE","task":"review CR answer 5 bullets only: 3 findings 2 risks"}
+
+{"cr":{"id":"CR-2026-0425","svc":"payment-gateway-v2","type":"schema_migration","window":"2026-04-26 02:00-04:00 UTC","risk":"medium","deps":"none","rollback":"revert script","constraints":"no PII|max 5min|health checks","approvals":"sec-review-pending,ops-lead-approved"}}
+
+{"reviewers":[
+{"id":"alice-sec","status":"approved","notes":"PII check passed encryption verified","date":"2026-04-24"},
+{"id":"bob-ops","status":"approved","notes":"downtime window acceptable rollback tested","date":"2026-04-24"},
+{"id":"charlie-arch","status":"pending","notes":"schema size within limits","date":"2026-04-25"}
+]}
+
+{"question":"Is this change compliant? Answer 3 findings 2 risks - BE BRIEF"}
+Answer:

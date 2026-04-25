@@ -1,0 +1,49 @@
+You are a solutions architect. Design a deployment topology and answer with exactly 5 bullet points: architecture, components, data flow, scaling strategy, and failure handling.
+
+Requirements:
+- Service: real-time notification service
+- Scale: 10M daily notifications
+- Latency: <500ms end-to-end
+- Availability: 99.9%
+- Delivery guarantee: at-least-once
+
+User request flow:
+
+Context block 1:
+- Trigger: user action in client app
+- Payload: 2KB notification payload
+- Encoding: JSON
+- Delivery: HTTP POST to webhook
+
+Context block 2:
+- Processing: message queue buffer
+- Buffer: Redis streams
+- Partition: by user_id
+- Retention: 7 days
+
+Context block 3:
+- Delivery: batch workers
+- Workers: 5 replicas
+- Backoff: exponential 1s, 2s, 4s, 8s, 30s
+- Max retries: 5
+
+Context block 4:
+- Fallback: dead letter queue
+- Storage: S3
+- Retention: 30 days
+- Alerting: on DLQ threshold
+
+Context block 5:
+- Metrics: prometheus
+- Dashboards: Grafana
+- Alerts: PagerDuty
+- On-call rotation: weekly
+
+Context block 6:
+- Capacity planning:
+- Daily volume: 10M
+- Peak: 2x average
+- Buffer size: 500K messages
+
+Answer:
+-

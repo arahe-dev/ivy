@@ -1,0 +1,11 @@
+Q:CR review | A:5 bullets:3 findings + 2 risks
+
+CR:id=CR-2026-0425|svc=payment-gateway-v2|type=schema_migration|window=2026-04-26 02:00-04:00|risk=medium|deps=none|rollback=revert|constraints=no PII|max5min|health|approvals=sec-pending,ops-approved
+
+reviewers:
+a=alice-sec|st=approved|note=PII OK|dt=2026-04-24
+b=bob-ops|st=approved|note=window OK tested|dt=2026-04-24
+c=charlie-arch|st=pending|note=schema OK|dt=2026-04-25
+
+Q:compliant? A:
+-

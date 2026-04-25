@@ -1,0 +1,6 @@
+[project]
+name = "llama-moe-autotune"
+version = "0.1.0"
+description = "Windows-first llama.cpp MoE autotuner wrapper for huge GGUF models"
+requires-python = ">=3.11"
+dependencies = []

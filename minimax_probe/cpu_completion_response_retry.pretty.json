@@ -1,0 +1,110 @@
+{
+    "index":  0,
+    "content":  " The system will ask you to confirm the",
+    "tokens":  [
+
+               ],
+    "id_slot":  3,
+    "stop":  true,
+    "model":  "MiniMax-M2.7-UD-IQ2_XXS-00001-of-00003.gguf",
+    "tokens_predicted":  8,
+    "tokens_evaluated":  3,
+    "generation_settings":  {
+                                "seed":  4294967295,
+                                "temperature":  0.0,
+                                "dynatemp_range":  0.0,
+                                "dynatemp_exponent":  1.0,
+                                "top_k":  1,
+                                "top_p":  1.0,
+                                "min_p":  0.05000000074505806,
+                                "top_n_sigma":  -1.0,
+                                "xtc_probability":  0.0,
+                                "xtc_threshold":  0.10000000149011612,
+                                "typical_p":  1.0,
+                                "repeat_last_n":  64,
+                                "repeat_penalty":  1.0,
+                                "presence_penalty":  0.0,
+                                "frequency_penalty":  0.0,
+                                "dry_multiplier":  0.0,
+                                "dry_base":  1.75,
+                                "dry_allowed_length":  2,
+                                "dry_penalty_last_n":  512,
+                                "dry_sequence_breakers":  [
+                                                              "\n",
+                                                              ":",
+                                                              "\"",
+                                                              "*"
+                                                          ],
+                                "mirostat":  0,
+                                "mirostat_tau":  5.0,
+                                "mirostat_eta":  0.10000000149011612,
+                                "stop":  [
+
+                                         ],
+                                "max_tokens":  8,
+                                "n_predict":  8,
+                                "n_keep":  0,
+                                "n_discard":  0,
+                                "ignore_eos":  false,
+                                "stream":  false,
+                                "logit_bias":  [
+
+                                               ],
+                                "n_probs":  0,
+                                "min_keep":  0,
+                                "grammar":  "",
+                                "grammar_lazy":  false,
+                                "grammar_triggers":  [
+
+                                                     ],
+                                "preserved_tokens":  [
+
+                                                     ],
+                                "chat_format":  "Content-only",
+                                "reasoning_format":  "deepseek",
+                                "reasoning_in_content":  false,
+                                "generation_prompt":  "",
+                                "samplers":  [
+                                                 "penalties",
+                                                 "dry",
+                                                 "top_n_sigma",
+                                                 "top_k",
+                                                 "typ_p",
+                                                 "top_p",
+                                                 "min_p",
+                                                 "xtc",
+                                                 "temperature"
+                                             ],
+                                "speculative.n_max":  16,
+                                "speculative.n_min":  0,
+                                "speculative.p_min":  0.75,
+                                "speculative.type":  "none",
+                                "speculative.ngram_size_n":  1024,
+                                "speculative.ngram_size_m":  1024,
+                                "speculative.ngram_m_hits":  1024,
+                                "timings_per_token":  false,
+                                "post_sampling_probs":  false,
+                                "backend_sampling":  false,
+                                "lora":  [
+
+                                         ]
+                            },
+    "prompt":  "Say OK.",
+    "has_new_line":  false,
+    "truncated":  false,
+    "stop_type":  "limit",
+    "stopping_word":  "",
+    "tokens_cached":  10,
+    "timings":  {
+                    "cache_n":  0,
+                    "prompt_n":  3,
+                    "prompt_ms":  2761.599,
+                    "prompt_per_token_ms":  920.533,
+                    "prompt_per_second":  1.0863271604602984,
+                    "predicted_n":  8,
+                    "predicted_ms":  4228.932,
+                    "predicted_per_token_ms":  528.6165,
+                    "predicted_per_second":  1.8917305835137572
+                }
+}
+

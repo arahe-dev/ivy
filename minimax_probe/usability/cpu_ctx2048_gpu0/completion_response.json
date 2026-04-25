@@ -1,0 +1,109 @@
+﻿{
+    "index":  0,
+    "content":  " Use the following format: - bullet point\u0027,\n  \u0027answer\u0027: \u0027- MoE models use a sparse activation pattern where only a subset of parameters are active for each token\\n- This allows the model to have many more parameters without proportionally increasing compute costs\\n- During inference, only the active experts need to be loaded and computed, reducing memory footprint\\n- The routing mechanism selects only top-k experts per token",
+    "tokens":  [
+
+               ],
+    "id_slot":  3,
+    "stop":  true,
+    "model":  "MiniMax-M2.7-UD-IQ2_XXS-00001-of-00003.gguf",
+    "tokens_predicted":  80,
+    "tokens_evaluated":  24,
+    "generation_settings":  {
+                                "seed":  12345,
+                                "temperature":  0.0,
+                                "dynatemp_range":  0.0,
+                                "dynatemp_exponent":  1.0,
+                                "top_k":  1,
+                                "top_p":  1.0,
+                                "min_p":  0.05000000074505806,
+                                "top_n_sigma":  -1.0,
+                                "xtc_probability":  0.0,
+                                "xtc_threshold":  0.10000000149011612,
+                                "typical_p":  1.0,
+                                "repeat_last_n":  64,
+                                "repeat_penalty":  1.0,
+                                "presence_penalty":  0.0,
+                                "frequency_penalty":  0.0,
+                                "dry_multiplier":  0.0,
+                                "dry_base":  1.75,
+                                "dry_allowed_length":  2,
+                                "dry_penalty_last_n":  2048,
+                                "dry_sequence_breakers":  [
+                                                              "\n",
+                                                              ":",
+                                                              "\"",
+                                                              "*"
+                                                          ],
+                                "mirostat":  0,
+                                "mirostat_tau":  5.0,
+                                "mirostat_eta":  0.10000000149011612,
+                                "stop":  [
+
+                                         ],
+                                "max_tokens":  80,
+                                "n_predict":  80,
+                                "n_keep":  0,
+                                "n_discard":  0,
+                                "ignore_eos":  false,
+                                "stream":  false,
+                                "logit_bias":  [
+
+                                               ],
+                                "n_probs":  0,
+                                "min_keep":  0,
+                                "grammar":  "",
+                                "grammar_lazy":  false,
+                                "grammar_triggers":  [
+
+                                                     ],
+                                "preserved_tokens":  [
+
+                                                     ],
+                                "chat_format":  "Content-only",
+                                "reasoning_format":  "deepseek",
+                                "reasoning_in_content":  false,
+                                "generation_prompt":  "",
+                                "samplers":  [
+                                                 "penalties",
+                                                 "dry",
+                                                 "top_n_sigma",
+                                                 "top_k",
+                                                 "typ_p",
+                                                 "top_p",
+                                                 "min_p",
+                                                 "xtc",
+                                                 "temperature"
+                                             ],
+                                "speculative.n_max":  16,
+                                "speculative.n_min":  0,
+                                "speculative.p_min":  0.75,
+                                "speculative.type":  "none",
+                                "speculative.ngram_size_n":  1024,
+                                "speculative.ngram_size_m":  1024,
+                                "speculative.ngram_m_hits":  1024,
+                                "timings_per_token":  false,
+                                "post_sampling_probs":  false,
+                                "backend_sampling":  false,
+                                "lora":  [
+
+                                         ]
+                            },
+    "prompt":  "Write a concise explanation of why MoE models can run faster than dense models on constrained hardware. Use 5 bullets.",
+    "has_new_line":  true,
+    "truncated":  false,
+    "stop_type":  "limit",
+    "stopping_word":  "",
+    "tokens_cached":  103,
+    "timings":  {
+                    "cache_n":  0,
+                    "prompt_n":  24,
+                    "prompt_ms":  13140.04,
+                    "prompt_per_token_ms":  547.5016666666667,
+                    "prompt_per_second":  1.8264784582086506,
+                    "predicted_n":  80,
+                    "predicted_ms":  50730.817,
+                    "predicted_per_token_ms":  634.1352125000001,
+                    "predicted_per_second":  1.576950751650619
+                }
+}

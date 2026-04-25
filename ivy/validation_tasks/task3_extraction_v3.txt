@@ -1,0 +1,12 @@
+SVC: analytics-dashboard | PERIOD: 2026-01-01 to 2026-03-31 | SOURCE: analytics_events.all
+
+NA: DAU 1.2M|+15%|78%|$4.2M|+12%
+EU: DAU 980K|+22%|82%|$3.8M|+18%
+APAC: DAU 750K|+35%|71%|$2.1M|+25%
+LATAM: DAU 420K|+28%|65%|$890K|+20%
+ME: DAU 180K|+41%|58%|$420K|+30%
+AFR: DAU 95K|+52%|45%|$180K|+35%
+OCE: DAU 120K|+19%|74%|$340K|+15%
+SA: DAU 310K|+38%|62%|$620K|+28%
+
+Summarize metrics:

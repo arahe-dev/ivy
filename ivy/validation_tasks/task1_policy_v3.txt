@@ -1,0 +1,7 @@
+ID: CR-2026-0425 | SVC: payment-gateway-v2 | TYPE: schema_migration | WINDOW: 2026-04-26 02:00-04:00 UTC | RISK: medium | DEPS: none | ROLLBACK: revert script | CONSTRAINTS: no PII|5min|health checks | APPROVALS: sec-review-pending,ops-lead-approved
+
+REV: alice-sec|approved|PII check passed|2026-04-24
+REV: bob-ops|approved|downtime OK|2026-04-24
+REV: charlie-arch|pending|size OK|2026-04-25
+
+Is this compliant? Answer 3 findings 2 risks:

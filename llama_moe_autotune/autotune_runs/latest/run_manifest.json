@@ -1,0 +1,15 @@
+{
+  "created_unix": 1777108593.1654494,
+  "dry_run": false,
+  "llama_cli": "C:\\Users\\arahe\\dev\\llama.cpp\\build\\bin\\Release\\llama-cli.exe",
+  "model": "C:\\minimax_2_7\\MiniMax-M2.7-UD-IQ2_XXS-00001-of-00003.gguf",
+  "out": "autotune_runs\\latest",
+  "max_candidates": 1,
+  "max_seconds_per_run": 120,
+  "experiment": "default",
+  "reasoning_behavior": {
+    "disable_reasoning": true,
+    "supported": true,
+    "model_based": true
+  }
+}

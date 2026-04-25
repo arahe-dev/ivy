@@ -1,0 +1,6 @@
+SVC:auth|SEV:1|START:20260425|14:23|DEGRADED|us-west2|EU|LOGINFAIL|TOKENFAIL|ROOT:unknown
+SYM:401|SYM:token50ms-23s|SYM:noMEM|SYM:noDEPLOY|POOL:14:22
+T1:platform|HYP:poolMAX|EVID:maxCONN|ACT:100-200
+T2:db|NOlock|NOcontention|NOTdbISSUE
+T3:NET|noLOSS|latencyOK|healthy
+root-cause

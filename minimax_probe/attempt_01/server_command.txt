@@ -1,0 +1,1 @@
+C:\Users\arahe\dev\llama.cpp\build\bin\Release\llama-server.exe -m C:\minimax_2_7\MiniMax-M2.7-UD-IQ2_XXS-00001-of-00003.gguf -c 2048 --cpu-moe -n-gpu-layers 0 --port 8090

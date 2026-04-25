@@ -1,0 +1,17 @@
+You are a customer support agent. Analyze the ticket and answer with exactly 4 bullet points: root cause, resolution, prevention, and customer communication.
+
+Support Ticket #42931:
+- Customer: acme-corp | Product: enterprise-api | Severity: normal | Created: 2026-04-24 09:15 UTC
+
+Issue Description:
+- API response times increased from 200ms to 8s over past 3 days
+- No code changes on customer side | Affects all endpoint calls
+- Customer critical path blocked
+
+Investigation:
+
+Context block 1: Issue: timeout errors in API gateway | Finding: gateway memory usage at 94% | Analysis: connection handles not being released properly | Evidence: leak detected in connection pooling code
+Context block 2: Issue: connection handle accumulation | Finding: handles per request not released | Root cause: exception in response handling path causes handle leak | Fix: added finally block to ensure release
+Context block 3: Issue: monitoring gaps | Finding: no alerts for handle count | Prevention: added prometheus metric for open handles | Action: alerting threshold set at 80%
+
+Answer:

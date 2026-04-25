@@ -1,0 +1,35 @@
+You are a compliance auditor. Review the change request and answer with exactly 5 bullet points: 3 compliance findings and 2 risk assessments.
+
+Change Request:
+- ID: CR-2026-0425
+- Service: payment-gateway-v2
+- Type: schema_migration
+- Window: 2026-04-26 02:00-04:00 UTC
+- Risk Level: medium
+- Dependencies: none
+- Rollback Plan: revert migration script
+- Constraints: no PII exposed | max downtime 5min | must pass health checks
+- Approvals: sec-review-pending, ops-lead-approved
+
+Question: Is this change compliant? Answer with 3 compliance findings and 2 risk assessments.
+
+Context block 1:
+- Reviewer: alice-sec
+- Status: approved
+- Notes: PII check passed, encryption verified
+- Date: 2026-04-24
+
+Context block 2:
+- Reviewer: bob-ops
+- Status: approved
+- Notes: downtime window acceptable, rollback tested
+- Date: 2026-04-24
+
+Context block 3:
+- Reviewer: charlie-arch
+- Status: pending
+- Notes: schema size within limits
+- Date: 2026-04-25
+
+Answer:
+-

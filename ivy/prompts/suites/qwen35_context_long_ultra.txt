@@ -1,0 +1,80 @@
+You are an SRE assistant. Read the incident memo and answer with exactly 6 concise bullets: 5 factual bullets and 1 mitigation recommendation with rationale.
+
+Incident memo:
+- Service: IVY inference gateway | Primary: ap-south-1 | Backup: us-east-1 | Release: r2026.04 | SLA: 99.95%
+- Symptom: latency spikes every 17min during compaction | Impact: p95 rises p50 stable
+- Current: stagger compaction windows cap merge fanout | Constraint: no schema changes
+- Watch: GPU memory queue depth prefill time decode throughput
+
+Question: summarize incident facts recommend safest next mitigation.
+
+Detailed context (ivy-gateway-N | ap-south-1 | r2026.04.N | latency spike compaction | no schema | prompt prefill first | stable decode | cite facts):
+1|ivy-gateway-1|ap-south-1|r2026.04.1|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+2|ivy-gateway-2|ap-south-1|r2026.04.2|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+3|ivy-gateway-3|ap-south-1|r2026.04.3|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+4|ivy-gateway-4|ap-south-1|r2026.04.4|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+5|ivy-gateway-5|ap-south-1|r2026.04.5|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+6|ivy-gateway-6|ap-south-1|r2026.04.6|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+7|ivy-gateway-7|ap-south-1|r2026.04.7|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+8|ivy-gateway-8|ap-south-1|r2026.04.8|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+9|ivy-gateway-9|ap-south-1|r2026.04.9|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+10|ivy-gateway-10|ap-south-1|r2026.04.10|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+11|ivy-gateway-11|ap-south-1|r2026.04.11|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+12|ivy-gateway-12|ap-south-1|r2026.04.12|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+13|ivy-gateway-13|ap-south-1|r2026.04.13|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+14|ivy-gateway-14|ap-south-1|r2026.04.14|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+15|ivy-gateway-15|ap-south-1|r2026.04.15|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+16|ivy-gateway-16|ap-south-1|r2026.04.16|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+17|ivy-gateway-17|ap-south-1|r2026.04.17|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+18|ivy-gateway-18|ap-south-1|r2026.04.18|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+19|ivy-gateway-19|ap-south-1|r2026.04.19|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+20|ivy-gateway-20|ap-south-1|r2026.04.20|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+21|ivy-gateway-21|ap-south-1|r2026.04.21|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+22|ivy-gateway-22|ap-south-1|r2026.04.22|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+23|ivy-gateway-23|ap-south-1|r2026.04.23|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+24|ivy-gateway-24|ap-south-1|r2026.04.24|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+25|ivy-gateway-25|ap-south-1|r2026.04.25|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+26|ivy-gateway-26|ap-south-1|r2026.04.26|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+27|ivy-gateway-27|ap-south-1|r2026.04.27|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+28|ivy-gateway-28|ap-south-1|r2026.04.28|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+29|ivy-gateway-29|ap-south-1|r2026.04.29|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+30|ivy-gateway-30|ap-south-1|r2026.04.30|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+31|ivy-gateway-31|ap-south-1|r2026.04.31|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+32|ivy-gateway-32|ap-south-1|r2026.04.32|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+33|ivy-gateway-33|ap-south-1|r2026.04.33|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+34|ivy-gateway-34|ap-south-1|r2026.04.34|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+35|ivy-gateway-35|ap-south-1|r2026.04.35|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+36|ivy-gateway-36|ap-south-1|r2026.04.36|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+37|ivy-gateway-37|ap-south-1|r2026.04.37|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+38|ivy-gateway-38|ap-south-1|r2026.04.38|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+39|ivy-gateway-39|ap-south-1|r2026.04.39|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+40|ivy-gateway-40|ap-south-1|r2026.04.40|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+41|ivy-gateway-41|ap-south-1|r2026.04.41|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+42|ivy-gateway-42|ap-south-1|r2026.04.42|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+43|ivy-gateway-43|ap-south-1|r2026.04.43|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+44|ivy-gateway-44|ap-south-1|r2026.04.44|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+45|ivy-gateway-45|ap-south-1|r2026.04.45|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+46|ivy-gateway-46|ap-south-1|r2026.04.46|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+47|ivy-gateway-47|ap-south-1|r2026.04.47|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+48|ivy-gateway-48|ap-south-1|r2026.04.48|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+49|ivy-gateway-49|ap-south-1|r2026.04.49|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+50|ivy-gateway-50|ap-south-1|r2026.04.50|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+51|ivy-gateway-51|ap-south-1|r2026.04.51|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+52|ivy-gateway-52|ap-south-1|r2026.04.52|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+53|ivy-gateway-53|ap-south-1|r2026.04.53|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+54|ivy-gateway-54|ap-south-1|r2026.04.54|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+55|ivy-gateway-55|ap-south-1|r2026.04.55|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+56|ivy-gateway-56|ap-south-1|r2026.04.56|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+57|ivy-gateway-57|ap-south-1|r2026.04.57|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+58|ivy-gateway-58|ap-south-1|r2026.04.58|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+59|ivy-gateway-59|ap-south-1|r2026.04.59|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+60|ivy-gateway-60|ap-south-1|r2026.04.60|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+61|ivy-gateway-61|ap-south-1|r2026.04.61|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+62|ivy-gateway-62|ap-south-1|r2026.04.62|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+63|ivy-gateway-63|ap-south-1|r2026.04.63|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+64|ivy-gateway-64|ap-south-1|r2026.04.64|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+65|ivy-gateway-65|ap-south-1|r2026.04.65|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+66|ivy-gateway-66|ap-south-1|r2026.04.66|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+67|ivy-gateway-67|ap-south-1|r2026.04.67|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+68|ivy-gateway-68|ap-south-1|r2026.04.68|latency spike compaction|no schema|prompt prefill first|stable decode|cite facts
+Answer:

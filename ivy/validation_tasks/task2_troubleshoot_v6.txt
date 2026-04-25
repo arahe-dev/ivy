@@ -1,0 +1,6 @@
+SVC:auth-service-prod|SEV:SEV-1|START:20260425|14:23|STATUS:degraded|REGIONS:us-west-2,us-east-1|IMPACT:login-fail|ROOT:unknown
+SYMP:401errors|SYMP:token-2.3s|SYMP:no-memory|SYMP:no-deploy|POOL:14:22
+TEAM:platform|HYP:pool-maxed|EVID:max_conn|ACTION:100->200
+TEAM:database|FIND:no-lock|CONCL:notDB
+TEAM:networking|FIND:no-loss|CONCL:healthy
+root-cause+6items

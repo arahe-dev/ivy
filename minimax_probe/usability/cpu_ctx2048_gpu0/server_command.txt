@@ -1,0 +1,1 @@
+﻿llama-server.exe -m C:\minimax_2_7\MiniMax-M2.7-UD-IQ2_XXS-00001-of-00003.gguf --host 127.0.0.1 --port 8090 --ctx-size 2048 --n-gpu-layers 0 --threads 14 --threads-batch 14 --no-webui

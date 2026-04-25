@@ -1,0 +1,82 @@
+{
+  "path": "C:\\minimax_2_7\\MiniMax-M2.7-UD-IQ2_XXS-00001-of-00003.gguf",
+  "exists": true,
+  "size_bytes": 8237824,
+  "metadata": {
+    "general.architecture": "minimax-m2",
+    "general.type": "model",
+    "general.sampling.top_k": 40,
+    "general.sampling.top_p": 0.949999988079071,
+    "general.sampling.temp": 1.0,
+    "general.name": "Minimax-M2.7",
+    "general.basename": "Minimax-M2.7",
+    "general.quantized_by": "Unsloth",
+    "general.size_label": "256x4.9B",
+    "general.license": "other",
+    "general.license.name": "modified-mit",
+    "general.license.link": "https://github.com/MiniMax-AI/MiniMax-M2.7/blob/main/LICENSE",
+    "general.repo_url": "https://huggingface.co/unsloth",
+    "general.tags": [
+      "text-generation"
+    ],
+    "minimax-m2.block_count": 62,
+    "minimax-m2.context_length": 196608,
+    "minimax-m2.embedding_length": 3072,
+    "minimax-m2.feed_forward_length": 1536,
+    "minimax-m2.attention.head_count": 48,
+    "minimax-m2.attention.head_count_kv": 8,
+    "minimax-m2.rope.freq_base": 5000000.0,
+    "minimax-m2.attention.layer_norm_rms_epsilon": 9.999999974752427e-07,
+    "minimax-m2.expert_count": 256,
+    "minimax-m2.expert_used_count": 8,
+    "minimax-m2.expert_gating_func": 2,
+    "minimax-m2.attention.key_length": 128,
+    "minimax-m2.attention.value_length": 128,
+    "minimax-m2.expert_feed_forward_length": 1536,
+    "minimax-m2.rope.dimension_count": 64,
+    "tokenizer.ggml.model": "gpt2",
+    "tokenizer.ggml.pre": "minimax-m2",
+    "tokenizer.ggml.tokens": {
+      "skipped_array_type": 8,
+      "count": 200064
+    },
+    "tokenizer.ggml.token_type": {
+      "skipped_array_type": 5,
+      "count": 200064
+    },
+    "tokenizer.ggml.merges": {
+      "skipped_array_type": 8,
+      "count": 199744
+    },
+    "tokenizer.ggml.bos_token_id": 200034,
+    "tokenizer.ggml.eos_token_id": 200020,
+    "tokenizer.ggml.unknown_token_id": 200021,
+    "tokenizer.ggml.padding_token_id": 200004,
+    "tokenizer.ggml.add_bos_token": false,
+    "tokenizer.ggml.add_sep_token": false,
+    "tokenizer.chat_template": "{# ----------\u2011\u2011\u2011 special token variables \u2011\u2011\u2011---------- #}\n{%- set toolcall_begin_token   = '<minimax:tool_call>'         -%}\n{%- set toolcall_end_token     = '</minimax:tool_call>'        -%}\n{#- Tool Rendering Functions ============================================== -#}\n{%- macro render_tool_namespace(namespace_name, tool_list) -%}\n{%- for tool in tool_list if tool is not none -%}\n<tool>{{ tool.function | tojson(ensure_ascii=False) }}</tool>\n{% endfor -%}\n{%- endmacro -%}\n{%- macro visible_text(content) -%}\n    {%- if content is string -%}\n        {{ content }}\n    {%- elif content is iterable and content is not mapping -%}\n        {%- for item in content if item is not none -%}\n            {%- if item is mapping and item.type == 'text' -%}\n                {{- item.text }}\n            {%- elif item is string -%}\n                {{- item }}\n            {%- endif -%}\n        {%- endfor -%}\n    {%- else -%}\n        {{- content }}\n    {%- endif -%}\n{%- endmacro -%}\n{#- System Message Construction ============================================ -#}\n{%- macro build_system_message(system_message) -%}\n    {%- if system_message and system_message.content -%}\n        {{- visible_text(system_message.content) }}\n    {%- else -%}\n        {%- if model_identity is not defined -%}\n            {%- set model_identity = \"You are a helpful assistant. Your name is MiniMax-M2.7 and is built by MiniMax.\" -%}\n        {%- endif -%}\n        {{- model_identity }}\n    {%- endif -%}\n    \n    {#- Handle current_date -#}\n    {%- if system_message and system_message.current_date -%}\n        {{- '\\n' ~ 'Current date: ' + system_message.current_date }}\n    {%- endif -%}\n    {#- Handle current_location -#}\n    {%- if system_message and system_message.current_location -%}\n        {{- '\\n' ~ 'Current location: ' + system_message.current_location }}\n    {%- endif -%}\n{%- endmacro -%}\n{#- Main Template Logic ================================================= -#}\n{#- Extract system message (only first message if it's system) -#}\n{%- set system_message = none -%}\n{%- set conversation_messages = messages -%}\n{%- if messages and messages[0].role == \"system\" -%}\n    {%- set system_message = messages[0] -%}\n    {%- set conversation_messages = messages[1:] -%}\n{%- endif -%}\n{#- Get the last user message turn, for interleved thinking -#}\n{%- set ns = namespace(last_user_index=-1) %}\n{%- for m in conversation_messages if m is not none -%}\n    {%- if m.role == 'user' %}\n        {% set ns.last_user_index = loop.index0 -%}\n    {%- endif %}\n{%- endfor %}\n{#- Render system message -#}\n{{- ']~!b[' ~ ']~b]system' ~ '\\n' }}\n{{- build_system_message(system_message) }}\n{#- Render tools if available -#}\n{%- if tools -%}\n    {{- '\\n\\n' ~ '# Tools' ~ '\\n' ~ 'You may call one or more tools to assist with the user query.\\nHere are the tools available in JSONSchema format:' ~ '\\n' }}\n    {{- '\\n' ~ '<tools>' ~ '\\n' }}\n    {{- render_tool_namespace(\"functions\", tools) }}\n    {{- '</tools>' ~ '\\n\\n' }}\n{{- 'When making tool calls, use XML format to invoke tools and pass parameters:' ~ '\\n' }}\n{{- '\\n' ~ toolcall_begin_token }}\n<invoke name=\"tool-name-1\">\n<parameter name=\"param-key-1\">param-value-1</parameter>\n<parameter name=\"param-key-2\">param-value-2</parameter>\n...\n</invoke>\n{{- '\\n' ~ toolcall_end_token }}\n{%- endif -%}\n{{- '[e~[\\n' }}\n\n{#- Render messages -#}\n{%- set last_tool_call = namespace(name=none) -%}\n{%- for message in conversation_messages if message is not none -%}\n    {%- if message.role == 'assistant' -%}\n        {#- Only render reasoning_content if no user message follows -#}\n        {{- ']~b]ai' ~ '\\n' }}\n\n        {%- set reasoning_content = '' %}\n        {%- set content = visible_text(message.content) %}\n        {%- if message.reasoning_content is string %}\n            {%- set reasoning_content = message.reasoning_content %}\n        {%- else %}\n            {%- if '</think>' in content %}\n                {%- set reasoning_content = content.split('</think>')[0].strip('\\n').split('<think>')[-1].strip('\\n') %}\n                {%- set content = content.split('</think>')[-1].strip('\\n') %}\n            {%- endif %}\n        {%- endif %}\n        {%- if reasoning_content and loop.index0 > ns.last_user_index -%}\n            {{- '<think>' ~ '\\n' ~ reasoning_content ~ '\\n' ~ '</think>' ~ '\\n\\n' }}\n        {%- endif -%}\n        {%- if content -%}\n            {{- content }}\n        {%- endif -%}\n        {%- if message.tool_calls -%}\n            {{- '\\n' ~ toolcall_begin_token ~ '\\n' }}\n\n            {%- for tool_call in message.tool_calls -%}\n                {%- if tool_call.function %}\n                    {%- set tool_call = tool_call.function %}\n                {%- endif %}\n                {{- '<invoke name=\"' + tool_call.name + '\">' }}\n                {% set _args = tool_call.arguments %}\n                {%- for k, v in _args.items() %}\n                {{- '<parameter name=\"' + k + '\">' }}\n                {{- v | tojson(ensure_ascii=False) if v is not string else v }}\n                {{- '</parameter>' }}\n                {% endfor %}\n                {{- '</invoke>' ~ '\\n' }}\n            {%- endfor -%}\n            \n            {{- toolcall_end_token}}\n            {%- set last_tool_call.name = message.tool_calls[-1].name -%}\n        {%- else -%}\n            {%- set last_tool_call.name = none -%}\n        {%- endif -%}\n        {{- '[e~[' ~ '\\n' }}\n        \n    {%- elif message.role == 'tool' -%}\n    {%- if last_tool_call.name is none -%}\n        {{- raise_exception(\"Message has tool role, but there was no previous assistant message with a tool call!\") }}\n    {%- endif -%}\n    {%- if loop.first or (conversation_messages[loop.index0 - 1].role != 'tool') -%}\n        {{- ']~b]tool' }}\n    {%- endif -%}\n    {%- if message.content is string -%}\n        {{- '\\n<response>' }}\n        {{- message.content }}\n        {{- '</response>' }}\n    {%- else -%}\n        {%- for tr in message.content -%}\n            {{- '\\n<response>' }}\n            {{- tr.output if tr.output is defined else (tr.text if tr.type == 'text' and tr.text is defined else tr) }}\n            {{- '\\n</response>' }}\n        {%- endfor -%}\n    {%- endif -%}\n    {%- if loop.last or (conversation_messages[loop.index0 + 1].role != 'tool') -%}\n        {{- '[e~[\\n' -}}\n    {%- endif -%}\n        \n    {%- elif message.role == 'user' -%}\n        {{- ']~b]user' ~ '\\n' }}\n        {{- visible_text(message.content) }}\n        {{- '[e~[' ~ '\\n' }}\n    {%- endif -%}\n{%- endfor -%}\n\n{#- Generation prompt -#}\n{%- if add_generation_prompt -%}\n{{- ']~b]ai' ~ '\\n' ~ '<think>' ~ '\\n' }}\n{%- endif -%}\n",
+    "general.quantization_version": 2,
+    "general.file_type": 19,
+    "quantize.imatrix.file": "MiniMax-M2.7-GGUF/imatrix_unsloth.gguf",
+    "quantize.imatrix.dataset": "unsloth_calibration_MiniMax-M2.7.txt",
+    "quantize.imatrix.entries_count": 496,
+    "quantize.imatrix.chunks_count": 81,
+    "split.no": 0,
+    "split.tensors.count": 809,
+    "split.count": 3
+  },
+  "summary": {
+    "architecture": "minimax-m2",
+    "model_name": "Minimax-M2.7",
+    "block_count": 62,
+    "context_length": 196608,
+    "expert_count": 256,
+    "expert_used_count": 8
+  },
+  "tensor_categories": {},
+  "tensors": [],
+  "warnings": [],
+  "version": 3,
+  "tensor_count": 0,
+  "metadata_kv_count": 50
+}

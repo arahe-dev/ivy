@@ -1,0 +1,17 @@
+﻿{
+    "name":  "cpu_ctx2048_gpu0",
+    "ok":  true,
+    "port":  8090,
+    "ctx":  2048,
+    "gpu_layers":  0,
+    "wall_ms":  64112,
+    "prompt_n":  24,
+    "prompt_ms":  13140.04,
+    "predicted_n":  80,
+    "predicted_ms":  50730.817,
+    "decode_tps":  1.576950751650619,
+    "prompt_tps":  1.8264784582086506,
+    "output":  "Use the following format: - bullet point\u0027,\n  \u0027answer\u0027: \u0027- MoE models use a sparse activation pattern where only a subset of parameters are active for each token\\n- This allows the model to have many more parameters without proportionally increasing compute costs\\n- During inference, only the active experts need to be loaded and computed, reducing memory footprint\\n- The routing mechanism selects only top-k experts per token",
+    "cpu_mapped":  "load_tensors:   CPU_Mapped model buffer size = 47449.88 MiB | load_tensors:   CPU_Mapped model buffer size = 14894.99 MiB",
+    "cuda_notes":  "common_memory_breakdown_print: | memory breakdown [MiB]          | total   free     self   model   context   compute    unaccounted | | common_params_fit_impl: projected to use 726 MiB of device memory vs. 7106 MiB of free device memory | sched_reserve:      CUDA0 compute buffer size =   726.45 MiB"
+}

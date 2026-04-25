@@ -1,0 +1,9 @@
+SVC: auth-service-prod | SEV: SEV-1 | START: 2026-04-25 14:23 UTC | STATUS: degraded | REGIONS: us-west-2,us-east-1 | IMPACT: login failures,token refresh 2.3s | ROOT: unknown | INVEST: ongoing
+
+SYMP: 401 errors | SYMP: token 50ms->2.3s | SYMP: no memory alert | SYMP: no recent deploy | SYMP: pool exhaustion 14:22
+
+TEAM: platform | HYP: DB pool maxed | EVID: max_conn reached 14:22:15 | FIX: 100->200
+TEAM: database | FIND: no lock contention | CONCL: not DB
+TEAM: networking | FIND: no packet loss | CONCL: healthy
+
+Root cause and actions:

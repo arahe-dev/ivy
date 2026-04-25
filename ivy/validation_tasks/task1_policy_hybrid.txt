@@ -1,0 +1,8 @@
+ID:CR-2026-0425|SVC:payment-gateway-v2|TYPE:schema_mig|WINDOW:2026-04-26 02:00-04:00|RISK:medium|DEPS:none|ROLLBACK:revert|CONSTRAINTS:no PII|5min|health|APPROVALS:sec-pending,ops-approved
+
+REV:alice-sec|approved|PII OK|2026-04-24
+REV:bob-ops|approved|window OK tested|2026-04-24
+REV:charlie-arch|pending|schema OK|2026-04-25
+
+compliant? answer: 3 findings + 2 risks
+-

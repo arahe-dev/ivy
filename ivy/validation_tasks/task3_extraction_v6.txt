@@ -1,0 +1,10 @@
+Q:Extract-metrics|Q:5-bullets|Q:Growth|Q:Ret|Q:Rev|Q:Forecast|Q:DAU|Q:regions|ANS:8-regions
+NA:DAU1.2M|+15%|78%|$4.2M|+12%
+EU:DAU980K|+22%|82%|$3.8M|+18%
+APAC:DAU750K|+35%|71%|$2.1M|+25%
+LATAM:DAU420K|+28%|65%|$890K|+20%
+ME:DAU180K|+41%|58%|$420K|+30%
+AFR:DAU95K|+52%|45%|$180K|+35%
+OCE:DAU120K|+19%|74%|$340K|+15%
+SA:DAU310K|+38%|62%|$620K|+28%
+summarize

@@ -1,0 +1,6 @@
+TICKET:42931|CUSTOMER:acme-corp|PROD:enterprise-api|NORMAL|20260424-09:15
+ISSUE:API-200ms-to-8s|3days|NOcustomer-code|AFFECTS-all|CRITICAL
+INV1:TIMEOUT|gateway-94%|handles-not-released|POOLING-LEAK|action:add FINALLY
+INV2:HANDLES|not-freed|EXCEPTION|FIX:add FINALLY
+INV3:NOALERTS|metrics-added|ALERT:80%
+ROOT:RCA:RCA:answer

@@ -1,0 +1,38 @@
+You are a reliability engineer. Troubleshoot the API outage and answer with exactly 6 bullet points: diagnosis, impact, evidence, mitigation, prevention, and lessons learned.
+
+Incident Report:
+- Service: auth-service-prod
+- Severity: SEV-1
+- Start Time: 2026-04-25 14:23 UTC
+- Current Status: degraded
+- Affected Regions: us-west-2, us-east-1
+- Customer Impact: login failures, token refresh errors
+- Root Cause: unknown
+- Investigation: ongoing
+
+Symptoms observed:
+- Elevated 401 errors from auth-service-prod
+- Token refresh latency spike from 50ms to 2.3s
+- No memory pressure alerts
+- No recent deployments
+- Logging shows connection pool exhaustion at 14:22 UTC
+
+Context block 1:
+- Team: platform
+- Hypothesis: database connection pool maxed out
+- Evidence: connection_metrics.show max_connections reached at 14:22:15
+- Action: increased pool size from 100 to 200
+
+Context block 2:
+- Team: database
+- Observation: no lock contention, query latency normal
+- Counter-evidence: pool exhaustion preceded by normal query patterns
+- Notes: not a DB issue
+
+Context block 3:
+- Team: networking
+- Finding: no packet loss, latency within SLA
+- Conclusion: network is healthy
+
+Answer:
+-

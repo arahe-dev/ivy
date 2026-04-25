@@ -1,0 +1,48 @@
+{
+  "os": {
+    "system": "Windows",
+    "release": "10",
+    "version": "10.0.26200",
+    "platform": "Windows-10-10.0.26200-SP0"
+  },
+  "cpu": {
+    "name": "13th Gen Intel(R) Core(TM) i7-13650HX"
+  },
+  "memory": {
+    "source": "wmic",
+    "total_bytes": 51233284096,
+    "available_bytes": 39916388352
+  },
+  "nvidia": {
+    "available": true,
+    "gpus": [
+      {
+        "name": "NVIDIA GeForce RTX 4060 Laptop GPU",
+        "memory_total_mib": 8188,
+        "memory_used_mib": 0,
+        "memory_free_mib": 7956,
+        "driver_version": "595.79"
+      }
+    ]
+  },
+  "llama_devices": {
+    "available": true,
+    "stdout": "Available devices:\n  CUDA0: NVIDIA GeForce RTX 4060 Laptop GPU (8187 MiB, 7106 MiB free)\n",
+    "stderr": "ggml_cuda_init: found 1 CUDA devices (Total VRAM: 8187 MiB):\n  Device 0: NVIDIA GeForce RTX 4060 Laptop GPU, compute capability 8.9, VMM: yes, VRAM: 8187 MiB\n"
+  },
+  "cwd": "C:\\ivy\\llama_moe_autotune",
+  "warnings": [
+    "psutil memory probe unavailable: No module named 'psutil'"
+  ],
+  "model_file": {
+    "path": "C:\\minimax_2_7\\MiniMax-M2.7-UD-IQ2_XXS-00001-of-00003.gguf",
+    "size_bytes": 8237824
+  },
+  "disk": {
+    "path": "C:\\minimax_2_7\\MiniMax-M2.7-UD-IQ2_XXS-00001-of-00003.gguf",
+    "drive": "C:/",
+    "total_bytes": 509722226688,
+    "free_bytes": 37713891328,
+    "storage_type": null
+  }
+}

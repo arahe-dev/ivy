@@ -1,0 +1,10 @@
+TICKET: 42931 | CUSTOMER: acme-corp | SVC: enterprise-api | SEVERITY: normal | CREATED: 2026-04-24 09:15 UTC
+
+ISSUE: API 200ms->8s over 3 days | NO customer code changes | AFFECTS all endpoints | CRITICAL path blocked
+
+INVESTIGATION:
+INV: timeout|gateway memory 94%|CONN handles not released|POOLING LEAK
+INV: handles not freed|EXCEPTION in response|FIX: finally block
+INV: no handle alerts|PROM metric added|ALERT 80%
+
+Root cause resolution prevention communication:

@@ -1,0 +1,11 @@
+REQ: notif-service | SCALE: 10M daily | LATENCY: <500ms | AVAIL: 99.9% | GUARANTEE: at-least-once
+
+FLOW:
+F1: trigger|user action|2KB JSON|HTTP POST webhook
+F2: buffer|Redis streams|partition user_id|7 days
+F3: workers|5 replicas|backoff 1s,2s,4s,8s,30s|retries 5
+F4: DLQ|S3|30 days|alert on threshold
+F5: obs|prometheus|grafana|pagerduty|weekly oncall
+F6: capacity|10M daily|peak 2x|buffer 500K
+
+Complete architecture:
