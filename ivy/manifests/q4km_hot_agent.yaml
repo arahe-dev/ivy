@@ -1,0 +1,40 @@
+name: q4km_hot_agent
+model: C:\bread_v2\gguf\Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
+server_exe: C:\Users\arahe\dev\llama.cpp\build\bin\Release\llama-server.exe
+host: 127.0.0.1
+port: 18131
+endpoint: /v1/chat/completions
+static_prefix_path: C:\ivy\ivy\prompts\static_prefix\ivy_agent_static_prefix.txt
+cold_prompt_n_baseline: 682
+cold_prompt_ms_baseline: 2984.965
+max_tokens: 128
+temperature: 0
+top_k: 1
+top_p: 1
+min_p: 0
+repeat_penalty: 1
+seed: 12345
+stream: false
+server_args:
+  - --no-webui
+  - --reasoning
+  - off
+  - --reasoning-budget
+  - 0
+  - --n-gpu-layers
+  - 50
+  - --n-cpu-moe
+  - 32
+  - --threads
+  - 14
+  - --threads-batch
+  - 14
+  - --flash-attn
+  - on
+  - --ctx-size
+  - 8192
+  - --cache-type-k
+  - q4_0
+  - --cache-type-v
+  - q4_0
+  - --cache-prompt
