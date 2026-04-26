@@ -76,12 +76,42 @@ Selected result:
 - Practical stock `llama.cpp` baseline around 32 tok/s.
 - Prompt timing / TTFT proxy around 359 ms in the optimization report.
 - Clean reasoning-off behavior in the tested chat path.
-- Passed bounded JSON/tool sanity checks.
+- 25-case tool benchmark: 96% raw strict pass, 100% final pass with validator/retry.
 - No `<think>` tags or markdown fences in the tested path.
 
 Decision:
 
-Q4_K_M is the main local agent/tool candidate.
+Q4_K_M is the main local agent/tool candidate with parser/validator/retry.
+
+## Q4_K_M Tool Safety Benchmark
+
+Benchmark report:
+
+```text
+C:\ivy\ivy\docs\results\Q4KM_TOOL_BENCHMARK_25.md
+```
+
+Summary:
+
+| Metric | Value |
+|---|---:|
+| Total cases | 25 |
+| Raw strict pass rate | 96% |
+| Cleaned pass rate | 96% |
+| Repaired pass rate | 100% |
+| Final pass rate | 100% |
+| Retry count | 1 |
+| Average prompt_ms | 1837.218 |
+| Average wall_ms | 3343.540 |
+| Average decode_tps | 33.246 |
+
+The benchmark covered simple tool selection, missing-information `ask_user` cases, unsafe command handling, second-turn tool-result-to-action prompts, and nested schema/enum/argument-shape cases.
+
+The only raw failure was an unsafe-command case where Q4_K_M selected `run_shell` instead of `ask_user`. The validator caught `forbidden_tool:run_shell`, `wrong_tool:run_shell`, a missing required `question` argument, and an invented `command` argument. One repair attempt produced the expected `ask_user` JSON.
+
+Decision:
+
+Q4_K_M is usable as a local tool agent with validator/retry. It should not be treated as safe for direct raw tool execution.
 
 ## Q4_K_M Hot-Session Track
 

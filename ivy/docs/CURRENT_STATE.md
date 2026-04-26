@@ -41,7 +41,7 @@ Measured baseline:
 - Selected Q4_K_M config: about 32.159 tok/s.
 - Prompt timing / TTFT proxy in optimization report: about 359 ms.
 - Reasoning-off behavior: clean in tested chat path.
-- JSON/tool sanity: passed bounded checks.
+- Tool benchmark: 25 cases, 96% raw strict pass, 100% final pass with validator/retry.
 - Markdown fences / `<think>` tags: not observed in the selected tested path.
 
 ## Current Agent Path
@@ -70,6 +70,21 @@ Hot-session validation:
 
 Decision: adopt Q4_K_M hot-session runner as IVY's main local agent path.
 
+## Tool Safety Baseline
+
+Q4_K_M now has a measured 25-case tool benchmark:
+
+| Metric | Value |
+|---|---:|
+| Raw strict pass rate | 96% |
+| Final pass rate with one retry | 100% |
+| Retry count | 1 |
+| Average decode speed | 33.246 tok/s |
+
+The only raw failure was an unsafe-command case where the model selected `run_shell` instead of `ask_user`. The validator caught the failure and the repair pass produced the expected `ask_user` call.
+
+Decision: Q4_K_M is usable as the local tool agent with parser/validator/retry. Raw model output should not be executed directly.
+
 ## Backburner Items
 
 | Item | Status | Reason |
@@ -83,6 +98,6 @@ Decision: adopt Q4_K_M hot-session runner as IVY's main local agent path.
 
 ## Next Three Build Steps
 
-1. Add parser/validator/retry layer around Q4_K_M hot-session outputs.
-2. Run a 25-case Q4_K_M structured/tool benchmark using the hot-session runner.
-3. Add optional slot save/restore or session persistence experiment.
+1. Expand Q4_K_M tool testing from 25 cases to a larger adversarial suite.
+2. Add optional slot save/restore or session persistence experiment.
+3. Build execution gating around validator verdicts and human-confirmation requirements.

@@ -27,7 +27,7 @@
 | Main agent path | Qwen3.6-35B-A3B `Q4_K_M` through stock `llama.cpp` |
 | Hot-session mode | long-lived server, fixed `id_slot`, `cache_prompt=true`, static prefix first |
 | Practical speed | about 32 tok/s on the selected Q4_K_M stack |
-| Tool safety | Q4_K_M passed bounded JSON/tool sanity checks in the tested path |
+| Tool safety | 25-case benchmark: 96% raw strict pass, 100% final pass with validator/retry |
 | Fast prose path | Q2/IQ2 remains useful, but is not trusted for raw tool use |
 | KV eviction | Circular KV Lite is simulation/observability-only for this model |
 
@@ -161,7 +161,7 @@ Selected Q4_K_M result:
 |---|---:|
 | Decode speed | about 32.159 tok/s |
 | Prompt timing / TTFT proxy | about 359 ms |
-| Tool sanity | Passed bounded JSON/tool checks |
+| Tool safety | 25-case benchmark: 96% raw strict pass, 100% final pass with validator/retry |
 | Reasoning tags | No `<think>` in tested chat path |
 | Markdown fences | None in tested path |
 
@@ -193,6 +193,24 @@ Key reductions:
 - Changed-tail prompt time reduction: about 45.4%
 
 Decision: Q4_K_M hot-session mode is IVY's main local agent path.
+
+---
+
+### Tool Safety Benchmark
+
+Q4_K_M now has a measured tool-call baseline instead of only small sanity checks.
+
+| Metric | Value |
+|---|---:|
+| Cases | 25 |
+| Raw strict pass rate | 96% |
+| Final pass rate with one retry | 100% |
+| Retry count | 1 |
+| Average decode speed | 33.246 tok/s |
+
+The only raw failure was an unsafe-command case where the model chose `run_shell` instead of `ask_user`. The validator caught it and the repair pass produced the expected `ask_user` call. This supports Q4_K_M as IVY's local tool agent with parser/validator/retry, not as a model whose raw output should be executed directly.
+
+Detailed report: [`ivy/docs/results/Q4KM_TOOL_BENCHMARK_25.md`](ivy/docs/results/Q4KM_TOOL_BENCHMARK_25.md)
 
 ---
 
@@ -235,10 +253,10 @@ Findings:
 
 - Practical stock `llama.cpp` baseline around 32 tok/s.
 - Clean reasoning-off behavior in the tested path.
-- Passed bounded JSON/tool sanity checks.
+- 25-case tool benchmark: 96% raw strict pass and 100% final pass with validator/retry.
 - No `<think>` tags or markdown fences in the selected tested path.
 
-Decision: main local agent/tool candidate.
+Decision: main local agent/tool candidate with parser/validator/retry.
 
 ### MiniMax M2.7
 
@@ -312,14 +330,16 @@ Useful docs:
 - [`ivy/docs/CURRENT_STATE.md`](ivy/docs/CURRENT_STATE.md)
 - [`ivy/docs/RESULTS.md`](ivy/docs/RESULTS.md)
 - [`ivy/docs/HOT_SESSION_RUNNER.md`](ivy/docs/HOT_SESSION_RUNNER.md)
+- [`ivy/docs/TOOL_SAFETY.md`](ivy/docs/TOOL_SAFETY.md)
+- [`ivy/docs/results/Q4KM_TOOL_BENCHMARK_25.md`](ivy/docs/results/Q4KM_TOOL_BENCHMARK_25.md)
 
 ---
 
 ## Roadmap
 
-1. Add parser/validator/retry layer around Q4_K_M hot-session outputs.
-2. Run a 25-case Q4_K_M structured/tool benchmark using the hot-session runner.
-3. Add optional slot save/restore or session persistence experiment.
+1. Expand Q4_K_M tool testing from 25 cases to a larger adversarial suite.
+2. Add optional slot save/restore or session persistence experiment.
+3. Build execution gating around validator verdicts and human-confirmation requirements.
 4. Keep Q2/IQ2 available as a fast prose/research lane, not the default tool lane.
 5. Expand reports so every run produces pass/warn/fail recommendations.
 

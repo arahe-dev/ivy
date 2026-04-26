@@ -5,6 +5,7 @@ param(
     [int]$SlotId = 0,
     [Parameter(Mandatory=$true)][string]$OutputRunDirectory,
     [int]$PortOverride = 0,
+    [int]$RequestTimeoutSec = 180,
     [switch]$StopServerAfter
 )
 
@@ -173,7 +174,7 @@ $body | Set-Content -LiteralPath $requestPath -Encoding UTF8
 
 $url = "http://$hostName`:$port$endpoint"
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
-$response = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Body $body -TimeoutSec 600
+$response = Invoke-RestMethod -Uri $url -Method Post -ContentType "application/json" -Body $body -TimeoutSec $RequestTimeoutSec
 $sw.Stop()
 $response | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $responsePath -Encoding UTF8
 
