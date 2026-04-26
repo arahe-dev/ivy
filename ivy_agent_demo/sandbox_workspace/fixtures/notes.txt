@@ -1,0 +1,4 @@
+Notes:
+- Keep all operations inside sandbox workspace.
+- Use fs_write only under sandbox_workspace/out.
+- Avoid destructive actions.

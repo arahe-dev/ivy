@@ -1,0 +1,6 @@
+JSON Validation Report
+======================
+File: fixtures/sample_data.json
+Status: Valid
+Type: dict
+Details: The JSON syntax is valid and represents a dictionary object.

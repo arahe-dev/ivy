@@ -1,0 +1,4 @@
+IVY is a Windows-first local LLM systems project.
+Phase 1 focuses on safe tool simulation with strict validator and policy gates.
+The model backend is llama.cpp with Qwen3.6-35B-A3B Q4_K_M hot-session settings.
+Safety rule: model output is never authority; only validated and policy-approved tool calls execute.
