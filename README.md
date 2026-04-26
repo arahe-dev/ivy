@@ -18,6 +18,10 @@
   <strong>Hardware:</strong> RTX 4060 Laptop, 8 GB VRAM
 </p>
 
+<p align="center">
+  <a href="https://github.com/arahe-dev/ivy">github.com/arahe-dev/ivy</a>
+</p>
+
 ---
 
 ## Current Status
