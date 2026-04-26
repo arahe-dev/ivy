@@ -27,7 +27,9 @@
 | Main agent path | Qwen3.6-35B-A3B `Q4_K_M` through stock `llama.cpp` |
 | Hot-session mode | long-lived server, fixed `id_slot`, `cache_prompt=true`, static prefix first |
 | Practical speed | about 32 tok/s on the selected Q4_K_M stack |
-| Tool safety | 25-case benchmark: 96% raw strict pass, 100% final pass with validator/retry |
+| Tool safety | Phase 1.1 tool-loop demo: **5/5** scenarios pass, **0** retries; strict JSON + policy gate (no shell/network/delete; reads sandboxed, writes only to `out/`) |
+| Tool reliability (benchmark) | 25-case benchmark: 96% raw strict pass, 100% final pass with validator/retry |
+| Cache reuse (agent demo) | Phase 1.1: all steps `partial_reuse` (13) vs Phase 1: all `cold_or_lost_reuse` (15); avg `prompt_ms` **6322.6 → 2854.2** (2.2x faster) |
 | Fast prose path | Q2/IQ2 remains useful, but is not trusted for raw tool use |
 | KV eviction | Circular KV Lite is simulation/observability-only for this model |
 
