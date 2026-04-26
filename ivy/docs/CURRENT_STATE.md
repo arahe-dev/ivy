@@ -1,46 +1,88 @@
 # IVY Current State
 
-## Adopted Stack (Frozen)
+## Current Best Model And Config
 
-### Runtime Baseline
-```
-llama-server.exe \
-  --n-gpu-layers 99 \
-  --n-cpu-moe 16 \
-  --flash-attn on \
-  --threads 14 \
-  --threads-batch 14 \
-  --ctx-size 8192
+Current local agent/tool candidate:
+
+```text
+Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
 ```
 
-### Prompt Format
-V7 (Prompt Packing) - Pipe-separated, question-first
+Runtime:
 
-## Rejected Items
+```text
+C:\Users\arahe\dev\llama.cpp\build\bin\Release\llama-server.exe
+```
+
+Model:
+
+```text
+C:\bread_v2\gguf\Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
+```
+
+Flags:
+
+```powershell
+--n-gpu-layers 50
+--n-cpu-moe 32
+--threads 14
+--threads-batch 14
+--flash-attn on
+--ctx-size 8192
+--cache-type-k q4_0
+--cache-type-v q4_0
+--reasoning off
+--reasoning-budget 0
+--cache-prompt
+```
+
+Measured baseline:
+
+- Selected Q4_K_M config: about 32.159 tok/s.
+- Prompt timing / TTFT proxy in optimization report: about 359 ms.
+- Reasoning-off behavior: clean in tested chat path.
+- JSON/tool sanity: passed bounded checks.
+- Markdown fences / `<think>` tags: not observed in the selected tested path.
+
+## Current Agent Path
+
+Main agent path:
+
+```text
+Q4_K_M + stock llama.cpp + q4 KV cache + reasoning off + hot-session runner
+```
+
+Request pattern:
+
+- long-lived `llama-server`
+- fixed `id_slot`
+- `cache_prompt=true`
+- stable IVY static prefix first
+- dynamic task suffix last
+
+Hot-session validation:
+
+| Run | prompt_n | prompt_ms | decode_tps | Classification |
+|---|---:|---:|---:|---|
+| cold | 683 | 3263.614 | 31.818 | `cold_or_lost_reuse` |
+| repeat same | 4 | 77.850 | 31.456 | `likely_hot_reuse` |
+| changed tail | 514 | 1782.776 | 31.173 | `partial_reuse` |
+
+Decision: adopt Q4_K_M hot-session runner as IVY's main local agent path.
+
+## Backburner Items
 
 | Item | Status | Reason |
-|------|--------|--------|
-| V7.1 ultra-compact | REJECTED | Overfit - fails held-out quality checks |
-| Output packing | REJECTED | Quality failures |
+|---|---|---|
+| Q2/IQ2 raw tool path | Backburner | Fast, but not trusted for strict raw tool calling |
+| Q2/IQ2 human prose path | Available | Useful for fast human-facing prose/chat/research |
+| V7.1 prompt format | Rejected | Overfit after fresh held-out failures |
+| Output packing | Backburner | Quality/tooling issues |
+| MiniMax M2.7 | Shelved as practical model | Loads and runs, but local speed is about 2 tok/s |
+| Circular KV Lite eviction | Observability-only | Runtime lacks partial sequence removal support for this model |
 
-## Shelved Items
+## Next Three Build Steps
 
-| Item | Status | Reason |
-|------|--------|--------|
-| Prefix/cache reuse | Shelved | Needs hot-server runner to measure |
-| Circular KV Lite | Observability-only | Simulation for Qwen35MoE only |
-
-## Best-Known Metrics
-
-| Metric | Value |
-|--------|-------|
-| prompt_n | ~132 |
-| TTFT | ~510ms |
-| wall_ms | ~3500ms |
-| Quality pass | 100% |
-
-## Key Reports
-
-- `COMBINED_POSITIVES_REPORT.md` - Best-known stack (V3 era)
-- `AUTORESEARCH_30RUN_OPT_REPORT.md` - Current (V7 adoption, V7.1 rejection)
-- This file - Current state reference
+1. Add parser/validator/retry layer around Q4_K_M hot-session outputs.
+2. Run a 25-case Q4_K_M structured/tool benchmark using the hot-session runner.
+3. Add optional slot save/restore or session persistence experiment.
