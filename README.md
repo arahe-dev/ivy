@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="assets/ivy-blacktext.png" alt="IVY" width="260">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/ivy-whitetext.png">
+    <source media="(prefers-color-scheme: light)" srcset="assets/ivy-blacktext.png">
+    <img src="assets/ivy-blacktext.png" alt="IVY" width="260">
+  </picture>
 </p>
 
 <h1 align="center">IVY — Local LLM Systems Lab</h1>
