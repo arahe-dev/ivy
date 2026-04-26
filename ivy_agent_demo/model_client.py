@@ -167,16 +167,16 @@ class IvyModelClient:
             return "partial_reuse"
         return "cold_or_lost_reuse"
 
-    def chat(self, dynamic_task: str) -> ChatResult:
+    def chat(self, dynamic_task: str, max_tokens: int | None = None) -> ChatResult:
         full_prompt = self.static_prefix.rstrip() + "\n\nDYNAMIC TASK:\n" + dynamic_task.strip()
-        return self.chat_full_prompt(full_prompt)
+        return self.chat_full_prompt(full_prompt, max_tokens=max_tokens)
 
-    def chat_full_prompt(self, full_prompt: str) -> ChatResult:
+    def chat_full_prompt(self, full_prompt: str, max_tokens: int | None = None) -> ChatResult:
         payload: dict[str, Any] = {
             "id_slot": self.slot_id,
             "cache_prompt": True,
             "messages": [{"role": "user", "content": full_prompt}],
-            "max_tokens": self.max_tokens,
+            "max_tokens": int(max_tokens or self.max_tokens),
             "temperature": self.temperature,
             "top_k": self.top_k,
             "top_p": self.top_p,

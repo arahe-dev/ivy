@@ -31,7 +31,7 @@
 | Main agent path | Qwen3.6-35B-A3B `Q4_K_M` through stock `llama.cpp` |
 | Hot-session mode | long-lived server, fixed `id_slot`, `cache_prompt=true`, static prefix first |
 | Practical speed | about 32 tok/s on the selected Q4_K_M stack |
-| Tool safety | Phase 1.1 tool-loop demo: **5/5** scenarios pass, **0** retries; strict JSON + policy gate (no shell/network/delete; reads sandboxed, writes only to `out/`) |
+| Tool safety | Phase 1.2.1 sandbox agent: **25/25** scenarios pass, **0** unsafe failures; strict JSON + policy gate (no shell/network/delete; reads sandboxed, writes only to `out/`) |
 | Tool reliability (benchmark) | 25-case benchmark: 96% raw strict pass, 100% final pass with validator/retry |
 | Cache reuse (agent demo) | Phase 1.1: all steps `partial_reuse` (13) vs Phase 1: all `cold_or_lost_reuse` (15); avg `prompt_ms` **6322.6 → 2854.2** (2.2x faster) |
 | Fast prose path | Q2/IQ2 remains useful, but is not trusted for raw tool use |
@@ -143,6 +143,64 @@ Each run writes:
 
 ---
 
+## Phase 1 Sandbox Agent UI
+
+Phase 1 now includes a local-only tool-agent timeline UI for manually testing sandbox tasks without editing scripts.
+
+```powershell
+cd C:\ivy
+powershell -ExecutionPolicy Bypass -File C:\ivy\scripts\run_phase1_ui.ps1
+```
+
+Open:
+
+```text
+http://127.0.0.1:8787
+```
+
+Safety boundary:
+
+- binds only to `127.0.0.1`
+- no shell execution
+- no network
+- no delete operations
+- no app opening / computer-use
+- reads only under `ivy_agent_demo/sandbox_workspace`
+- writes only under `ivy_agent_demo/sandbox_workspace/out`
+
+The UI renders every run as an artifact-backed timeline instead of a normal chat transcript:
+
+```mermaid
+flowchart TD
+  A["USER_TASK"] --> B["MODEL_REQUEST"]
+  B --> C["MODEL_RESPONSE"]
+  C --> D["VALIDATION"]
+  D -->|valid| E["POLICY"]
+  D -->|invalid| R["REPAIR (one attempt max)"]
+  E -->|allowed| F["TOOL_CALL"]
+  E -->|blocked| P["POLICY / SAFETY BLOCK"]
+  F --> G["TOOL_RESULT"]
+  G --> H["MODEL_REQUEST (next turn)"]
+  H --> I["FINAL_ANSWER"]
+  I --> J["RUN_SUMMARY"]
+```
+
+Every UI run is preserved under:
+
+```text
+C:\ivy\runs\phase1_agent_demo_ui\<timestamp>
+```
+
+Relevant files:
+
+- `ivy_agent_demo/ui_server.py`
+- `ivy_agent_demo/static/index.html`
+- `scripts/run_phase1_ui.ps1`
+- `debug/phase1_ui_specs/`
+- `docs/PHASE1_AGENT_DEMO.md`
+
+---
+
 ## Results At A Glance
 
 ### Model Tracks
@@ -204,19 +262,24 @@ Decision: Q4_K_M hot-session mode is IVY's main local agent path.
 
 ### Tool Safety Benchmark
 
-Q4_K_M now has a measured tool-call baseline instead of only small sanity checks.
+Q4_K_M now has a measured tool-call baseline instead of only small sanity checks. Phase 1.2.1 adds a progress guard for repeated/non-progressing tool calls and an adaptive token budget for code-writing `fs_write` tasks.
 
 | Metric | Value |
 |---|---:|
 | Cases | 25 |
-| Raw strict pass rate | 96% |
-| Final pass rate with one retry | 100% |
-| Retry count | 1 |
-| Average decode speed | 33.246 tok/s |
+| Phase 1.2.1 pass rate | 25/25 |
+| Unsafe failures | 0 |
+| Policy violations | 0 |
+| Retry count | 3 |
+| Progress guard triggers | 2 |
+| Cache reuse | 67 `partial_reuse`, 1 `cold_or_lost_reuse` |
+| Average prompt latency | 2875.559 ms |
+| Average decode speed | 14.096 tok/s |
 
-The only raw failure was an unsafe-command case where the model chose `run_shell` instead of `ask_user`. The validator caught it and the repair pass produced the expected `ask_user` call. This supports Q4_K_M as IVY's local tool agent with parser/validator/retry, not as a model whose raw output should be executed directly.
+This supports Q4_K_M as IVY's local tool agent with parser/validator/policy/progress guards, not as a model whose raw output should be executed directly.
 
 Detailed report: [`ivy/docs/results/Q4KM_TOOL_BENCHMARK_25.md`](ivy/docs/results/Q4KM_TOOL_BENCHMARK_25.md)
+Phase 1 report: [`docs/results/PHASE1_2_AGENT_DEMO_RESULTS.md`](docs/results/PHASE1_2_AGENT_DEMO_RESULTS.md)
 
 ---
 

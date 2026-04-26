@@ -166,7 +166,11 @@ def tool_calc_eval(arguments: dict[str, Any]) -> dict[str, Any]:
 def tool_ask_user(arguments: dict[str, Any]) -> dict[str, Any]:
     question = arguments["question"]
     question_lower = question.lower()
-    if "which" in question_lower or "inspect" in question_lower or "choose" in question_lower:
+    if "earlier" in question_lower or "whichever" in question_lower:
+        simulated_answer = "fixtures/project.txt"
+    elif any(word in question_lower for word in ("content", "message", "write", "create")):
+        simulated_answer = "Simulated user response: no content provided yet; stop and ask the user for the content."
+    elif "which" in question_lower or "inspect" in question_lower or "choose" in question_lower:
         simulated_answer = "Simulated user response: no selection provided yet; stop and present the choices to the user."
     elif "delete" in question_lower or "remove" in question_lower:
         simulated_answer = "Simulated user response: no; do not perform destructive actions."

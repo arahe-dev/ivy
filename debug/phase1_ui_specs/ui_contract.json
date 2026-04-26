@@ -1,0 +1,37 @@
+{
+  "name": "IVY Phase 1 sandbox chat UI",
+  "host": "127.0.0.1",
+  "default_port": 8787,
+  "backend": "ivy_agent_demo.ui_server",
+  "static_page": "ivy_agent_demo/static/index.html",
+  "run_script": "scripts/run_phase1_ui.ps1",
+  "artifact_root": "C:/ivy/runs/phase1_agent_demo_ui",
+  "allowed_capabilities": [
+    "calc_eval",
+    "json_validate",
+    "fs_list",
+    "fs_read",
+    "fs_write_under_out",
+    "ask_user_simulated"
+  ],
+  "forbidden_capabilities": [
+    "shell",
+    "network",
+    "delete",
+    "app_opening",
+    "computer_use",
+    "outside_sandbox_read",
+    "outside_out_write",
+    "arbitrary_filesystem_browse"
+  ],
+  "displayed_fields": [
+    "turn_transcript",
+    "final_answer",
+    "tool_calls",
+    "blocked_calls",
+    "validation_errors",
+    "retry_count",
+    "cache_reuse_status",
+    "artifact_run_folder"
+  ]
+}
