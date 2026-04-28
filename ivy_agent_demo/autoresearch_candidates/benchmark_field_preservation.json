@@ -1,0 +1,32 @@
+{
+  "id": "benchmark_field_preservation",
+  "hypothesis": "Benchmark packets should preserve exact fields like ctx=512, decode_tps, n_gpu_layers, cache_k, cache_v to pass eval and be useful later.",
+  "target_files": [
+    "ivy_agent_demo/context_packet.py",
+    "ivy_agent_demo/memory_packet.py"
+  ],
+  "proposed_change_summary": "Keep exact benchmark field tokens in packet lines while adding short context summaries.",
+  "expected_metric_changes": {
+    "benchmark_hit_rate": "no regression",
+    "overcompression_risk_count": "qwen_cache_config warning resolved or explained",
+    "overclaim_risk_count": "remain 0"
+  },
+  "risk_level": "low",
+  "required_tests": [
+    "python -m ivy_agent_demo.memory_packet_sweep --cases ivy_agent_demo/memory_packet_eval_real_cases.json --compare-latest --inspect-failures",
+    "python -m ivy_agent_demo.memory_ranking_eval --cases ivy_agent_demo/memory_packet_ranking_cases.json --compare-latest"
+  ],
+  "success_criteria": {
+    "metrics": {
+      "overclaim_risk_count": {"max": 0},
+      "overcompression_risk_count": {"max": 0},
+      "packet_term_hit_rate": {"delta_min": 0.0}
+    }
+  },
+  "failure_criteria": {
+    "metrics": {
+      "overclaim_risk_count": {"min": 1},
+      "packet_term_hit_rate": {"delta_max": -0.02}
+    }
+  }
+}

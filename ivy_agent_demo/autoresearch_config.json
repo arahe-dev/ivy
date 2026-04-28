@@ -1,0 +1,73 @@
+{
+  "experiment_name": "ivy_memory_autoresearch",
+  "allowed_files": [
+    "ivy_agent_demo/context_packet.py",
+    "ivy_agent_demo/memory_router.py",
+    "ivy_agent_demo/memory_packet.py",
+    "ivy_agent_demo/memory_packet_cli.py",
+    "ivy_agent_demo/memory_packet_eval.py",
+    "ivy_agent_demo/memory_packet_sweep.py",
+    "ivy_agent_demo/memory_ranking_eval.py",
+    "ivy_agent_demo/memory_packet_eval_real_cases.json",
+    "ivy_agent_demo/memory_packet_ranking_cases.json",
+    "ivy_agent_demo/memory_policies/*.json",
+    "ivy/docs/*.md"
+  ],
+  "forbidden_files": [
+    "ivy_agent_demo/agent_loop.py",
+    "ivy_agent_demo/validator.py",
+    "ivy_agent_demo/policy.py",
+    "ivy_agent_demo/tools.py"
+  ],
+  "max_iterations": 3,
+  "max_minutes": 45,
+  "stop_on_first_success": true,
+  "baseline_commands": [
+    "python -m ivy_agent_demo.memory_packet_sweep --cases ivy_agent_demo/memory_packet_eval_real_cases.json --compare-latest --inspect-failures",
+    "python -m ivy_agent_demo.memory_ranking_eval --cases ivy_agent_demo/memory_packet_ranking_cases.json --compare-latest"
+  ],
+  "eval_commands": [
+    "python -m ivy_agent_demo.memory_packet_sweep --cases ivy_agent_demo/memory_packet_eval_real_cases.json --compare-latest --inspect-failures",
+    "python -m ivy_agent_demo.memory_ranking_eval --cases ivy_agent_demo/memory_packet_ranking_cases.json --compare-latest"
+  ],
+  "success_criteria": {
+    "metrics": {
+      "packet_term_hit_rate": {"delta_min": 0.0},
+      "overclaim_risk_count": {"max": 0},
+      "overcompression_risk_count": {"max": 1}
+    },
+    "flags": {
+      "forbidden_files_unchanged": true,
+      "prompt_injection_guard_clean": true
+    }
+  },
+  "failure_criteria": {
+    "metrics": {
+      "overclaim_risk_count": {"min": 1},
+      "packet_term_hit_rate": {"delta_max": -0.02}
+    }
+  },
+  "metrics_to_track": [
+    "packet_term_hit_rate",
+    "safety_hit_rate",
+    "empty_packet_count",
+    "overclaim_risk_count",
+    "overcompression_risk_count",
+    "ranking_term_hit_rate",
+    "top_1_source_family_hit_rate",
+    "top_3_source_family_hit_rate",
+    "provenance_rate",
+    "packet_avg_latency_ms",
+    "packet_avg_chars"
+  ],
+  "rollback_policy": {
+    "strategy": "manual",
+    "notes": "No automatic reverts. Rejected experiments remain recorded; revert manually using git or patch snapshots."
+  },
+  "report_paths": {
+    "output_root": "runs/autoresearch",
+    "history_jsonl": "runs/autoresearch/history.jsonl",
+    "history_csv": "runs/autoresearch/history.csv",
+    "metrics_snapshots": "runs/autoresearch/metrics_snapshots"
+  }
+}

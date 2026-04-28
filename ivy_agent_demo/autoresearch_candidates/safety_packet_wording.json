@@ -1,0 +1,33 @@
+{
+  "id": "safety_packet_wording",
+  "hypothesis": "Safety packet ranking already finds correct safety_policy evidence, but packet composer hides exact terms like write_outside_sandbox and unsafe_delete_network. Preserve exact policy/code terms in packet lines while adding human-readable explanation.",
+  "target_files": [
+    "ivy_agent_demo/context_packet.py",
+    "ivy_agent_demo/memory_packet.py"
+  ],
+  "proposed_change_summary": "Keep exact safety policy identifiers in packet lines and append a short human-readable explanation without increasing overclaim risk.",
+  "expected_metric_changes": {
+    "safety_hit_rate": "> 0.5833",
+    "overclaim_risk_count": "remain 0",
+    "provenance_rate": ">= current"
+  },
+  "risk_level": "medium",
+  "required_tests": [
+    "python -m ivy_agent_demo.memory_packet_sweep --cases ivy_agent_demo/memory_packet_eval_real_cases.json --compare-latest --inspect-failures",
+    "python -m ivy_agent_demo.memory_ranking_eval --cases ivy_agent_demo/memory_packet_ranking_cases.json --compare-latest"
+  ],
+  "success_criteria": {
+    "metrics": {
+      "safety_hit_rate": {"min": 0.5834},
+      "overclaim_risk_count": {"max": 0},
+      "provenance_rate": {"min_relative_to_baseline": 0.0}
+    },
+    "constraints": ["no_runtime_agent_diff"]
+  },
+  "failure_criteria": {
+    "metrics": {
+      "overclaim_risk_count": {"min": 1},
+      "safety_hit_rate": {"delta_max": -0.01}
+    }
+  }
+}

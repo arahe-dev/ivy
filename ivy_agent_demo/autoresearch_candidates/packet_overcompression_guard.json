@@ -1,0 +1,32 @@
+{
+  "id": "packet_overcompression_guard",
+  "hypothesis": "Grouping should avoid combining materially different benchmark configs or distinct safety concepts.",
+  "target_files": [
+    "ivy_agent_demo/memory_packet.py",
+    "ivy_agent_demo/context_packet.py"
+  ],
+  "proposed_change_summary": "Adjust grouping thresholds to avoid collapsing benchmark configs or distinct safety warnings into a single summary line.",
+  "expected_metric_changes": {
+    "overcompression_risk_count": "becomes 0",
+    "packet_term_hit_rate": ">= baseline - 0.02",
+    "packet_chars": "<= baseline * 1.25"
+  },
+  "risk_level": "medium",
+  "required_tests": [
+    "python -m ivy_agent_demo.memory_packet_sweep --cases ivy_agent_demo/memory_packet_eval_real_cases.json --compare-latest --inspect-failures",
+    "python -m ivy_agent_demo.memory_ranking_eval --cases ivy_agent_demo/memory_packet_ranking_cases.json --compare-latest"
+  ],
+  "success_criteria": {
+    "metrics": {
+      "overcompression_risk_count": {"max": 0},
+      "packet_term_hit_rate": {"delta_min": -0.02},
+      "packet_avg_chars": {"max_relative_to_baseline": 0.25}
+    }
+  },
+  "failure_criteria": {
+    "metrics": {
+      "overcompression_risk_count": {"min": 1},
+      "packet_term_hit_rate": {"delta_max": -0.03}
+    }
+  }
+}

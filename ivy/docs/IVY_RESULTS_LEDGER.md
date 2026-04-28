@@ -117,3 +117,7 @@ Phase 2B.7 adds source-family ranking cleanup. Track:
 | known_miss_recovery_rate | expected source family and terms both recovered |
 
 Reports are written under `C:\ivy\runs\memory_ranking_eval`.
+
+## AutoResearch Harness
+
+AutoResearch is a bounded experiment manager for memory packet/ranking improvements. It logs per-iteration metrics, decisions, and diffs under `C:\ivy\runs\autoresearch` without changing the agent runtime.

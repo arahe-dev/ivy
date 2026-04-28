@@ -129,3 +129,13 @@ python -m ivy_agent_demo.memory_ranking_eval --cases ivy_agent_demo\memory_packe
 ```
 
 Expected: diagnostics include `source_family`, matched terms, and ranking scores. Ranking eval writes reports under `C:\ivy\runs\memory_ranking_eval`.
+
+## M. AutoResearch harness
+
+```powershell
+python -m ivy_agent_demo.autoresearch --self-test
+python -m ivy_agent_demo.autoresearch --config ivy_agent_demo/autoresearch_config.json --dry-run
+python -m ivy_agent_demo.autoresearch_metrics latest
+```
+
+Expected: self-test passes, dry-run prints planned commands/candidates/criteria, and metrics snapshot prints latest run stats.

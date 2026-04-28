@@ -39,6 +39,12 @@ This roadmap keeps memory work staged. Do not jump directly to prompt injection 
 - Add ranking diagnostics and regression evals for known misses.
 - Still no prompt injection or agent runtime changes.
 
+## Phase 2B.8: AutoResearch harness
+
+- Add bounded AutoResearch loop for memory packet/ranking experiments.
+- Enforce allowed/forbidden files and prompt-injection checks.
+- Keep experiments auditable with per-iteration reports.
+
 ## Phase 2C: Opt-in prompt injection experiment
 
 - Gate behind explicit CLI flag.

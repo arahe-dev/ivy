@@ -210,6 +210,7 @@ ivy/
   manifests/                   # Runtime and experiment manifests
   prompts/static_prefix/       # Stable agent prefixes for hot sessions
   scripts/                     # Experiment and hot-session runners
+  docs/IVY_AUTORESEARCH.md      # Bounded autoresearch harness
   validation_tasks/            # Prompt/task fixtures
 ```
 
