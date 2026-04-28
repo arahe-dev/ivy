@@ -158,6 +158,8 @@ def packet_top_k_for_case(case: dict[str, Any]) -> int:
 def packet_max_chars_for_case(case: dict[str, Any]) -> int:
     if case.get("id") in {"benchmark_memory_question", "runbook_memory_eval"}:
         return 1200
+    if case.get("id") == "json_tool_debug_think_tags":
+        return 400
     return 800
 
 

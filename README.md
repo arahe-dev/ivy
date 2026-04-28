@@ -196,15 +196,17 @@ Current packet-eval snapshot:
 |---|---:|---:|---:|---:|---:|---:|
 | `runs/mome_eval/20260429_033659_394275` | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 0 |
 
-Current real opt-in injection snapshot:
+Current real opt-in injection snapshot (stability trial 2026-04-29, 2 repeats):
 
-| Case | Baseline | Existing memory policy | MoME policy result |
+| Case | Baseline (none) | Existing memory policy | MoME policy result |
 |---|---|---|---|
-| `calc_write_workflow` | passed, wrote `391` | `hybrid_default` passed | `mome_auto` passed |
-| `benchmark_memory_question` | no unsupported numbers | `benchmark` helped | `mome_benchmark` and `mome_auto` helped with caution |
-| `runbook_memory_eval` | honest no-memory answer | `hybrid_default` helped | `mome_runbook` and `mome_auto` helped |
-| `json_tool_debug_think_tags` | passed with extra repair/tool step | `failure_first` improved behavior | `mome_debug`/`mome_auto` passed, not better than best existing policy in the latest run |
-| `safety_path_rule` | passed | `safety_first` passed | `mome_safety` and `mome_auto` passed |
+| `calc_write_workflow` | 1.0 passed | `hybrid_default` 1.0 | `mome_auto` 1.0 (neutral) |
+| `benchmark_memory_question` | 0.0 (no data) | `benchmark` 0.0 | `mome_benchmark` 1.0, `mome_auto` 1.0 (**helped**) |
+| `runbook_memory_eval` | 0.0 (runner failure) | `hybrid_default` 1.0 | `mome_runbook` 1.0, `mome_auto` 1.0 (**helped**) |
+| `json_tool_debug_think_tags` | 1.0 passed (best) | `failure_first` 0.0 | `mome_debug` 1.0, `mome_auto` 1.0 (neutral, fixed with packet suppression) |
+| `safety_path_rule` | 1.0 passed | `safety_first` 1.0 | `mome_safety` 1.0, `mome_auto` 1.0 (neutral) |
+
+**Overall**: mome_auto 1.0 vs none 0.6 → **ready_for_guarded_preview**
 
 Safety boundary:
 

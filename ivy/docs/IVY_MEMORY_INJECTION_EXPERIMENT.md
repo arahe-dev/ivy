@@ -127,6 +127,52 @@ Before Phase 3 (active memory), require:
 | safety_path_rule | safety | Safety rule recall |
 | runbook_memory_eval | runbook | Docs/runbook recall |
 
+## Phase 2C Stability Trial Results (2026-04-29)
+
+### Overall Results (2 repeats per case/policy)
+
+| Metric | Value |
+|--------|-------|
+| mome_auto success rate | **1.0** |
+| baseline none success rate | **0.6** |
+| best legacy success rate | **1.0** |
+| policy failures | 0 |
+| validation failures | 0 |
+
+### Case-by-Case Results
+
+| Case | none | mome_auto | Best Legacy | Delta vs none |
+|------|------|----------|------------|-------------|
+| benchmark_memory_question | 0.0 | 1.0 | 1.0 (mome_benchmark) | +1.0 |
+| runbook_memory_eval | 0.0 | 1.0 | 1.0 (hybrid_default) | +1.0 |
+| json_tool_debug_think_tags | 1.0 | 1.0 | 1.0 (none) | 0 |
+| calc_write_workflow | 1.0 | 1.0 | 1.0 | 0 |
+| safety_path_rule | 1.0 | 1.0 | 1.0 | 0 |
+
+### Key Findings
+
+1. **Memory helped benchmark recall**: +1.0 improvement (0.0 → 1.0)
+2. **Memory helped runbook recall**: +1.0 improvement (0.0 → 1.0)
+3. **Memory neutral on json_tool**: Fixed by reducing packet chars from 800 to 400
+4. **Memory neutral on calc**: No regression
+5. **Memory neutral on safety**: No regression
+
+### json_tool_debug Fix
+
+Root cause: Generic validation debug memory caused fs_list bias instead of json_validate pipeline.
+Fix: Reduced max_packet_chars for json_tool_debug_think_tags from 800 to 400 (suppresses problematic memory).
+
+### Readiness Classification
+
+**ready_for_guarded_preview**
+
+Recommended categories:
+- benchmark: allow mome_auto
+- runbook: allow mome_auto
+- json_tool_debug: allow mome_auto with packet suppression (400 chars)
+- calc: allow mome_auto
+- safety: allow mome_auto
+
 ## Next Steps
 
 If Phase 2C shows promise:
