@@ -222,6 +222,16 @@ ivy/
 4. Keep Q2/IQ2 available as a fast prose/research lane, not the default tool lane.
 5. Expand reporting so every run produces pass/warn/fail recommendations.
 
+## Memory Experiments
+
+Passive memory and opt-in MoME experiments are documented under:
+
+- [`docs/IVY_MEMORY_STATUS.md`](docs/IVY_MEMORY_STATUS.md)
+- [`docs/IVY_MEMORY_PACKET_PREVIEW.md`](docs/IVY_MEMORY_PACKET_PREVIEW.md)
+- [`docs/IVY_MOME_V0.md`](docs/IVY_MOME_V0.md)
+
+MoME v0 is experimental and opt-in only. Normal agent runs do not receive memory packets by default.
+
 ## Caveats
 
 - These are single-machine measurements on a Windows laptop with an RTX 4060 Laptop GPU.

@@ -141,6 +141,16 @@ git diff -- ivy_agent_demo\validator.py ivy_agent_demo\policy.py ivy_agent_demo\
 
 Expected: self-test passes, dry-run produces experiment outputs, no forbidden file diffs.
 
-Note: Real experiment execution needs a clean programmatic runner path. Use dry-run for harness validation.
-
 Expected: self-test passes, dry-run prints planned commands/candidates/criteria, and metrics snapshot prints latest run stats.
+
+## O. MoME v0 opt-in memory runtime
+
+```powershell
+python -m py_compile ivy_agent_demo\mome_policy.py ivy_agent_demo\mome_router.py ivy_agent_demo\mome_packet.py ivy_agent_demo\mome_cli.py ivy_agent_demo\mome_eval.py
+python -m ivy_agent_demo.mome_cli self-test
+python -m ivy_agent_demo.mome_cli preview --query "benchmark qwen 4060 ctx 512 decode_tps" --policy mome_auto --top-k 5
+python -m ivy_agent_demo.mome_eval --cases ivy_agent_demo\mome_eval_cases.json --compare-latest
+git diff -- ivy_agent_demo\agent_loop.py ivy_agent_demo\validator.py ivy_agent_demo\policy.py ivy_agent_demo\tools.py
+```
+
+Expected: MoME preview and eval run, artifacts are written under `C:\ivy\runs\mome_preview` and `C:\ivy\runs\mome_eval`, and runtime core files have no diff.

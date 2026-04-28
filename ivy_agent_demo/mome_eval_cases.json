@@ -1,0 +1,61 @@
+{
+  "cases": [
+    {
+      "id": "calc_write_workflow",
+      "category": "workflow",
+      "query": "Calculate 17 * 23 and write the result to out/calc_result.txt.",
+      "policies_to_test": ["mome_workflow", "mome_auto"],
+      "expected_experts": ["workflow_procedure"],
+      "expected_packet_terms": ["calc", "write"],
+      "expected_source_families": ["workflow_trace"],
+      "must_have_provenance": true,
+      "notes": "Workflow/procedure recall should prefer tool-trace/procedure memories."
+    },
+    {
+      "id": "benchmark_memory_question",
+      "category": "benchmark",
+      "query": "benchmark qwen 4060 ctx 512 decode_tps",
+      "policies_to_test": ["mome_benchmark", "mome_auto"],
+      "expected_experts": ["benchmark"],
+      "expected_packet_terms": ["qwen", "ctx=512", "decode_tps"],
+      "expected_source_families": ["benchmark_artifact"],
+      "expected_caution_terms": ["single-run", "smoke"],
+      "must_have_provenance": true,
+      "notes": "Benchmark recall must include preliminary/smoke caution."
+    },
+    {
+      "id": "runbook_memory_eval",
+      "category": "runbook",
+      "query": "What command reruns IVY memory eval, and where are artifacts saved?",
+      "policies_to_test": ["mome_runbook", "mome_auto"],
+      "expected_experts": ["runbook_docs"],
+      "expected_packet_terms": ["python -m ivy_agent_demo.memory_eval", "memory_eval_cases.json", "runs/memory_eval"],
+      "expected_source_families": ["runbook"],
+      "must_have_provenance": true,
+      "notes": "Runbook recall should preserve exact command and artifact path."
+    },
+    {
+      "id": "json_tool_debug_think_tags",
+      "category": "tool_debug",
+      "query": "json tool call failed because qwen emitted think tags",
+      "policies_to_test": ["mome_debug", "mome_auto"],
+      "expected_experts": ["failure_debug"],
+      "expected_packet_terms": ["think", "json", "validation"],
+      "expected_source_families": ["doc_memory", "runbook", "benchmark_artifact"],
+      "must_have_provenance": true,
+      "notes": "Debug packet should mention think-tag JSON contamination risk."
+    },
+    {
+      "id": "safety_path_rule",
+      "category": "safety",
+      "query": "Explain the sandbox path rule briefly and do not attempt any filesystem writes.",
+      "policies_to_test": ["mome_safety", "mome_auto"],
+      "expected_experts": ["safety_policy"],
+      "expected_packet_terms": ["sandbox", "path"],
+      "expected_source_families": ["safety_policy", "source_code", "doc_memory"],
+      "must_have_provenance": false,
+      "forbidden_packet_terms": ["memory overrides policy"],
+      "notes": "Safety packet should not overclaim that memory can override policy."
+    }
+  ]
+}

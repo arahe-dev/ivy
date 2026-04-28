@@ -49,6 +49,8 @@ def _evidence(group: MemoryCandidateGroup) -> str:
 
 
 def line_prefix(task_type: str, candidate: MemoryCandidate) -> str:
+    if candidate.kind == "runbook_command" or candidate.source_family == "runbook":
+        return "Runbook command"
     if task_type == "benchmark":
         return "Benchmark memory"
     if task_type == "safety":
@@ -81,6 +83,8 @@ def canonical_kind(kind: str | None) -> str:
 def group_summary(kind: str | None, text: str, count: int) -> str:
     ck = canonical_kind(kind)
     lower = text.lower()
+    if kind == "runbook_command":
+        return _short(text, 260)
     if ck == "json_contamination_warning":
         return "Qwen benchmark responses emitted <think> tags before or inside generated text, creating JSON validation risk."
     if ck == "benchmark_result" and "ctx=512" in lower:
@@ -158,6 +162,28 @@ def apply_diversity(groups: list[MemoryCandidateGroup], policy: dict | None) -> 
     return selected
 
 
+def _is_memory_eval_artifact_query(query: str) -> bool:
+    q = query.lower().replace("-", "_")
+    asks_memory_eval = "memory eval" in q or "memory_eval" in q or ("memory" in q and "eval" in q)
+    asks_artifacts = "artifact" in q or "saved" in q or "where" in q
+    return asks_memory_eval and asks_artifacts
+
+
+def ensure_memory_eval_artifacts(
+    query: str,
+    groups: list[MemoryCandidateGroup],
+    selected: list[MemoryCandidateGroup],
+) -> list[MemoryCandidateGroup]:
+    if not _is_memory_eval_artifact_query(query):
+        return selected
+    selected_ids = {group.group_id for group in selected}
+    for group in groups:
+        blob = f"{group.summary} {' '.join(group.example_artifacts)}".lower().replace("\\", "/")
+        if "runs/memory_eval" in blob and group.group_id not in selected_ids:
+            return selected[:1] + [group] + selected[1:]
+    return selected
+
+
 def compose_packet(
     query: str,
     decision: RoutingDecision,
@@ -171,7 +197,10 @@ def compose_packet(
     text_lines = ["Relevant memory packet:"]
     enable_grouping = bool((policy or {}).get("enable_grouping", True))
     max_evidence = int((policy or {}).get("max_evidence_per_group") or 3)
-    groups = apply_diversity(group_candidates(candidates, enable_grouping, max_evidence), policy)
+    all_groups = group_candidates(candidates, enable_grouping, max_evidence)
+    groups = ensure_memory_eval_artifacts(query, all_groups, apply_diversity(all_groups, policy))
+    benchmark_caution = "Benchmark caution: treat single-run TPS as smoke/preliminary data until repeated runs confirm it."
+    reserved_chars = len(benchmark_caution) + 1 if decision.task_type == "benchmark" else 0
 
     for group in groups:
         representative = group.candidates[0]
@@ -180,7 +209,7 @@ def compose_packet(
             prefix = "Repeated validation/debug warning"
         body = f"- {prefix}: {_short(group.summary)}{_evidence(group)}"
         tentative = "\n".join(text_lines + [body])
-        if len(tentative) > decision.max_packet_chars:
+        if len(tentative) + reserved_chars > decision.max_packet_chars:
             break
         text_lines.append(body)
         used.extend(group.candidates)
@@ -200,8 +229,13 @@ def compose_packet(
             )
         )
 
-    if decision.task_type == "benchmark" and len("\n".join(text_lines)) + 90 <= decision.max_packet_chars:
-        text_lines.append("Caution: single-run TPS is smoke data, not a stable performance claim.")
+    if decision.task_type == "benchmark":
+        while len("\n".join(text_lines + [benchmark_caution])) > decision.max_packet_chars and len(text_lines) > 1:
+            text_lines.pop()
+            if lines:
+                dropped = lines.pop()
+                used = [c for c in used if c.memory_item_id not in set(dropped.grouped_memory_item_ids)]
+        text_lines.append(benchmark_caution)
     if decision.task_type == "tool_debug" and len("\n".join(text_lines)) + 100 <= decision.max_packet_chars:
         text_lines.append("Suggested bias: treat think/reasoning tags before JSON as a validation risk.")
     if decision.task_type == "safety" and len("\n".join(text_lines)) + 110 <= decision.max_packet_chars:

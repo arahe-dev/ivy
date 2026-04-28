@@ -1,0 +1,42 @@
+{
+  "name": "mome_benchmark",
+  "description": "Benchmark-focused policy emphasizing artifact-backed Qwen metrics and exact fields.",
+  "task_types_supported": ["benchmark", "general"],
+  "experts_enabled": ["benchmark", "exact_keyword", "hybrid", "runbook_docs"],
+  "expert_weights": {
+    "benchmark": 0.95,
+    "exact_keyword": 0.4,
+    "hybrid": 0.25,
+    "runbook_docs": 0.1
+  },
+  "source_family_weights": {
+    "benchmark_artifact": 1.0,
+    "run_artifact": 0.25,
+    "runbook": 0.2,
+    "doc_memory": -0.05,
+    "source_code": -0.25,
+    "safety_policy": -0.35,
+    "workflow_trace": -0.2,
+    "unknown": -0.2
+  },
+  "exact_match_weights": {
+    "default": 1.35,
+    "task_type_bonus": 0.35,
+    "ctx=512": 0.65,
+    "decode_tps": 0.65,
+    "n_gpu_layers": 0.45,
+    "cache_k": 0.35,
+    "cache_v": 0.35,
+    "cpu_moe": 0.35
+  },
+  "max_candidates_per_expert": 6,
+  "max_total_candidates": 18,
+  "max_packet_chars": 1400,
+  "require_provenance": true,
+  "group_duplicates": true,
+  "max_evidence_per_group": 3,
+  "max_groups_per_kind": 3,
+  "caution_rules": ["single_run_benchmark_caution", "do_not_invent_metrics"],
+  "injection_allowed": true,
+  "recommended_use": "Opt-in benchmark recall and benchmark-context tasks."
+}

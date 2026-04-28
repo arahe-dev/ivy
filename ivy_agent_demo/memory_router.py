@@ -41,6 +41,15 @@ def classify_task(query: str) -> str:
     return "general"
 
 
+def is_memory_eval_command_query(query: str) -> bool:
+    q = query.lower().replace("-", "_")
+    return (
+        "memory eval" in q
+        or "memory_eval" in q
+        or ("rerun" in q and "eval" in q and "memory" in q)
+    )
+
+
 def load_policy(name: str | None, task_type: str = "general") -> dict[str, Any]:
     policy_name = name or DEFAULT_POLICIES.get(task_type, "hybrid_default")
     path = POLICY_DIR / f"{policy_name}.json"
@@ -158,6 +167,44 @@ def _direct_query(db_path: Path, where: str, params: tuple[Any, ...], expert: st
         conn.close()
 
 
+def exact_memory_eval_runbook_candidates(db_path: Path, limit: int) -> list[MemoryCandidate]:
+    store = MemoryStore(db_path)
+    store.init_schema()
+    conn = store.connect()
+    try:
+        rows = conn.execute(
+            """
+            SELECT mi.id AS memory_item_id, mi.text, mi.kind, mi.importance, mi.confidence,
+                   mi.source_episode_id, mi.source_artifact_path, e.run_id,
+                   CASE
+                       WHEN LOWER(mi.text) LIKE '%python -m ivy_agent_demo.memory_eval%' THEN 0
+                       WHEN LOWER(mi.text) LIKE '%memory_eval_cases.json%' THEN 1
+                       WHEN LOWER(mi.text) LIKE '%runs/memory_eval%' THEN 2
+                       WHEN LOWER(mi.text) LIKE '%rerun_memory_eval.ps1%' THEN 3
+                       ELSE 4
+                   END AS exact_order
+            FROM memory_items mi
+            LEFT JOIN episodes e ON e.id = mi.source_episode_id
+            WHERE LOWER(mi.text || ' ' || COALESCE(mi.kind,'')) LIKE '%memory_eval%'
+              AND LOWER(mi.text || ' ' || COALESCE(mi.kind,'')) NOT LIKE '%memory_packet_eval%'
+              AND LOWER(mi.text || ' ' || COALESCE(mi.kind,'')) NOT LIKE '%memory_packet_sweep%'
+              AND LOWER(mi.text || ' ' || COALESCE(mi.kind,'')) NOT LIKE '%memory_ranking_eval%'
+              AND LOWER(mi.text || ' ' || COALESCE(mi.kind,'')) NOT LIKE '%memory_coverage%'
+            ORDER BY exact_order, mi.created_at DESC, mi.id ASC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+        out = []
+        for row in rows:
+            d = dict(row)
+            d["score"] = float(d.get("importance") or 0.7) + 0.7
+            out.append(candidate_from_result(d, "runbook_exact"))
+        return out
+    finally:
+        conn.close()
+
+
 def run_expert(expert: str, query: str, db_path: Path, limit: int) -> list[MemoryCandidate]:
     if expert == "keyword":
         safe_query = re.sub(r"[^A-Za-z0-9_]+", " ", query).strip() or query
@@ -264,7 +311,43 @@ def concept_matches(query: str, candidate: MemoryCandidate) -> tuple[float, list
             score += 0.35
             notes.append(f"exact concept match: {name}")
 
+    if is_memory_eval_command_query(query):
+        if "python -m ivy_agent_demo.memory_eval" in blob:
+            matched.append("python_memory_eval_command")
+            score += 1.4
+            notes.append("exact memory_eval python command")
+        if "memory_eval_cases.json" in blob:
+            matched.append("memory_eval_cases")
+            score += 0.45
+            notes.append("exact memory_eval cases file")
+        if "runs/memory_eval" in blob or "runs\\memory_eval" in blob:
+            matched.append("memory_eval_artifacts")
+            score += 1.25 if "artifact" in q or "saved" in q else 0.45
+            notes.append("exact memory_eval artifact path")
+        if "rerun_memory_eval.ps1" in blob:
+            matched.append("rerun_memory_eval_helper")
+            score += 0.35
+            notes.append("exact memory_eval helper")
+
     return min(score, 2.0), sorted(set(matched)), notes
+
+
+def wrong_command_family_penalty(query: str, candidate: MemoryCandidate) -> tuple[float, list[str]]:
+    if not is_memory_eval_command_query(query):
+        return 0.0, []
+    blob = f"{candidate.text} {candidate.kind or ''} {candidate.source_artifact_path or ''}".lower()
+    wrong_families = [
+        "memory_packet_eval",
+        "memory_packet_sweep",
+        "memory_ranking_eval",
+        "memory_coverage",
+    ]
+    if "python -m ivy_agent_demo.memory_eval" in blob:
+        return 0.0, []
+    hits = [family for family in wrong_families if family in blob]
+    if hits:
+        return min(1.2, 0.45 * len(hits)), [f"nearby non-memory_eval command family: {family}" for family in hits]
+    return 0.0, []
 
 
 def task_type_bonus(task_type: str, candidate: MemoryCandidate) -> float:
@@ -374,6 +457,8 @@ def route_memory(
     collected: list[MemoryCandidate] = []
     for expert in selected_experts:
         collected.extend(run_expert(expert, query, db, per_expert))
+    if is_memory_eval_command_query(query):
+        collected.extend(exact_memory_eval_runbook_candidates(db, max(per_expert, effective_top_k, 20)))
 
     deduped: dict[str, MemoryCandidate] = {}
     for candidate in collected:
@@ -394,7 +479,9 @@ def route_memory(
         exact_match_score *= float(policy.get("exact_match_bonus", 1.0))
         source_score = source_family_score(task_type, candidate, policy)
         task_score = task_type_bonus(task_type, candidate) * float(weights.get("task_type_bonus", 0.2))
-        duplicate_penalty = 0.0
+        wrong_family_penalty, wrong_family_notes = wrong_command_family_penalty(query, candidate)
+        notes.extend(wrong_family_notes)
+        duplicate_penalty = wrong_family_penalty
         score += exact_match_score + source_score + task_score - duplicate_penalty
         final_score = round(score, 6)
         candidate.ranking = {

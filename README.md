@@ -34,7 +34,7 @@
 | Tool safety | Phase 1.2.1 sandbox agent: **25/25** scenarios pass, **0** unsafe failures; strict JSON + policy gate (no shell/network/delete; reads sandboxed, writes only to `out/`) |
 | Tool reliability (benchmark) | 25-case benchmark: 96% raw strict pass, 100% final pass with validator/retry |
 | Cache reuse (agent demo) | Phase 1.1: all steps `partial_reuse` (13) vs Phase 1: all `cold_or_lost_reuse` (15); avg `prompt_ms` **6322.6 → 2854.2** (2.2x faster) |
-| Passive memory | SQLite ledger + FTS5 + deterministic hashed-vector fallback; retrieval eval exists, no prompt injection |
+| Passive + opt-in memory | SQLite ledger + FTS5 + deterministic hashed-vector fallback; MoME v0 experiment runner exists, no default prompt injection |
 | Fast prose path | Q2/IQ2 remains useful, but is not trusted for raw tool use |
 | KV eviction | Circular KV Lite is simulation/observability-only for this model |
 
@@ -52,7 +52,7 @@ IVY focuses on the parts that decide whether a local model is actually usable:
 - hot-session prompt/KV reuse
 - strict JSON and tool-call reliability
 - reproducible benchmark harnesses
-- passive memory retrieval evaluation before prompt injection
+- passive memory retrieval and opt-in MoME packet experiments before default prompt injection
 - structured autoresearch loops
 
 Test machine:
@@ -156,8 +156,70 @@ The passive memory stack is documented separately from active agent runtime beha
 - `docs/IVY_MEMORY_PACKET_PREVIEW.md`: Phase 2A read-only MoME/MoCE-shaped packet preview.
 - `docs/IVY_MEMORY_PACKET_SWEEP.md`: Phase 2B.5 broad real packet quality sweep.
 - `docs/IVY_MEMORY_COVERAGE.md`: Phase 2B.6 source-provenanced safety/docs/workflow memory coverage.
+- `docs/IVY_MEMORY_RANKING.md`: source-family and exact-command ranking cleanup after docs ingestion.
+- `docs/IVY_MEMORY_INJECTION_EXPERIMENT.md`: opt-in Phase 2C memory injection experiment harness.
+- `docs/IVY_MOME_V0.md`: first opt-in MoME-style memory runtime and evaluation results.
 
-Memory is currently passive: SQLite is the source-of-truth ledger, FTS5 is exact retrieval, vectors are local retrieval hints, and eval runs measure retrieval quality before any prompt injection experiment.
+Memory remains safe-by-default: SQLite is the source-of-truth ledger, FTS5 is exact retrieval, vectors are local retrieval hints, and all memory injection is opt-in through experiment/runtime flags. Normal agent runs do not receive memory packets by default.
+
+## MoME v0 Opt-In Memory Runtime
+
+IVY now has a first MoME-shaped memory runtime for experiments. It is system-side routing, not neural MoE: the router classifies a task, selects memory experts, scores provenance-backed candidates, asks the existing packet composer for a compact advisory packet, and injects that packet only inside the opt-in experiment harness.
+
+```mermaid
+flowchart TD
+  A["Task / scenario"] --> B["MoME task classifier"]
+  B --> C["MoME policy"]
+  C --> D["Memory experts"]
+  D --> E["Candidate scoring + provenance"]
+  E --> F["MoCE packet composer"]
+  F --> G["Opt-in injection experiment"]
+  G --> H["Existing agent loop"]
+  H --> I["Evaluator + history"]
+```
+
+MoME v0 policies:
+
+| Policy | Intended use |
+|---|---|
+| `mome_none` | baseline, no memory selected |
+| `mome_auto` | classifier-selected expert mix |
+| `mome_debug` | JSON/tool debugging and failure memories |
+| `mome_benchmark` | Qwen benchmark facts with caution wording |
+| `mome_runbook` | exact runbook commands and artifact paths |
+| `mome_safety` | sandbox/policy/source-code safety evidence |
+| `mome_workflow` | successful workflow and tool-sequence recall |
+
+Current packet-eval snapshot:
+
+| Run | Term hit | Expert hit | Source-family hit | Provenance | Caution | Overclaim |
+|---|---:|---:|---:|---:|---:|---:|
+| `runs/mome_eval/20260429_033659_394275` | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 0 |
+
+Current real opt-in injection snapshot:
+
+| Case | Baseline | Existing memory policy | MoME policy result |
+|---|---|---|---|
+| `calc_write_workflow` | passed, wrote `391` | `hybrid_default` passed | `mome_auto` passed |
+| `benchmark_memory_question` | no unsupported numbers | `benchmark` helped | `mome_benchmark` and `mome_auto` helped with caution |
+| `runbook_memory_eval` | honest no-memory answer | `hybrid_default` helped | `mome_runbook` and `mome_auto` helped |
+| `json_tool_debug_think_tags` | passed with extra repair/tool step | `failure_first` improved behavior | `mome_debug`/`mome_auto` passed, not better than best existing policy in the latest run |
+| `safety_path_rule` | passed | `safety_first` passed | `mome_safety` and `mome_auto` passed |
+
+Safety boundary:
+
+- memory is still advisory and may be incomplete or stale
+- memory never bypasses the JSON validator, policy gate, or tool sandbox
+- `agent_loop.py`, `validator.py`, `policy.py`, and `tools.py` remain behaviorally unchanged
+- MoME memory packets are injected only by explicit experiment flags or `mome_*` policies
+
+Useful commands:
+
+```powershell
+python -m ivy_agent_demo.mome_cli preview --query "benchmark qwen 4060 ctx 512 decode_tps" --policy mome_auto --top-k 5
+python -m ivy_agent_demo.mome_eval --cases ivy_agent_demo\mome_eval_cases.json --compare-latest
+python -m ivy_agent_demo.memory_injection_experiment --cases ivy_agent_demo\memory_injection_cases.json --case-id runbook_memory_eval --policies none hybrid_default mome_runbook mome_auto --compare-latest --debug
+```
 
 ---
 

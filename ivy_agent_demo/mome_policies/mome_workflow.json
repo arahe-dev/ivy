@@ -1,0 +1,39 @@
+{
+  "name": "mome_workflow",
+  "description": "Workflow/procedure policy emphasizing successful tool traces and procedure-like memories.",
+  "task_types_supported": ["workflow", "general"],
+  "experts_enabled": ["workflow_procedure", "exact_keyword", "hybrid", "recent_buffer"],
+  "expert_weights": {
+    "workflow_procedure": 0.85,
+    "exact_keyword": 0.35,
+    "hybrid": 0.25,
+    "recent_buffer": 0.15
+  },
+  "source_family_weights": {
+    "workflow_trace": 0.95,
+    "run_artifact": 0.45,
+    "runbook": 0.25,
+    "doc_memory": 0.0,
+    "safety_policy": 0.1,
+    "benchmark_artifact": -0.45,
+    "unknown": -0.15
+  },
+  "exact_match_weights": {
+    "default": 1.2,
+    "task_type_bonus": 0.4,
+    "fs_read": 0.35,
+    "json_validate": 0.35,
+    "fs_write": 0.35,
+    "calc_eval": 0.4
+  },
+  "max_candidates_per_expert": 6,
+  "max_total_candidates": 20,
+  "max_packet_chars": 1400,
+  "require_provenance": false,
+  "group_duplicates": true,
+  "max_evidence_per_group": 3,
+  "max_groups_per_kind": 3,
+  "caution_rules": ["procedures_do_not_bypass_policy"],
+  "injection_allowed": true,
+  "recommended_use": "Opt-in workflow and procedure recall experiments."
+}

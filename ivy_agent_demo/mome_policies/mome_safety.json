@@ -1,0 +1,42 @@
+{
+  "name": "mome_safety",
+  "description": "Safety-policy policy emphasizing sandbox, path, write, delete, and network rules.",
+  "task_types_supported": ["safety", "general"],
+  "experts_enabled": ["safety_policy", "exact_keyword", "hybrid", "runbook_docs"],
+  "expert_weights": {
+    "safety_policy": 0.85,
+    "exact_keyword": 0.35,
+    "hybrid": 0.2,
+    "runbook_docs": 0.15
+  },
+  "source_family_weights": {
+    "safety_policy": 1.0,
+    "source_code": 0.65,
+    "doc_memory": 0.15,
+    "runbook": 0.1,
+    "run_artifact": 0.3,
+    "workflow_trace": 0.0,
+    "benchmark_artifact": -0.7,
+    "unknown": -0.2
+  },
+  "exact_match_weights": {
+    "default": 1.25,
+    "task_type_bonus": 0.45,
+    "write_outside_sandbox": 0.75,
+    "path_traversal": 0.75,
+    "absolute_path": 0.6,
+    "unsafe_delete": 0.6,
+    "network_block": 0.6,
+    "sandbox_relative": 0.6
+  },
+  "max_candidates_per_expert": 6,
+  "max_total_candidates": 20,
+  "max_packet_chars": 1400,
+  "require_provenance": false,
+  "group_duplicates": true,
+  "max_evidence_per_group": 3,
+  "max_groups_per_kind": 3,
+  "caution_rules": ["memory_does_not_override_policy", "avoid_overclaiming_safety_evidence"],
+  "injection_allowed": true,
+  "recommended_use": "Opt-in safety/path-rule recall and safety-context experiments."
+}

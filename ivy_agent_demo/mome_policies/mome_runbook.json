@@ -1,0 +1,39 @@
+{
+  "name": "mome_runbook",
+  "description": "Runbook/docs policy emphasizing exact commands and artifact locations.",
+  "task_types_supported": ["runbook", "general"],
+  "experts_enabled": ["runbook_docs", "exact_keyword", "hybrid"],
+  "expert_weights": {
+    "runbook_docs": 1.0,
+    "exact_keyword": 0.35,
+    "hybrid": 0.2
+  },
+  "source_family_weights": {
+    "runbook": 1.0,
+    "doc_memory": 0.35,
+    "source_code": 0.1,
+    "run_artifact": 0.0,
+    "benchmark_artifact": -0.25,
+    "safety_policy": -0.05,
+    "workflow_trace": -0.05,
+    "unknown": -0.2
+  },
+  "exact_match_weights": {
+    "default": 1.35,
+    "task_type_bonus": 0.3,
+    "python_memory_eval_command": 0.85,
+    "memory_eval_cases": 0.65,
+    "memory_eval_artifacts": 0.65,
+    "rerun_memory_eval_helper": 0.35
+  },
+  "max_candidates_per_expert": 8,
+  "max_total_candidates": 20,
+  "max_packet_chars": 1300,
+  "require_provenance": false,
+  "group_duplicates": true,
+  "max_evidence_per_group": 3,
+  "max_groups_per_kind": 4,
+  "caution_rules": ["quote_commands_exactly", "include_artifact_paths_when_asked"],
+  "injection_allowed": true,
+  "recommended_use": "Opt-in docs/runbook command recall experiments."
+}

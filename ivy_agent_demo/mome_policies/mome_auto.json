@@ -1,0 +1,60 @@
+{
+  "name": "mome_auto",
+  "description": "Automatic MoME policy selecting expert mix by task type.",
+  "task_types_supported": ["general", "tool_debug", "benchmark", "safety", "workflow", "runbook"],
+  "experts_enabled": ["exact_keyword", "vector_fuzzy", "hybrid", "recent_buffer"],
+  "auto_experts_by_task": {
+    "tool_debug": ["failure_debug", "exact_keyword", "vector_fuzzy", "hybrid", "recent_buffer"],
+    "benchmark": ["benchmark", "exact_keyword", "hybrid", "runbook_docs"],
+    "safety": ["safety_policy", "exact_keyword", "hybrid", "runbook_docs"],
+    "workflow": ["workflow_procedure", "exact_keyword", "hybrid", "recent_buffer"],
+    "runbook": ["runbook_docs", "exact_keyword", "hybrid"],
+    "general": ["exact_keyword", "vector_fuzzy", "hybrid", "recent_buffer"]
+  },
+  "expert_weights": {
+    "exact_keyword": 0.35,
+    "vector_fuzzy": 0.1,
+    "hybrid": 0.25,
+    "recent_buffer": 0.05,
+    "failure_debug": 0.75,
+    "benchmark": 0.9,
+    "safety_policy": 0.85,
+    "workflow_procedure": 0.85,
+    "runbook_docs": 1.0
+  },
+  "source_family_weights": {
+    "run_artifact": 0.35,
+    "benchmark_artifact": 0.65,
+    "doc_memory": 0.1,
+    "source_code": 0.25,
+    "runbook": 0.65,
+    "safety_policy": 0.7,
+    "workflow_trace": 0.75,
+    "unknown": -0.2
+  },
+  "exact_match_weights": {
+    "default": 1.25,
+    "task_type_bonus": 0.35,
+    "python_memory_eval_command": 0.75,
+    "memory_eval_cases": 0.55,
+    "memory_eval_artifacts": 0.55,
+    "ctx=512": 0.55,
+    "decode_tps": 0.55,
+    "json_validate": 0.35,
+    "fs_read": 0.25,
+    "fs_write": 0.25,
+    "calc_eval": 0.3,
+    "sandbox_relative": 0.5,
+    "absolute_path": 0.5
+  },
+  "max_candidates_per_expert": 6,
+  "max_total_candidates": 24,
+  "max_packet_chars": 1500,
+  "require_provenance": false,
+  "group_duplicates": true,
+  "max_evidence_per_group": 3,
+  "max_groups_per_kind": 4,
+  "caution_rules": ["advisory_only", "task_type_expert_selection", "preserve_provenance", "single_run_benchmark_caution"],
+  "injection_allowed": true,
+  "recommended_use": "Default opt-in automatic MoME policy for bounded experiments."
+}

@@ -1,0 +1,43 @@
+{
+  "name": "mome_hybrid_default",
+  "description": "Balanced MoME policy using exact, vector, hybrid, recent, runbook, and workflow experts.",
+  "task_types_supported": ["general", "tool_debug", "benchmark", "safety", "workflow", "runbook"],
+  "experts_enabled": ["exact_keyword", "vector_fuzzy", "hybrid", "recent_buffer", "runbook_docs", "workflow_procedure"],
+  "expert_weights": {
+    "exact_keyword": 0.35,
+    "vector_fuzzy": 0.1,
+    "hybrid": 0.25,
+    "recent_buffer": 0.0,
+    "runbook_docs": 0.25,
+    "workflow_procedure": 0.25
+  },
+  "source_family_weights": {
+    "run_artifact": 0.25,
+    "benchmark_artifact": 0.25,
+    "doc_memory": 0.05,
+    "source_code": 0.15,
+    "runbook": 0.35,
+    "safety_policy": 0.3,
+    "workflow_trace": 0.35,
+    "unknown": -0.1
+  },
+  "exact_match_weights": {
+    "default": 1.15,
+    "task_type_bonus": 0.25,
+    "python_memory_eval_command": 0.55,
+    "memory_eval_artifacts": 0.45,
+    "ctx=512": 0.35,
+    "decode_tps": 0.35,
+    "json_validate": 0.25
+  },
+  "max_candidates_per_expert": 6,
+  "max_total_candidates": 24,
+  "max_packet_chars": 1600,
+  "require_provenance": false,
+  "group_duplicates": true,
+  "max_evidence_per_group": 3,
+  "max_groups_per_kind": 3,
+  "caution_rules": ["advisory_only", "preserve_provenance"],
+  "injection_allowed": true,
+  "recommended_use": "Default opt-in MoME comparison policy."
+}

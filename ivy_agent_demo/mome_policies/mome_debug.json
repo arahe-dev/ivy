@@ -1,0 +1,39 @@
+{
+  "name": "mome_debug",
+  "description": "Failure/debug-focused policy for JSON validation, think-tag, and tool-call repair tasks.",
+  "task_types_supported": ["tool_debug", "general"],
+  "experts_enabled": ["failure_debug", "exact_keyword", "vector_fuzzy", "hybrid", "recent_buffer"],
+  "expert_weights": {
+    "failure_debug": 0.75,
+    "exact_keyword": 0.35,
+    "vector_fuzzy": 0.15,
+    "hybrid": 0.3,
+    "recent_buffer": 0.05
+  },
+  "source_family_weights": {
+    "run_artifact": 0.55,
+    "benchmark_artifact": 0.35,
+    "safety_policy": 0.25,
+    "doc_memory": -0.05,
+    "runbook": -0.1,
+    "workflow_trace": 0.2,
+    "unknown": -0.1
+  },
+  "exact_match_weights": {
+    "default": 1.25,
+    "task_type_bonus": 0.4,
+    "json_validate": 0.45,
+    "fs_read": 0.2,
+    "fs_write": 0.2
+  },
+  "max_candidates_per_expert": 6,
+  "max_total_candidates": 24,
+  "max_packet_chars": 1500,
+  "require_provenance": false,
+  "group_duplicates": true,
+  "max_evidence_per_group": 3,
+  "max_groups_per_kind": 3,
+  "caution_rules": ["advisory_only", "think_tags_are_validation_risk"],
+  "injection_allowed": true,
+  "recommended_use": "Opt-in JSON/tool-debug memory experiments."
+}

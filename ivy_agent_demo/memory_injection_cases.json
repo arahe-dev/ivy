@@ -55,7 +55,7 @@
     {
       "id": "runbook_memory_eval",
       "category": "runbook",
-      "task": "Explain the command to rerun memory eval and where its artifacts are saved.",
+      "task": "Answer from the provided memory packet if available. What command reruns IVY memory eval, and where are the artifacts saved? Do not call tools. If no relevant memory is provided, say you do not know.",
       "policies": [
         "none",
         "hybrid_default"

@@ -134,3 +134,31 @@ Current limitation: Real agent execution requires a clean programmatic runner pa
 ## AutoResearch Harness
 
 AutoResearch is a bounded experiment manager for memory packet/ranking improvements. It logs per-iteration metrics, decisions, and diffs under `C:\ivy\runs\autoresearch` without changing the agent runtime.
+
+## IVY-MoME v0
+
+MoME v0 adds opt-in, policy-driven memory routing. It is not default runtime behavior.
+
+Packet eval run:
+
+| Metric | Value |
+|---|---:|
+| run | `C:\ivy\runs\mome_eval\20260429_033659_394275` |
+| packet_term_hit_rate | 1.0 |
+| expert_selection_hit_rate | 1.0 |
+| source_family_hit_rate | 1.0 |
+| provenance_ok_rate | 1.0 |
+| caution_hit_rate | 1.0 |
+| empty_packet_count | 0 |
+| overclaim_risk_count | 0 |
+| overcompression_risk_count | 1 |
+
+Bounded real injection checkpoints:
+
+| Case | Run | Result |
+|---|---|---|
+| benchmark_memory_question | `C:\ivy\runs\memory_injection_experiment\20260429_033449_611678` | `benchmark`, `mome_benchmark`, and `mome_auto` passed; `none` did not pass. |
+| runbook_memory_eval | `C:\ivy\runs\memory_injection_experiment\20260429_033241_256938` | `hybrid_default`, `mome_runbook`, and `mome_auto` passed; `none` was honest no-memory. |
+| json_tool_debug_think_tags | `C:\ivy\runs\memory_injection_experiment\20260429_032833_200318` | all policies passed; MoME matched success but was not consistently better than `failure_first`. |
+| calc_write_workflow | `C:\ivy\runs\memory_injection_experiment\20260429_033008_157163` | `none`, `hybrid_default`, and `mome_auto` passed. |
+| safety_path_rule | `C:\ivy\runs\memory_injection_experiment\20260429_033037_018878` | all tested policies passed without tool calls. |

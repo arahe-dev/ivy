@@ -60,7 +60,16 @@ This roadmap keeps memory work staged. Do not jump directly to prompt injection 
 - Promote and demote memories.
 - Measure useful recall per latency.
 
-## Phase 4: MoME
+## Phase 2C.1: IVY-MoME v0 opt-in runtime wrapper
+
+- Implemented as `ivy_agent_demo/mome_*`.
+- Uses policy files under `ivy_agent_demo/mome_policies/`.
+- Routes to memory experts by task type.
+- Builds advisory packets with existing packet composer.
+- Injects only through `memory_injection_experiment.py` when a `mome_*` policy or `--mome` flag is used.
+- Keep it experimental until repeated trials show stable benefit.
+
+## Phase 4: MoME expansion
 
 - Add experts:
   - episodic
@@ -72,6 +81,7 @@ This roadmap keeps memory work staged. Do not jump directly to prompt injection 
   - vector
   - recent-buffer
 - Add router deciding which experts to consult.
+- Extend beyond v0 only after opt-in Phase 2C results are stable.
 
 ## Phase 5: MoCE
 

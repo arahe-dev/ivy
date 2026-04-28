@@ -1,0 +1,19 @@
+{
+  "name": "mome_none",
+  "description": "No memory selected. Baseline policy for opt-in experiments.",
+  "task_types_supported": ["general", "tool_debug", "benchmark", "safety", "workflow", "runbook"],
+  "experts_enabled": ["none"],
+  "expert_weights": {},
+  "source_family_weights": {},
+  "exact_match_weights": {"default": 0.0, "task_type_bonus": 0.0},
+  "max_candidates_per_expert": 0,
+  "max_total_candidates": 0,
+  "max_packet_chars": 400,
+  "require_provenance": false,
+  "group_duplicates": true,
+  "max_evidence_per_group": 0,
+  "max_groups_per_kind": 0,
+  "caution_rules": ["no_memory_baseline"],
+  "injection_allowed": false,
+  "recommended_use": "No-memory control for packet and agent experiments."
+}
