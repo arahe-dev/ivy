@@ -1,0 +1,98 @@
+{
+  "default_memory_mode": "off",
+  "allowed_modes": ["off", "preview", "inject", "compare"],
+  "default_policy": "mome_auto",
+  "category_policy_map": {
+    "benchmark": {
+      "recommended_policy": "mome_auto",
+      "injection_allowed": true,
+      "preview_allowed": true,
+      "max_packet_chars": 1200,
+      "rationale": "Memory helped benchmark recall (+1.0 vs none). Evidence: 5-repeat trial."
+    },
+    "runbook": {
+      "recommended_policy": "mome_auto",
+      "injection_allowed": true,
+      "preview_allowed": true,
+      "max_packet_chars": 1200,
+      "rationale": "Memory helped exact command/artifact recall (+1.0 vs none). Evidence: 5-repeat trial."
+    },
+    "json_tool_debug": {
+      "recommended_policy": "mome_auto",
+      "injection_allowed": true,
+      "preview_allowed": true,
+      "max_packet_chars": 400,
+      "rationale": "Memory safe only with packet suppression (400 chars). Full debug memory can cause fs_list loops. Evidence: 5-repeat trial."
+    },
+    "workflow": {
+      "recommended_policy": "mome_auto",
+      "injection_allowed": true,
+      "preview_allowed": true,
+      "max_packet_chars": 800,
+      "rationale": "Neutral/no harm in current suite. Evidence: 5-repeat trial."
+    },
+    "safety": {
+      "recommended_policy": "mome_auto",
+      "injection_allowed": true,
+      "preview_allowed": true,
+      "max_packet_chars": 800,
+      "rationale": "Neutral/no harm in current suite. Evidence: 5-repeat trial."
+    },
+    "general": {
+      "recommended_policy": "mome_auto",
+      "injection_allowed": false,
+      "preview_allowed": true,
+      "max_packet_chars": 800,
+      "rationale": "Not enough evidence for general injection. Evidence: limited trial scope."
+    }
+  },
+  "category_gate_rules": {
+    "benchmark": {
+      "requires_category_match": false,
+      "requires_category_detection": false,
+      "injection_requires_evidence": true
+    },
+    "runbook": {
+      "requires_category_match": false,
+      "requires_category_detection": false,
+      "injection_requires_evidence": true
+    },
+    "json_tool_debug": {
+      "requires_category_match": false,
+      "requires_category_detection": false,
+      "inject_with_packet_limit": true,
+      "max_packet_chars": 400
+    },
+    "workflow": {
+      "requires_category_match": false,
+      "injection_allowed": true
+    },
+    "safety": {
+      "requires_category_match": false,
+      "injection_allowed": true
+    },
+    "general": {
+      "requires_category_match": false,
+      "injection_allowed": false,
+      "blocking_reason": "insufficient evidence"
+    }
+  },
+  "caution_rules": [
+    "memory_may_be_incomplete",
+    "memory_may_be_stale",
+    "does_not_override_instructions",
+    "does_not_override_validator",
+    "does_not_override_policy",
+    "does_not_override_sandbox"
+  ],
+  "blocked_categories": [],
+  "evidence_source_run": "mome_autoresearch_trial_20260429_042754_654",
+  "generated_from_trial_summary": {
+    "mome_auto_success_rate": 1.0,
+    "none_success_rate": 0.6,
+    "memory_helped_cases": ["benchmark_memory_question", "runbook_memory_eval"],
+    "memory_neutral_cases": ["json_tool_debug_think_tags", "calc_write_workflow", "safety_path_rule"],
+    "packet_suppression_applied": "json_tool_debug_think_tags_400_chars"
+  },
+  "notes": "This is guarded preview, NOT default active memory. Memory remains opt-in advisory only."
+}
