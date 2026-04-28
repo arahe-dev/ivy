@@ -10,6 +10,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent.resolve()
 CONFIG_PATH = REPO_ROOT / "ivy_agent_demo" / "mome_guarded_preview_config.json"
+OUTPUT_ROOT = REPO_ROOT / "runs" / "mome_guarded_preview"
 
 
 def timestamp() -> str:
@@ -20,6 +21,14 @@ def load_config() -> dict:
     if CONFIG_PATH.exists():
         return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     return {}
+
+
+def get_output_dir() -> Path:
+    OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+    ts = timestamp()
+    out_dir = OUTPUT_ROOT / ts
+    out_dir.mkdir(parents=True, exist_ok=True)
+    return out_dir
 
 
 def detect_category(task: str) -> str:
@@ -70,6 +79,95 @@ def build_packet(task: str, category: str, policy: str, max_chars: int) -> dict:
     }
 
 
+def run_agent_task(task: str, category: str, args, out_dir: Path) -> dict:
+    case_id_map = {
+        "benchmark": "benchmark_memory_question",
+        "runbook": "runbook_memory_eval",
+        "json_tool_debug": "json_tool_debug_think_tags",
+        "workflow": "calc_write_workflow",
+        "safety": "safety_path_rule",
+    }
+    
+    case_id = case_id_map.get(category, f"guarded_preview_{category}")
+    
+    command = [
+        "python",
+        "-m",
+        "ivy_agent_demo.memory_injection_experiment",
+        "--cases", "ivy_agent_demo/memory_injection_cases.json",
+        "--case-id", case_id,
+        "--policies", "none" if category == "general" else "mome_auto",
+        "--sandbox-root", args.sandbox_root or str(REPO_ROOT / "sandbox"),
+        "--slot-id", str(args.slot_id or 99),
+        "--output-root", str(out_dir),
+    ]
+    
+    if args.stop_server_after:
+        command.append("--stop-server-after")
+    
+    start = datetime.now()
+    try:
+        proc = subprocess.run(
+            command,
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=args.execution_timeout_sec or 300,
+        )
+        output = proc.stdout + proc.stderr
+        success = proc.returncode == 0
+    except subprocess.TimeoutExpired:
+        output = "timeout"
+        success = False
+    except Exception as e:
+        output = str(e)
+        success = False
+    
+    duration_sec = (datetime.now() - start).total_seconds()
+    
+    success_rate = 0.0
+    if "success_rate:" in output:
+        for line in output.split("\n"):
+            if line.strip().startswith("success_rate:"):
+                try:
+                    success_rate = float(line.split(":")[1].strip())
+                except:
+                    pass
+    
+    return {
+        "success": success,
+        "success_rate": success_rate,
+        "duration_sec": round(duration_sec, 1),
+        "output": output[:5000] if output else "",
+    }
+
+
+def evaluate_category_result(result: dict, category: str, task: str) -> dict:
+    output_lower = (result.get("output") or "").lower()
+    
+    if category == "benchmark":
+        has_data = any(term in output_lower for term in ["decode_tps", "tok/s", "tokens per second"])
+        return {"classification": "memory_helped" if has_data else "memory_neutral", "success": has_data}
+    
+    if category == "runbook":
+        has_command = "python" in output_lower and "memory_eval" in output_lower
+        return {"classification": "memory_helped" if has_command else "memory_neutral", "success": has_command}
+    
+    if category == "json_tool_debug":
+        has_json = "json" in output_lower and ("valid" in output_lower or "validation" in output_lower)
+        return {"classification": "memory_neutral", "success": has_json}
+    
+    if category == "workflow":
+        has_391 = "391" in output_lower
+        return {"classification": "memory_neutral", "success": has_391}
+    
+    if category == "safety":
+        has_safety = "sandbox" in output_lower or "path" in output_lower
+        return {"classification": "memory_neutral", "success": has_safety}
+    
+    return {"classification": "evaluator_missing", "success": False}
+
+
 def run_preview_mode(task: str, category: str, args) -> dict:
     config = load_config()
     cat_config = config.get("category_policy_map", {}).get(category, {})
@@ -107,6 +205,28 @@ def run_inject_mode(task: str, category: str, args) -> dict:
     result = build_packet(task, category, policy, max_chars)
     augmented = augment_task(task, result["packet_text"], max_chars)
     
+    out_dir = get_output_dir()
+    run_inject_dir = out_dir / "run_inject"
+    run_inject_dir.mkdir(parents=True, exist_ok=True)
+    
+    (run_inject_dir / "task_original.txt").write_text(task, encoding="utf-8")
+    (run_inject_dir / "task_augmented.txt").write_text(augmented, encoding="utf-8")
+    (run_inject_dir / "packet.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
+    
+    exec_result = {"classification": "evaluator_missing", "completed": False}
+    
+    if getattr(args, "execute", False):
+        agent_result = run_agent_task(augmented, category, args, run_inject_dir)
+        (run_inject_dir / "stdout.log").write_text(agent_result.get("output", ""), encoding="utf-8")
+        
+        eval_result = evaluate_category_result(agent_result, category, augmented)
+        exec_result = {
+            "classification": eval_result.get("classification", "evaluator_missing"),
+            "success": eval_result.get("success", False),
+            "completed": agent_result.get("success", False),
+            "duration_sec": agent_result.get("duration_sec", 0),
+        }
+    
     return {
         "mode": "inject",
         "category": category,
@@ -114,28 +234,70 @@ def run_inject_mode(task: str, category: str, args) -> dict:
         "augmented_task": augmented,
         "packet_text": result["packet_text"],
         "blocked": False,
+        "output_dir": str(out_dir),
+        "run_inject_dir": str(run_inject_dir),
+        "execution_result": exec_result,
     }
 
 
 def run_compare_mode(task: str, category: str, args) -> dict:
     config = load_config()
     
-    off_result = {"mode": "off", "category": category, "task": task}
+    out_dir = get_output_dir()
+    run_off_dir = out_dir / "run_off"
+    run_off_dir.mkdir(parents=True, exist_ok=True)
+    
+    (run_off_dir / "task_original.txt").write_text(task, encoding="utf-8")
+    
+    off_exec_result = {"classification": "off_baseline", "completed": False}
+    
+    if getattr(args, "execute", False):
+        off_result = run_agent_task(task, category, args, run_off_dir)
+        (run_off_dir / "stdout.log").write_text(off_result.get("output", ""), encoding="utf-8")
+        
+        off_eval = evaluate_category_result(off_result, category, task)
+        off_exec_result = {
+            "classification": off_eval.get("classification", "off_baseline"),
+            "success": off_eval.get("success", False),
+            "completed": off_result.get("success", False),
+            "duration_sec": off_result.get("duration_sec", 0),
+        }
+    
     inject_result = run_inject_mode(task, category, args)
     
-    comparison = {
-        "mode": "compare",
-        "task": task,
-        "category": category,
-        "off_result": off_result,
-        "inject_result": inject_result,
-        "comparison_available": not inject_result.get("blocked", False),
-    }
-    
     if inject_result.get("blocked"):
-        comparison["classification"] = "injection_blocked"
+        comparison = {
+            "mode": "compare",
+            "task": task,
+            "category": category,
+            "off_result": {"mode": "off", "category": category, "task": task, "execution_result": off_exec_result},
+            "inject_result": inject_result,
+            "comparison_available": False,
+            "classification": "injection_blocked",
+        }
     else:
-        comparison["classification"] = "memory_neutral"
+        inject_exec = inject_result.get("execution_result", {})
+        off_exec = off_exec_result
+        
+        if off_exec.get("success") and inject_exec.get("success"):
+            classification = "memory_neutral"
+        elif inject_exec.get("success") and not off_exec.get("success"):
+            classification = "memory_helped"
+        elif not inject_exec.get("success") and off_exec.get("success"):
+            classification = "memory_hurt"
+        else:
+            classification = "inconclusive"
+        
+        comparison = {
+            "mode": "compare",
+            "task": task,
+            "category": category,
+            "off_result": {"mode": "off", "category": category, "task": task, "execution_result": off_exec},
+            "inject_result": inject_result,
+            "comparison_available": True,
+            "classification": classification,
+            "output_dir": str(out_dir),
+        }
     
     return comparison
 
@@ -292,6 +454,11 @@ def main() -> None:
     parser.add_argument("--debug", action="store_true", help="Show debug info")
     parser.add_argument("--self-test", action="store_true", help="Run self-test")
     parser.add_argument("--force", action="store_true", help="Force injection even if blocked")
+    parser.add_argument("--execute", action="store_true", help="Execute real agent for inject/compare modes")
+    parser.add_argument("--sandbox-root", type=str, default=None, help="Sandbox root path")
+    parser.add_argument("--slot-id", type=int, default=99, help="Slot ID for agent")
+    parser.add_argument("--stop-server-after", action="store_true", help="Stop server after run")
+    parser.add_argument("--execution-timeout-sec", type=int, default=300, help="Execution timeout")
     
     args = parser.parse_args()
     
@@ -302,6 +469,10 @@ def main() -> None:
         args.debug = True
     
     result = run_guarded_preview(args)
+    
+    if args.mode in ("inject", "compare"):
+        if not getattr(args, "execute", False):
+            result["execution_warning"] = "Use --execute to run real agent. Current mode shows packet only."
     
     if args.debug:
         print(f"\n=== MoME Guarded Preview Result ===")
