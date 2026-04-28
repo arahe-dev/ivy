@@ -1,0 +1,16 @@
+{
+  "name": "vector_only",
+  "description": "Deterministic hashed-vector retrieval only.",
+  "enabled_experts": ["vector"],
+  "max_candidates_per_expert": 5,
+  "default_top_k": 5,
+  "require_provenance": false,
+  "max_packet_chars": 1800,
+  "scoring_weights": {
+    "base_score": 1.0,
+    "provenance_bonus": 0.25,
+    "exact_term_bonus": 0.15,
+    "task_type_bonus": 0.15,
+    "missing_provenance_penalty": 0.4
+  }
+}

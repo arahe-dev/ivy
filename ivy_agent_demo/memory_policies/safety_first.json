@@ -1,0 +1,16 @@
+{
+  "name": "safety_first",
+  "description": "Prioritize policy, sandbox, path, network, write, and unsafe-action memories.",
+  "enabled_experts": ["safety", "keyword", "failure", "hybrid"],
+  "max_candidates_per_expert": 5,
+  "default_top_k": 5,
+  "require_provenance": false,
+  "max_packet_chars": 1800,
+  "scoring_weights": {
+    "base_score": 1.0,
+    "provenance_bonus": 0.25,
+    "exact_term_bonus": 0.3,
+    "task_type_bonus": 0.4,
+    "missing_provenance_penalty": 0.35
+  }
+}

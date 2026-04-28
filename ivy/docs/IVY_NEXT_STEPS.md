@@ -8,6 +8,7 @@ This roadmap keeps memory work staged. Do not jump directly to prompt injection 
 - MoCE composes a packet.
 - Packet is printed/saved only.
 - No agent prompt injection.
+- Implemented as `memory_packet_cli preview`; continue using it only as a dry run until packet eval quality is acceptable.
 
 ## Phase 2B: Memory packet eval
 

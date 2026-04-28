@@ -94,6 +94,26 @@ C:\ivy\runs\memory_eval\history.jsonl
 C:\ivy\runs\memory_eval\history.csv
 ```
 
+## Memory Packet Preview
+
+```powershell
+python -m ivy_agent_demo.memory_packet_cli preview --query "json tool call failed because qwen emitted think tags" --policy failure_first --top-k 5
+python -m ivy_agent_demo.memory_packet_cli preview --query "benchmark qwen 4060 ctx 512 decode_tps" --policy benchmark --top-k 5
+python -m ivy_agent_demo.memory_packet_cli compare --query "json tool call failed because qwen emitted think tags" --policies keyword_only vector_only hybrid_default failure_first
+python -m ivy_agent_demo.memory_packet_eval --cases ivy_agent_demo/memory_packet_eval_cases.json --compare-latest
+```
+
+PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File ivy\scripts\preview_memory_packet.ps1 `
+  -Query "json tool call failed because qwen emitted think tags" `
+  -Policy failure_first `
+  -TopK 5
+```
+
+Packet artifacts are written under `C:\ivy\runs\memory_packet_preview\<timestamp>\`.
+
 ## Qwen Benchmark Smoke
 
 Only run this if both local paths exist:

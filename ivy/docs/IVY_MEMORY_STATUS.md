@@ -32,6 +32,7 @@ Current policy:
 - Hybrid memory search.
 - Memory CLI.
 - Memory retrieval eval harness.
+- Read-only memory packet preview for Phase 2A.
 - Timestamped eval reruns and append-only history.
 - PowerShell rerun helpers.
 
@@ -40,6 +41,7 @@ Current policy:
 - Prompt memory injection.
 - MoME runtime routing.
 - MoCE context assembly.
+- Agent-visible memory packets.
 - Planner or agent-loop changes.
 - Trusted model-authored memory JSON.
 - Mandatory sqlite-vec, Chroma, LanceDB, Postgres, cloud APIs, or external vector services.
@@ -55,7 +57,13 @@ Current policy:
 - `ivy_agent_demo/memory_search.py`
 - `ivy_agent_demo/memory_cli.py`
 - `ivy_agent_demo/memory_eval.py`
+- `ivy_agent_demo/memory_packet.py`
+- `ivy_agent_demo/memory_router.py`
+- `ivy_agent_demo/context_packet.py`
+- `ivy_agent_demo/memory_packet_cli.py`
+- `ivy_agent_demo/memory_packet_eval.py`
 - `ivy_agent_demo/memory_eval_cases.json`
+- `ivy_agent_demo/memory_packet_eval_cases.json`
 - `ivy_agent_demo/memory/ivy_memory.sqlite3`
 
 ## Commands
@@ -67,6 +75,7 @@ python -m ivy_agent_demo.memory_cli ingest --runs-root C:\ivy\runs\phase1_agent_
 python -m ivy_agent_demo.memory_cli ingest --runs-root C:\ivy\runs\qwen36_4060_bench
 python -m ivy_agent_demo.memory_cli stats
 python -m ivy_agent_demo.memory_eval --cases ivy_agent_demo/memory_eval_cases.json --top-k 5 --compare-latest
+python -m ivy_agent_demo.memory_packet_cli preview --query "json tool call failed because qwen emitted think tags" --policy failure_first --top-k 5
 ```
 
 Synthetic eval:
@@ -146,4 +155,4 @@ Earlier smoke observed about `12.68 tok/s` for a similar tiny run. Single-run TP
 
 ## Next Checkpoint Before MoME/MoCE
 
-Implement Phase 2A only: read-only memory packet preview. Retrieve candidate memories and save/print a proposed packet, but do not inject it into prompts.
+Run Phase 2A packet preview and packet eval until packet quality is stable. The next implementation checkpoint should remain read-only unless an explicit opt-in prompt-injection experiment is requested.

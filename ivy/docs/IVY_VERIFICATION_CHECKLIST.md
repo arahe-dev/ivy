@@ -79,3 +79,13 @@ git diff -- ivy_agent_demo\agent_loop.py ivy_agent_demo\validator.py ivy_agent_d
 ```
 
 Expected for this memory consolidation pass: no diff.
+
+## I. Packet preview is passive
+
+```powershell
+python -m ivy_agent_demo.memory_packet_cli self-test
+python -m ivy_agent_demo.memory_packet_cli preview --query "benchmark qwen 4060 ctx 512 decode_tps" --policy benchmark --top-k 5
+python -m ivy_agent_demo.memory_packet_eval --cases ivy_agent_demo/memory_packet_eval_cases.json --compare-latest
+```
+
+Expected: packet artifacts are saved under `C:\ivy\runs\memory_packet_preview`; no prompt injection or agent runtime diff.

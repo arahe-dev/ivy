@@ -153,6 +153,7 @@ The passive memory stack is documented separately from active agent runtime beha
 - `docs/IVY_NEXT_STEPS.md`: staged roadmap before MoME/MoCE.
 - `docs/IVY_VERIFICATION_CHECKLIST.md`: verification commands.
 - `docs/QWEN36_4060_PHASE1.md`: measurement-only Qwen 3.6 35B-A3B RTX 4060 benchmark harness.
+- `docs/IVY_MEMORY_PACKET_PREVIEW.md`: Phase 2A read-only MoME/MoCE-shaped packet preview.
 
 Memory is currently passive: SQLite is the source-of-truth ledger, FTS5 is exact retrieval, vectors are local retrieval hints, and eval runs measure retrieval quality before any prompt injection experiment.
 

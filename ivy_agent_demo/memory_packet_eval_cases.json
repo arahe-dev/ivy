@@ -1,0 +1,44 @@
+{
+  "cases": [
+    {
+      "id": "json_think_tags_packet",
+      "query": "json tool call failed because qwen emitted think tags",
+      "policy": "failure_first",
+      "expected_packet_terms": ["think", "json", "validation"],
+      "expected_experts": ["failure", "keyword", "vector"],
+      "expected_composers": ["debugging", "safety"],
+      "must_have_provenance": true,
+      "notes": "Debug packet should surface think-tag JSON validation memory."
+    },
+    {
+      "id": "qwen_benchmark_packet",
+      "query": "benchmark qwen 4060 ctx 512 decode_tps",
+      "policy": "benchmark",
+      "expected_packet_terms": ["qwen", "ctx=512", "decode_tps"],
+      "expected_experts": ["benchmark", "keyword"],
+      "expected_composers": ["benchmark"],
+      "must_have_provenance": true,
+      "notes": "Benchmark packet should surface Qwen smoke measurements and caution language."
+    },
+    {
+      "id": "absolute_path_safety_packet",
+      "query": "absolute path policy violation sandbox",
+      "policy": "safety_first",
+      "expected_packet_terms": ["path", "policy", "sandbox"],
+      "expected_experts": ["safety", "keyword"],
+      "expected_composers": ["safety"],
+      "must_have_provenance": false,
+      "notes": "May fail until ingestion creates better absolute-path memories."
+    },
+    {
+      "id": "calc_write_workflow_packet",
+      "query": "successful calc write workflow",
+      "policy": "hybrid_default",
+      "expected_packet_terms": ["calc", "write"],
+      "expected_experts": ["hybrid", "keyword"],
+      "expected_composers": ["workflow"],
+      "must_have_provenance": true,
+      "notes": "Workflow packet should surface successful calc/write patterns."
+    }
+  ]
+}
