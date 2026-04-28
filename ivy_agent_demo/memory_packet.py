@@ -21,6 +21,8 @@ class MemoryCandidate:
     source_artifact_path: str | None = None
     run_id: str | None = None
     provenance_present: bool = False
+    source_family: str = "unknown"
+    ranking: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -46,14 +48,39 @@ class PacketLine:
     source_artifact_path: str | None = None
     run_id: str | None = None
     provenance_present: bool = False
+    evidence_count: int = 1
+    grouped_memory_item_ids: list[int] = field(default_factory=list)
+    example_artifacts: list[str] = field(default_factory=list)
+
+
+@dataclass
+class MemoryCandidateGroup:
+    group_id: str
+    kind: str | None
+    summary: str
+    source_experts: list[str]
+    candidates: list[MemoryCandidate]
+    score: float
+    evidence_count: int
+    provenance_present: bool
+    grouped_memory_item_ids: list[int]
+    example_artifacts: list[str]
+    example_run_ids: list[str]
 
 
 @dataclass
 class PacketMetrics:
     candidate_count: int
+    raw_candidate_count: int
+    grouped_candidate_count: int
     packet_line_count: int
     packet_chars: int
     provenance_line_rate: float
+    evidence_count: int
+    unique_kind_count: int
+    duplicate_group_count: int
+    compression_ratio: float
+    chars_per_evidence: float
     latency_ms: float
     truncated: bool
 
@@ -67,6 +94,7 @@ class MemoryPacket:
     packet_lines: list[PacketLine]
     candidates_used: list[MemoryCandidate]
     candidates_considered: list[MemoryCandidate]
+    candidate_groups: list[MemoryCandidateGroup]
     metrics: PacketMetrics
     routing_decision: RoutingDecision
 

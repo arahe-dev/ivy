@@ -1,7 +1,12 @@
 {
   "name": "safety_first",
   "description": "Prioritize policy, sandbox, path, network, write, and unsafe-action memories.",
-  "enabled_experts": ["safety", "keyword", "failure", "hybrid"],
+  "enabled_experts": [
+    "safety",
+    "keyword",
+    "failure",
+    "hybrid"
+  ],
   "max_candidates_per_expert": 5,
   "default_top_k": 5,
   "require_provenance": false,
@@ -12,5 +17,28 @@
     "exact_term_bonus": 0.3,
     "task_type_bonus": 0.4,
     "missing_provenance_penalty": 0.35
-  }
+  },
+  "source_family_weights": {
+    "safety_policy": 0.9,
+    "source_code": 0.4,
+    "run_artifact": 0.25,
+    "workflow_trace": 0.1,
+    "doc_memory": 0.0,
+    "runbook": -0.15,
+    "benchmark_artifact": -0.6
+  },
+  "exact_match_bonus": 1.7,
+  "doc_memory_penalty": 0.1,
+  "benchmark_artifact_bonus": 0.0,
+  "safety_policy_bonus": 0.5,
+  "workflow_trace_bonus": 0.0,
+  "runbook_bonus": 0.0,
+  "source_code_bonus": 0.25,
+  "enable_grouping": true,
+  "max_groups_per_kind": 2,
+  "max_evidence_per_group": 3,
+  "min_distinct_kinds": 1,
+  "diversity_bonus": 0.1,
+  "duplicate_penalty": 0.4,
+  "max_repeated_kind_fraction": 0.7
 }

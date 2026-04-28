@@ -11,6 +11,19 @@
       "notes": "Debug packet should surface think-tag JSON validation memory."
     },
     {
+      "id": "grouped_think_tags_packet",
+      "query": "json tool call failed because qwen emitted think tags",
+      "policy": "failure_first",
+      "expected_packet_terms": ["think", "json", "validation"],
+      "expected_max_lines_for_kind": {
+        "json_contamination_warning": 2
+      },
+      "expected_min_evidence_count": 2,
+      "expected_duplicate_group_count_at_least": 1,
+      "must_have_provenance": true,
+      "notes": "Repeated think-tag memories should be grouped, not listed as five duplicate lines."
+    },
+    {
       "id": "qwen_benchmark_packet",
       "query": "benchmark qwen 4060 ctx 512 decode_tps",
       "policy": "benchmark",
@@ -19,6 +32,16 @@
       "expected_composers": ["benchmark"],
       "must_have_provenance": true,
       "notes": "Benchmark packet should surface Qwen smoke measurements and caution language."
+    },
+    {
+      "id": "qwen_benchmark_grouping_packet",
+      "query": "benchmark qwen 4060 ctx 512 decode_tps",
+      "policy": "benchmark",
+      "expected_packet_terms": ["qwen", "ctx=512", "decode_tps"],
+      "expected_min_evidence_count": 1,
+      "expected_warning_terms": ["single-run", "smoke"],
+      "must_have_provenance": true,
+      "notes": "Benchmark packet should preserve caution around smoke measurements."
     },
     {
       "id": "absolute_path_safety_packet",
@@ -31,6 +54,15 @@
       "notes": "May fail until ingestion creates better absolute-path memories."
     },
     {
+      "id": "safety_packet_no_overclaim",
+      "query": "absolute path policy violation sandbox",
+      "policy": "safety_first",
+      "expected_packet_terms": ["path", "policy", "sandbox"],
+      "must_have_provenance": false,
+      "forbidden_packet_terms": ["guaranteed exact absolute-path evidence"],
+      "notes": "Packet should not claim exact absolute-path evidence unless retrieved evidence supports it."
+    },
+    {
       "id": "calc_write_workflow_packet",
       "query": "successful calc write workflow",
       "policy": "hybrid_default",
@@ -39,6 +71,15 @@
       "expected_composers": ["workflow"],
       "must_have_provenance": true,
       "notes": "Workflow packet should surface successful calc/write patterns."
+    },
+    {
+      "id": "none_policy_empty_packet",
+      "query": "anything",
+      "policy": "none",
+      "expected_packet_terms": ["No memory selected"],
+      "expected_max_packet_lines": 1,
+      "must_have_provenance": false,
+      "notes": "None policy remains an empty baseline packet."
     }
   ]
 }

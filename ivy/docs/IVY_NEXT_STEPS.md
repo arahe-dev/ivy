@@ -15,6 +15,29 @@ This roadmap keeps memory work staged. Do not jump directly to prompt injection 
 - Evaluate packet quality.
 - Measure relevance, provenance, latency, and size.
 - Compare policies.
+- Add grouping/compression and diversity metrics before prompt injection.
+
+## Phase 2B.5: Broader real packet sweep
+
+- Evaluate packet quality across JSON/debug, benchmark, safety, workflow, planning/docs, and general repo tasks.
+- Compare policies by category.
+- Audit overclaim and overcompression risks.
+- Identify candidate policies for Phase 2C.
+
+## Phase 2B.6: Memory coverage backfill
+
+- Ingest source-provenanced docs, source, and runbook memories.
+- Check safety, workflow, and docs/runbook coverage targets.
+- Rerun packet sweeps and confirm sparse categories improve without overclaim risk.
+- Still no prompt injection or agent runtime changes.
+
+## Phase 2B.7: Ranking cleanup
+
+- Classify memory candidates by source family.
+- Prefer source families by task type.
+- Boost exact benchmark/safety/workflow/runbook field matches.
+- Add ranking diagnostics and regression evals for known misses.
+- Still no prompt injection or agent runtime changes.
 
 ## Phase 2C: Opt-in prompt injection experiment
 

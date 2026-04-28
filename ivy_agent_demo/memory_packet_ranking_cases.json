@@ -1,0 +1,60 @@
+{
+  "cases": [
+    {
+      "id": "qwen_ctx512_decode_tps",
+      "category": "benchmark",
+      "query": "qwen 4060 ctx 512 decode_tps",
+      "policy": "benchmark",
+      "expected_preferred_source_family": "benchmark_artifact",
+      "expected_terms": ["qwen", "ctx=512", "decode_tps"]
+    },
+    {
+      "id": "qwen_gpu_layers",
+      "category": "benchmark",
+      "query": "qwen n_gpu_layers 20 benchmark",
+      "policy": "benchmark",
+      "expected_preferred_source_family": "benchmark_artifact",
+      "expected_terms": ["n_gpu_layers", "20"]
+    },
+    {
+      "id": "write_outside_sandbox",
+      "category": "safety",
+      "query": "write outside sandbox policy",
+      "policy": "safety_first",
+      "expected_preferred_source_family": "safety_policy",
+      "expected_terms": ["write", "sandbox"]
+    },
+    {
+      "id": "unsafe_delete_network",
+      "category": "safety",
+      "query": "unsafe delete network intent policy",
+      "policy": "safety_first",
+      "expected_preferred_source_family": "safety_policy",
+      "expected_terms": ["delete", "network", "policy"]
+    },
+    {
+      "id": "fs_read_json_validate",
+      "category": "workflow",
+      "query": "fs_read then json_validate workflow",
+      "policy": "hybrid_default",
+      "expected_preferred_source_family": "workflow_trace",
+      "expected_terms": ["fs_read", "json_validate"]
+    },
+    {
+      "id": "rerun_memory_eval",
+      "category": "runbook",
+      "query": "rerun memory eval command",
+      "policy": "hybrid_default",
+      "expected_preferred_source_family": "runbook",
+      "expected_terms": ["memory_eval"]
+    },
+    {
+      "id": "benchmark_memory_policy_choice",
+      "category": "general_repo",
+      "query": "what memory policy should be used for benchmark memory",
+      "policy": "hybrid_default",
+      "expected_preferred_source_family": "doc_memory",
+      "expected_terms": ["benchmark", "policy"]
+    }
+  ]
+}

@@ -141,6 +141,44 @@ The self-test builds a synthetic DB under `runs/memory_packet_preview/selftest_<
 - Sparse real DBs can miss expected packets.
 - The previous absolute-path retrieval case may still need better source memories.
 
+## Phase 2B Packet Quality
+
+Phase 2B adds grouping, compression, diversity controls, and packet-quality metrics. It is still preview-only.
+
+Repeated memories are grouped before packet text is produced. For example, several Qwen benchmark response memories that all say `<think>` tags appeared before or inside generated text are compressed into one validation/debug warning line with multiple supporting artifacts.
+
+Policy controls include:
+
+- `enable_grouping`
+- `max_groups_per_kind`
+- `max_evidence_per_group`
+- `min_distinct_kinds`
+- `diversity_bonus`
+- `duplicate_penalty`
+- `max_repeated_kind_fraction`
+
+Packet metrics include:
+
+- raw and grouped candidate counts
+- evidence count
+- unique kind count
+- duplicate group count
+- compression ratio
+- chars per evidence
+- provenance line rate
+
+Inspect `packet_report.md` for grouped evidence and raw candidate tables.
+
 ## Next Step
 
 Run packet eval on real memory and inspect misses. Only after packet quality is stable should Phase 2B evaluate packet quality more deeply, still without prompt injection.
+
+## Broader Sweep
+
+Phase 2B.5 adds `memory_packet_sweep.py` for broader real task categories and policy matrix comparison.
+
+```powershell
+python -m ivy_agent_demo.memory_packet_sweep --cases ivy_agent_demo/memory_packet_eval_real_cases.json --compare-latest --inspect-failures
+```
+
+The sweep reports overclaim, overcompression, empty packet, latency, size, and policy-by-category findings.

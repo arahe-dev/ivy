@@ -1,0 +1,203 @@
+{
+  "cases": [
+    {
+      "id": "json_qwen_think_tags",
+      "category": "json_tool_debug",
+      "query": "json tool call failed because qwen emitted think tags",
+      "policies_to_test": ["keyword_only", "vector_only", "hybrid_default", "failure_first"],
+      "expected_packet_terms": ["think", "json", "validation"],
+      "expected_experts": ["failure", "keyword"],
+      "expected_composers": ["debugging", "safety"],
+      "must_have_provenance": true,
+      "expected_min_evidence_count": 2,
+      "overclaim_risk_terms": ["guaranteed", "definitely", "always"],
+      "notes": "Repeated think-tag memories should compress and preserve evidence."
+    },
+    {
+      "id": "json_reasoning_prose_tool_output",
+      "category": "json_tool_debug",
+      "query": "model emits reasoning prose around tool output validation invalid json",
+      "policies_to_test": ["hybrid_default", "failure_first"],
+      "expected_packet_terms": ["json", "validation"],
+      "must_have_provenance": true,
+      "expected_min_evidence_count": 1,
+      "notes": "Looks for memories about prose/reasoning contamination around tool JSON."
+    },
+    {
+      "id": "json_repair_risk",
+      "category": "json_tool_debug",
+      "query": "validation failed invalid JSON repair risk",
+      "policies_to_test": ["keyword_only", "failure_first", "hybrid_default"],
+      "expected_packet_terms": ["validation", "json"],
+      "must_have_provenance": true,
+      "notes": "Repair guidance should stay evidence-backed."
+    },
+    {
+      "id": "qwen_ctx512_decode_tps",
+      "category": "benchmark",
+      "query": "benchmark qwen 4060 ctx 512 decode_tps",
+      "policies_to_test": ["keyword_only", "hybrid_default", "benchmark"],
+      "expected_packet_terms": ["qwen", "ctx=512", "decode_tps"],
+      "expected_warning_terms": ["single-run", "smoke"],
+      "must_have_provenance": true,
+      "expected_min_evidence_count": 1,
+      "notes": "Benchmark packet should include smoke-data caution."
+    },
+    {
+      "id": "qwen_cache_config",
+      "category": "benchmark",
+      "query": "qwen cache_k cache_v benchmark config f16",
+      "policies_to_test": ["hybrid_default", "benchmark"],
+      "expected_packet_terms": ["cache_k", "cache_v"],
+      "must_have_provenance": true,
+      "notes": "Looks for benchmark config memory."
+    },
+    {
+      "id": "qwen_gpu_layers",
+      "category": "benchmark",
+      "query": "qwen n_gpu_layers benchmark 4060",
+      "policies_to_test": ["hybrid_default", "benchmark"],
+      "expected_packet_terms": ["n_gpu_layers", "qwen"],
+      "must_have_provenance": true,
+      "notes": "Looks for GPU-layer benchmark config memory."
+    },
+    {
+      "id": "qwen_unstable_tps_caution",
+      "category": "benchmark",
+      "query": "unstable single run TPS qwen benchmark caution",
+      "policies_to_test": ["benchmark", "hybrid_default"],
+      "expected_packet_terms": ["qwen"],
+      "expected_warning_terms": ["single-run", "smoke"],
+      "must_have_provenance": true,
+      "notes": "Packet should not present one run as final performance."
+    },
+    {
+      "id": "absolute_path_policy",
+      "category": "safety",
+      "query": "absolute path policy violation sandbox",
+      "policies_to_test": ["keyword_only", "hybrid_default", "safety_first"],
+      "expected_packet_terms": ["path", "policy", "sandbox"],
+      "must_have_provenance": false,
+      "overclaim_risk_terms": ["confirmed absolute-path failure", "definitely caused", "guaranteed"],
+      "notes": "Known sparse area; do not overclaim exact evidence."
+    },
+    {
+      "id": "write_outside_sandbox",
+      "category": "safety",
+      "query": "write outside sandbox policy violation",
+      "policies_to_test": ["keyword_only", "safety_first"],
+      "expected_packet_terms": ["write", "sandbox"],
+      "must_have_provenance": true,
+      "notes": "Should retrieve write policy or sandbox memories if present."
+    },
+    {
+      "id": "path_traversal",
+      "category": "safety",
+      "query": "path traversal sandbox relative path policy",
+      "policies_to_test": ["keyword_only", "safety_first"],
+      "expected_packet_terms": ["path", "sandbox"],
+      "must_have_provenance": true,
+      "notes": "Path traversal memories exist in agent demo runs."
+    },
+    {
+      "id": "unsafe_delete_network",
+      "category": "safety",
+      "query": "unsafe delete network intent policy blocked",
+      "policies_to_test": ["keyword_only", "safety_first", "failure_first"],
+      "expected_packet_terms": ["unsafe"],
+      "must_have_provenance": true,
+      "notes": "Looks for delete/network safety memories."
+    },
+    {
+      "id": "sandbox_relative_rule",
+      "category": "safety",
+      "query": "sandbox relative path rule for tools",
+      "policies_to_test": ["safety_first", "hybrid_default"],
+      "expected_packet_terms": ["sandbox", "path"],
+      "must_have_provenance": false,
+      "notes": "May be indirect if only run summaries were ingested."
+    },
+    {
+      "id": "calc_write_workflow",
+      "category": "workflow",
+      "query": "successful calc write workflow",
+      "policies_to_test": ["keyword_only", "hybrid_default", "recent_buffer"],
+      "expected_packet_terms": ["calc", "write"],
+      "must_have_provenance": true,
+      "expected_min_evidence_count": 1,
+      "notes": "Successful calc/write workflow exists."
+    },
+    {
+      "id": "fs_read_json_validate",
+      "category": "workflow",
+      "query": "fs_read then json_validate workflow",
+      "policies_to_test": ["keyword_only", "hybrid_default"],
+      "expected_packet_terms": ["json", "validate"],
+      "must_have_provenance": true,
+      "notes": "Looks for file-read then JSON validation scenarios."
+    },
+    {
+      "id": "file_read_write_sandbox",
+      "category": "workflow",
+      "query": "file read write sandbox workflow",
+      "policies_to_test": ["hybrid_default", "safety_first"],
+      "expected_packet_terms": ["read", "write"],
+      "must_have_provenance": true,
+      "notes": "Looks for sandboxed read/write workflow patterns."
+    },
+    {
+      "id": "tool_sequence_failure",
+      "category": "workflow",
+      "query": "tool sequence success failure validation",
+      "policies_to_test": ["failure_first", "hybrid_default"],
+      "expected_packet_terms": ["tool"],
+      "must_have_provenance": true,
+      "notes": "Looks for successful or failed tool sequence memories."
+    },
+    {
+      "id": "memory_roadmap",
+      "category": "planning_docs",
+      "query": "memory roadmap Phase 2A 2B next step",
+      "policies_to_test": ["hybrid_default", "keyword_only"],
+      "expected_packet_terms": ["memory"],
+      "must_have_provenance": false,
+      "notes": "May be sparse because docs are not canonical memory unless ingested."
+    },
+    {
+      "id": "mome_moce_packet_preview",
+      "category": "planning_docs",
+      "query": "MoME MoCE packet preview documentation",
+      "policies_to_test": ["hybrid_default", "keyword_only"],
+      "expected_packet_terms": ["packet"],
+      "must_have_provenance": false,
+      "notes": "May be sparse until docs are ingested."
+    },
+    {
+      "id": "memory_artifact_locations",
+      "category": "general_repo",
+      "query": "where are memory packet preview artifacts saved",
+      "policies_to_test": ["hybrid_default", "keyword_only"],
+      "expected_packet_terms": ["memory"],
+      "must_have_provenance": false,
+      "notes": "Docs/runbook memory may be sparse in DB."
+    },
+    {
+      "id": "rerun_memory_eval",
+      "category": "general_repo",
+      "query": "how to rerun memory eval compare latest",
+      "policies_to_test": ["hybrid_default", "keyword_only"],
+      "expected_packet_terms": ["eval"],
+      "must_have_provenance": false,
+      "notes": "Docs/runbook memory may be sparse in DB."
+    },
+    {
+      "id": "benchmark_memory_policy_choice",
+      "category": "general_repo",
+      "query": "what policy should be used for benchmark memory",
+      "policies_to_test": ["benchmark", "hybrid_default", "keyword_only"],
+      "expected_packet_terms": ["benchmark"],
+      "must_have_provenance": false,
+      "notes": "Benchmark policy should usually win for benchmark memory."
+    }
+  ]
+}

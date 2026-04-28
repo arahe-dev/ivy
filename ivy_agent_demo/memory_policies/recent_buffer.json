@@ -1,7 +1,9 @@
 {
   "name": "recent_buffer",
   "description": "Recent memory buffer baseline ordered by ledger insertion time.",
-  "enabled_experts": ["recent"],
+  "enabled_experts": [
+    "recent"
+  ],
   "max_candidates_per_expert": 8,
   "default_top_k": 5,
   "require_provenance": false,
@@ -12,5 +14,26 @@
     "exact_term_bonus": 0.05,
     "task_type_bonus": 0.05,
     "missing_provenance_penalty": 0.4
-  }
+  },
+  "source_family_weights": {
+    "benchmark_artifact": 0.2,
+    "safety_policy": 0.2,
+    "workflow_trace": 0.2,
+    "runbook": 0.1,
+    "doc_memory": -0.1
+  },
+  "exact_match_bonus": 1.2,
+  "doc_memory_penalty": 0.05,
+  "benchmark_artifact_bonus": 0.0,
+  "safety_policy_bonus": 0.0,
+  "workflow_trace_bonus": 0.0,
+  "runbook_bonus": 0.0,
+  "source_code_bonus": 0.0,
+  "enable_grouping": true,
+  "max_groups_per_kind": 2,
+  "max_evidence_per_group": 3,
+  "min_distinct_kinds": 1,
+  "diversity_bonus": 0.1,
+  "duplicate_penalty": 0.2,
+  "max_repeated_kind_fraction": 0.7
 }

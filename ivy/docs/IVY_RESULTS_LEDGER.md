@@ -75,3 +75,45 @@ Reason: the default DB was empty.
 | provenance_present_rate | 0.75 |
 
 `0.75` means 3 of 4 default cases passed. Inspect `memory_eval_report.md` in that run to identify the missed case before changing retrieval logic.
+
+## Memory Packet Quality
+
+Phase 2B compresses duplicate-heavy packets. The known failure-first query for `json tool call failed because qwen emitted think tags` now groups repeated `json_contamination_warning` memories into one packet line while preserving multiple evidence artifacts.
+
+Key expected indicators:
+
+| Metric | Expected |
+|---|---:|
+| duplicate_group_count | `> 0` for repeated think-tag memories |
+| compression_ratio | `< 1.0` for duplicate-heavy packets |
+| provenance_line_rate | `1.0` when evidence is available |
+
+## Packet Sweep
+
+Phase 2B.5 adds broader real packet sweeps across categories. Results are written under `C:\ivy\runs\memory_packet_sweep`.
+
+Use the sweep to identify candidate policies for Phase 2C, not to claim the packet is ready for prompt injection.
+
+Baseline Phase 2B.5 sweep before docs/source coverage backfill:
+
+| Metric | Value |
+|---|---:|
+| overall packet_term_hit_rate | 0.82 |
+| safety hit_rate | 0.6667 |
+| general_repo hit_rate | 0.5714 |
+| empty_packet_count | 14 |
+| overclaim_risk_count | 0 |
+| overcompression_risk_count | 0 |
+
+Phase 2B.6 adds source-provenanced docs/source ingestion and coverage checks. Record post-backfill sweep results from `runs/memory_packet_sweep/<timestamp>/sweep_report.md`.
+
+Phase 2B.7 adds source-family ranking cleanup. Track:
+
+| Metric | Meaning |
+|---|---|
+| top_1_source_family_hit_rate | known-miss query top result came from expected source family |
+| top_3_source_family_hit_rate | expected source family appeared in top 3 |
+| term_hit_rate | expected terms appeared in ranked candidates |
+| known_miss_recovery_rate | expected source family and terms both recovered |
+
+Reports are written under `C:\ivy\runs\memory_ranking_eval`.

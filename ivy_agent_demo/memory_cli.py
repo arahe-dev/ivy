@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .memory_doc_ingest import default_paths, ingest_docs
 from .memory_ingest import ingest_run_dir, ingest_runs_root
 from .memory_search import hybrid_search, keyword_search, vector_search, vectorize_memory_items
 from .memory_store import DEFAULT_DB_PATH, MemoryStore
@@ -39,6 +40,13 @@ def main() -> None:
     group.add_argument("--runs-root")
     p_ingest.add_argument("--json", action="store_true")
 
+    p_ingest_docs = sub.add_parser("ingest-docs")
+    p_ingest_docs.add_argument("--docs-root", default="ivy/docs")
+    p_ingest_docs.add_argument("--include-source", action="store_true")
+    p_ingest_docs.add_argument("--all-defaults", action="store_true")
+    p_ingest_docs.add_argument("--dry-run", action="store_true")
+    p_ingest_docs.add_argument("--json", action="store_true")
+
     p_search = sub.add_parser("search")
     p_search.add_argument("--query", required=True)
     p_search.add_argument("--limit", type=int, default=10)
@@ -72,6 +80,15 @@ def main() -> None:
         vectorized = vectorize_memory_items(db)
         counts["vectorized"] = vectorized
         emit(counts, args.json)
+    elif args.cmd == "ingest-docs":
+        docs_root = Path(args.docs_root)
+        include_source = args.include_source or args.all_defaults
+        paths = default_paths(docs_root, include_source)
+        if not args.all_defaults:
+            paths = sorted(docs_root.glob("*.md")) if docs_root.exists() else []
+            if args.include_source:
+                paths = default_paths(docs_root, True)
+        emit(ingest_docs(db, paths, include_source, args.dry_run), args.json)
     elif args.cmd == "search":
         rows, used_fts = keyword_search(args.query, db, args.limit)
         if not args.json and not used_fts:
