@@ -1,0 +1,41 @@
+{
+  "cases": [
+    {
+      "id": "json_think_tags_failure",
+      "query": "json tool call failed because model emitted reasoning tags",
+      "search_mode": "hybrid",
+      "expected_terms": ["think", "json", "validation"],
+      "expected_kind": "json_contamination_warning",
+      "must_have_provenance": true,
+      "notes": "Find validation or contamination memories involving reasoning/think tags in JSON-like outputs."
+    },
+    {
+      "id": "qwen_4060_ctx512_benchmark",
+      "query": "benchmark qwen 4060 ctx 512",
+      "search_mode": "hybrid",
+      "expected_terms": ["qwen", "ctx=512", "decode_tps"],
+      "expected_kind": "benchmark_result",
+      "expected_source_hint": "qwen36_4060_bench",
+      "must_have_provenance": true,
+      "notes": "Find Qwen 3.6 4060 benchmark memory for the ctx=512 smoke configuration."
+    },
+    {
+      "id": "absolute_path_policy_violation",
+      "query": "absolute path policy violation",
+      "search_mode": "keyword",
+      "expected_terms": ["path", "policy", "absolute"],
+      "expected_kind": "policy_warning",
+      "must_have_provenance": true,
+      "notes": "Find safety memory about absolute path policy violations."
+    },
+    {
+      "id": "successful_calc_write_workflow",
+      "query": "successful calc write workflow",
+      "search_mode": "hybrid",
+      "expected_terms": ["calc", "write", "success"],
+      "expected_kind": "successful_pattern",
+      "must_have_provenance": true,
+      "notes": "Find successful workflow memory involving calculation and writing output."
+    }
+  ]
+}

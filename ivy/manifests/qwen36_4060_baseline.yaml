@@ -1,0 +1,27 @@
+# Conservative Phase 1 measurement manifest for Qwen 3.6 35B-A3B on an RTX 4060 Laptop 8GB.
+# Replace CHANGE_ME paths or pass -ModelPath / -LlamaServerPath to the benchmark script.
+name: qwen36_4060_baseline
+
+paths:
+  model: CHANGE_ME_QWEN36_35B_A3B_GGUF_PATH
+  runtime: CHANGE_ME_LLAMA_CPP_LLAMA_SERVER_EXE
+
+server:
+  host: 127.0.0.1
+  port: 8081
+  threads: 14
+  threads_batch: 14
+  flash_attn: on
+  n_cpu_moe: 16
+
+generation:
+  seed: 12345
+  temperature: 0.0
+  top_k: 1
+  top_p: 1.0
+  min_p: 0.0
+  repeat_penalty: 1.0
+  cache_prompt: true
+
+output:
+  run_root: C:\ivy\runs\qwen36_4060_bench

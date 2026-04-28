@@ -34,6 +34,7 @@
 | Tool safety | Phase 1.2.1 sandbox agent: **25/25** scenarios pass, **0** unsafe failures; strict JSON + policy gate (no shell/network/delete; reads sandboxed, writes only to `out/`) |
 | Tool reliability (benchmark) | 25-case benchmark: 96% raw strict pass, 100% final pass with validator/retry |
 | Cache reuse (agent demo) | Phase 1.1: all steps `partial_reuse` (13) vs Phase 1: all `cold_or_lost_reuse` (15); avg `prompt_ms` **6322.6 → 2854.2** (2.2x faster) |
+| Passive memory | SQLite ledger + FTS5 + deterministic hashed-vector fallback; retrieval eval exists, no prompt injection |
 | Fast prose path | Q2/IQ2 remains useful, but is not trusted for raw tool use |
 | KV eviction | Circular KV Lite is simulation/observability-only for this model |
 
@@ -51,6 +52,7 @@ IVY focuses on the parts that decide whether a local model is actually usable:
 - hot-session prompt/KV reuse
 - strict JSON and tool-call reliability
 - reproducible benchmark harnesses
+- passive memory retrieval evaluation before prompt injection
 - structured autoresearch loops
 
 Test machine:
@@ -140,6 +142,19 @@ Each run writes:
 - `result.json`
 - `server_command.txt`
 - `hot_session_log.md`
+
+## Memory And Evaluation Docs
+
+The passive memory stack is documented separately from active agent runtime behavior:
+
+- `docs/IVY_MEMORY_STATUS.md`: current passive memory architecture and checkpoint results.
+- `docs/IVY_BUILD_AND_RUNBOOK.md`: copy-paste commands for memory, eval, and Qwen smoke runs.
+- `docs/IVY_RESULTS_LEDGER.md`: first benchmark, ingestion, and eval results.
+- `docs/IVY_NEXT_STEPS.md`: staged roadmap before MoME/MoCE.
+- `docs/IVY_VERIFICATION_CHECKLIST.md`: verification commands.
+- `docs/QWEN36_4060_PHASE1.md`: measurement-only Qwen 3.6 35B-A3B RTX 4060 benchmark harness.
+
+Memory is currently passive: SQLite is the source-of-truth ledger, FTS5 is exact retrieval, vectors are local retrieval hints, and eval runs measure retrieval quality before any prompt injection experiment.
 
 ---
 
