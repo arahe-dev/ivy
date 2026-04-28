@@ -118,6 +118,19 @@ Phase 2B.7 adds source-family ranking cleanup. Track:
 
 Reports are written under `C:\ivy\runs\memory_ranking_eval`.
 
+## Phase 2C: Opt-in Memory Injection Experiment
+
+Memory injection harness is ready under `ivy_agent_demo/memory_injection_experiment.py`. It compares runs with and without memory-packet augmentation.
+
+| Metric | Value |
+|---|---|
+| experiment harness | exists (dry-run works) |
+| packet augmentation | advisory header + packet + current task |
+| none policy baseline | true baseline (no memory) |
+| forbidden diffs | none |
+
+Current limitation: Real agent execution requires a clean programmatic runner path. Dry-run validates harness mechanics.
+
 ## AutoResearch Harness
 
 AutoResearch is a bounded experiment manager for memory packet/ranking improvements. It logs per-iteration metrics, decisions, and diffs under `C:\ivy\runs\autoresearch` without changing the agent runtime.

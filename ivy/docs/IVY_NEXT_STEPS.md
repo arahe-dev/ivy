@@ -47,9 +47,11 @@ This roadmap keeps memory work staged. Do not jump directly to prompt injection 
 
 ## Phase 2C: Opt-in prompt injection experiment
 
-- Gate behind explicit CLI flag.
-- Compare no-memory vs keyword-only vs vector-only vs hybrid.
-- Measure JSON validity, tool failures, steps, latency, and task success.
+- Gate behind explicit CLI flags.
+- Compare no-memory vs memory-packet augmented runs.
+- Use existing packet preview to build advisory context.
+- Measure task success, artifacts, and correctness.
+- Phase 2C harness ready; real execution needs clean runner interface.
 
 ## Phase 3: Hot buffer / LRU
 

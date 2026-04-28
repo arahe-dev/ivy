@@ -130,12 +130,17 @@ python -m ivy_agent_demo.memory_ranking_eval --cases ivy_agent_demo\memory_packe
 
 Expected: diagnostics include `source_family`, matched terms, and ranking scores. Ranking eval writes reports under `C:\ivy\runs\memory_ranking_eval`.
 
-## M. AutoResearch harness
+## N. Phase 2C memory injection experiment
 
 ```powershell
-python -m ivy_agent_demo.autoresearch --self-test
-python -m ivy_agent_demo.autoresearch --config ivy_agent_demo/autoresearch_config.json --dry-run
-python -m ivy_agent_demo.autoresearch_metrics latest
+python -m py_compile ivy_agent_demo\memory_injection_experiment.py
+python -m ivy_agent_demo.memory_injection_experiment --self-test
+python -m ivy_agent_demo.memory_injection_experiment --cases ivy_agent_demo\memory_injection_cases.json --dry-run
+git diff -- ivy_agent_demo\validator.py ivy_agent_demo\policy.py ivy_agent_demo\tools.py
 ```
+
+Expected: self-test passes, dry-run produces experiment outputs, no forbidden file diffs.
+
+Note: Real experiment execution needs a clean programmatic runner path. Use dry-run for harness validation.
 
 Expected: self-test passes, dry-run prints planned commands/candidates/criteria, and metrics snapshot prints latest run stats.

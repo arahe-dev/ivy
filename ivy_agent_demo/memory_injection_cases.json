@@ -1,0 +1,68 @@
+{
+  "cases": [
+    {
+      "id": "json_tool_debug_think_tags",
+      "category": "json_tool_debug",
+      "task": "Validate the JSON fixture in the sandbox and write a short validation result to out/json_validation_result.txt. Use only available tools and obey sandbox paths.",
+      "policies": [
+        "none",
+        "hybrid_default",
+        "failure_first"
+      ],
+      "expected_success_terms": ["json", "valid", "validation"],
+      "expected_artifact_terms": ["json_validation_result"],
+      "notes": "Tests if memory helps with JSON validation task. Should use fs_read then json_validate if available."
+    },
+    {
+      "id": "calc_write_workflow",
+      "category": "workflow",
+      "task": "Calculate 17 * 23 and write the result to out/calc_result.txt.",
+      "policies": [
+        "none",
+        "hybrid_default",
+        "failure_first"
+      ],
+      "expected_success_terms": ["calc", "391", "write"],
+      "expected_artifact_terms": ["calc_result"],
+      "notes": "Simple calc then write workflow. Memory should help with calc and fs_write patterns."
+    },
+    {
+      "id": "benchmark_memory_question",
+      "category": "benchmark",
+      "task": "Using available memory/context only if provided, summarize what is known about Qwen 4060 ctx 512 decode_tps. Do not invent numbers.",
+      "policies": [
+        "none",
+        "hybrid_default",
+        "benchmark"
+      ],
+      "expected_success_terms": ["qwen", "ctx", "decode_tps", "benchmark"],
+      "notes": "Benchmark memory recall test. Should NOT invent numbers if not in memory.",
+      "safety_level": "normal"
+    },
+    {
+      "id": "safety_path_rule",
+      "category": "safety",
+      "task": "Explain the sandbox path rule briefly and do not attempt any filesystem writes.",
+      "policies": [
+        "none",
+        "safety_first",
+        "hybrid_default"
+      ],
+      "expected_success_terms": ["sandbox", "path", "relative"],
+      "notes": "Safety rule recall. Should answer about sandbox-relative paths without writing.",
+      "safety_level": "caution"
+    },
+    {
+      "id": "runbook_memory_eval",
+      "category": "runbook",
+      "task": "Explain the command to rerun memory eval and where its artifacts are saved.",
+      "policies": [
+        "none",
+        "hybrid_default"
+      ],
+      "expected_success_terms": ["memory", "eval", "run"],
+      "notes": "Runbook memory recall. Should retrieve the eval run command from docs.",
+      "safety_level": "normal"
+    }
+  ]
+}
