@@ -79,7 +79,7 @@ def build_packet(task: str, category: str, policy: str, max_chars: int) -> dict:
     }
 
 
-def run_agent_task(task: str, category: str, args, out_dir: Path) -> dict:
+def run_agent_task(task: str, category: str, args, out_dir: Path, policy: str) -> dict:
     case_id_map = {
         "benchmark": "benchmark_memory_question",
         "runbook": "runbook_memory_eval",
@@ -90,7 +90,6 @@ def run_agent_task(task: str, category: str, args, out_dir: Path) -> dict:
     
     case_id = case_id_map.get(category, f"guarded_preview_{category}")
     
-    policy = args.policy or "mome_auto"
     command = [
         "python",
         "-m",
@@ -143,6 +142,7 @@ def run_agent_task(task: str, category: str, args, out_dir: Path) -> dict:
         "stdout": proc.stdout if "proc" in locals() else "",
         "stderr": proc.stderr if "proc" in locals() else "",
         "command": command,
+        "policy": policy,
     }
 
 
@@ -194,7 +194,7 @@ def load_nested_experiment_result(run_dir: Path) -> dict | None:
         return None
 
 
-def parse_guarded_execution_result(run_dir: Path) -> dict:
+def parse_guarded_execution_result(run_dir: Path, expected_policy: str) -> dict:
     result = {
         "completed": False,
         "success": False,
@@ -212,12 +212,22 @@ def parse_guarded_execution_result(run_dir: Path) -> dict:
         result["error_message"] = "no case results in nested experiment"
         return result
     
-    case_result = results[0]
+    case_result = None
+    for item in results:
+        if item.get("policy") == expected_policy:
+            case_result = item
+            break
+    if not case_result:
+        case_result = results[0]
     evaluation = case_result.get("evaluation") or {}
     output_check = case_result.get("output_file_check") or case_result.get("calc_output_check") or {}
     
+    actual_policy = case_result.get("policy")
     result.update(
         {
+            "expected_policy": expected_policy,
+            "actual_policy": actual_policy,
+            "policy_match": actual_policy == expected_policy,
             "completed": bool(evaluation.get("completed")),
             "success": bool(evaluation.get("passed") or evaluation.get("success")),
             "classification": evaluation.get("classification") or "inconclusive",
@@ -313,12 +323,12 @@ def run_inject_mode(task: str, category: str, args, out_dir: Path) -> dict:
     exec_result = {"classification": "evaluator_missing", "completed": False}
     
     if getattr(args, "execute", False):
-        agent_result = run_agent_task(augmented, category, args, run_inject_dir)
+        agent_result = run_agent_task(augmented, category, args, run_inject_dir, policy)
         (run_inject_dir / "stdout.log").write_text(agent_result.get("stdout", ""), encoding="utf-8")
         (run_inject_dir / "stderr.log").write_text(agent_result.get("stderr", ""), encoding="utf-8")
         (run_inject_dir / "execution_command.json").write_text(json.dumps(agent_result.get("command", []), indent=2), encoding="utf-8")
         
-        nested_result = parse_guarded_execution_result(run_inject_dir)
+        nested_result = parse_guarded_execution_result(run_inject_dir, policy)
         if nested_result.get("structured_result_source"):
             exec_result = {
                 **nested_result,
@@ -338,6 +348,7 @@ def run_inject_mode(task: str, category: str, args, out_dir: Path) -> dict:
         "mode": "inject",
         "category": category,
         "policy": policy,
+        "expected_policy": policy,
         "augmented_task": augmented,
         "packet_text": result["packet_text"],
         "blocked": False,
@@ -356,14 +367,15 @@ def run_compare_mode(task: str, category: str, args, out_dir: Path) -> dict:
     (run_off_dir / "task_original.txt").write_text(task, encoding="utf-8")
     
     off_exec_result = {"classification": "off_baseline", "completed": False}
+    off_policy = "none"
     
     if getattr(args, "execute", False):
-        off_result = run_agent_task(task, category, args, run_off_dir)
+        off_result = run_agent_task(task, category, args, run_off_dir, off_policy)
         (run_off_dir / "stdout.log").write_text(off_result.get("stdout", ""), encoding="utf-8")
         (run_off_dir / "stderr.log").write_text(off_result.get("stderr", ""), encoding="utf-8")
         (run_off_dir / "execution_command.json").write_text(json.dumps(off_result.get("command", []), indent=2), encoding="utf-8")
         
-        nested_result = parse_guarded_execution_result(run_off_dir)
+        nested_result = parse_guarded_execution_result(run_off_dir, off_policy)
         if nested_result.get("structured_result_source"):
             off_exec_result = {
                 **nested_result,
@@ -413,7 +425,7 @@ def run_compare_mode(task: str, category: str, args, out_dir: Path) -> dict:
             "mode": "compare",
             "task": task,
             "category": category,
-            "off_result": {"mode": "off", "category": category, "task": task, "execution_result": off_exec},
+            "off_result": {"mode": "off", "category": category, "task": task, "execution_result": off_exec, "expected_policy": off_policy},
             "inject_result": inject_result,
             "comparison_available": True,
             "classification": classification,
@@ -422,34 +434,40 @@ def run_compare_mode(task: str, category: str, args, out_dir: Path) -> dict:
 
     comparison_report = out_dir / "comparison_report.md"
     comparison_lines = [
-            "# MoME Guarded Preview Comparison",
-            "",
-            f"- category: `{category}`",
-            f"- classification: `{comparison.get('classification')}`",
-            f"- run_dir: `{out_dir}`",
-            "",
-            "## Off Result",
-            f"- completed: `{off_exec_result.get('completed')}`",
-            f"- success: `{off_exec_result.get('success', False)}`",
-            f"- classification: `{off_exec_result.get('classification')}`",
-            f"- tool_steps: `{len(off_exec_result.get('tool_steps') or [])}`",
-            f"- repair_count: `{off_exec_result.get('repair_count', 0)}`",
-            f"- validation_failures_count: `{off_exec_result.get('validation_failures_count', 0)}`",
-            f"- policy_failures_count: `{off_exec_result.get('policy_failures_count', 0)}`",
-            "",
-            "## Inject Result",
-            f"- completed: `{inject_exec.get('completed') if inject_result.get('execution_result') else False}`",
-            f"- success: `{inject_exec.get('success', False)}`",
-            f"- classification: `{inject_exec.get('classification', 'evaluator_missing')}`",
-            f"- tool_steps: `{len(inject_exec.get('tool_steps') or [])}`",
-            f"- repair_count: `{inject_exec.get('repair_count', 0)}`",
-            f"- validation_failures_count: `{inject_exec.get('validation_failures_count', 0)}`",
-            f"- policy_failures_count: `{inject_exec.get('policy_failures_count', 0)}`",
-            "",
-            "## Structured Sources",
-            f"- off_source: `{off_exec_result.get('structured_result_source')}`",
-            f"- inject_source: `{inject_exec.get('structured_result_source')}`",
-        ]
+        "# MoME Guarded Preview Comparison",
+        "",
+        f"- category: `{category}`",
+        f"- classification: `{comparison.get('classification')}`",
+        f"- run_dir: `{out_dir}`",
+        "",
+        "## Off Result",
+        f"- expected_policy: `{off_exec_result.get('expected_policy')}`",
+        f"- actual_policy: `{off_exec_result.get('actual_policy')}`",
+        f"- policy_match: `{off_exec_result.get('policy_match')}`",
+        f"- completed: `{off_exec_result.get('completed')}`",
+        f"- success: `{off_exec_result.get('success', False)}`",
+        f"- classification: `{off_exec_result.get('classification')}`",
+        f"- tool_steps: `{len(off_exec_result.get('tool_steps') or [])}`",
+        f"- repair_count: `{off_exec_result.get('repair_count', 0)}`",
+        f"- validation_failures_count: `{off_exec_result.get('validation_failures_count', 0)}`",
+        f"- policy_failures_count: `{off_exec_result.get('policy_failures_count', 0)}`",
+        "",
+        "## Inject Result",
+        f"- expected_policy: `{inject_exec.get('expected_policy')}`",
+        f"- actual_policy: `{inject_exec.get('actual_policy')}`",
+        f"- policy_match: `{inject_exec.get('policy_match')}`",
+        f"- completed: `{inject_exec.get('completed') if inject_result.get('execution_result') else False}`",
+        f"- success: `{inject_exec.get('success', False)}`",
+        f"- classification: `{inject_exec.get('classification', 'evaluator_missing')}`",
+        f"- tool_steps: `{len(inject_exec.get('tool_steps') or [])}`",
+        f"- repair_count: `{inject_exec.get('repair_count', 0)}`",
+        f"- validation_failures_count: `{inject_exec.get('validation_failures_count', 0)}`",
+        f"- policy_failures_count: `{inject_exec.get('policy_failures_count', 0)}`",
+        "",
+        "## Structured Sources",
+        f"- off_source: `{off_exec_result.get('structured_result_source')}`",
+        f"- inject_source: `{inject_exec.get('structured_result_source')}`",
+    ]
     comparison_report.write_text("\n".join(comparison_lines) + "\n", encoding="utf-8")
     comparison["comparison_report_path"] = str(comparison_report)
     
@@ -697,13 +715,17 @@ def main() -> None:
             off_exec = (result.get("off_result") or {}).get("execution_result", {})
             inj_exec = (result.get("inject_result") or {}).get("execution_result", {})
             print(f"\n--- Compare Summary ---")
+            print(f"Off expected_policy: {off_exec.get('expected_policy')} | actual_policy: {off_exec.get('actual_policy')} | match: {off_exec.get('policy_match')}")
             print(f"Off completed: {off_exec.get('completed', False)} | success: {off_exec.get('success', False)} | classification: {off_exec.get('classification')}")
+            print(f"Inject expected_policy: {inj_exec.get('expected_policy')} | actual_policy: {inj_exec.get('actual_policy')} | match: {inj_exec.get('policy_match')}")
             print(f"Inject completed: {inj_exec.get('completed', False)} | success: {inj_exec.get('success', False)} | classification: {inj_exec.get('classification')}")
             print(f"Comparison: {result.get('classification')}")
             print(f"Off tool_steps: {len(off_exec.get('tool_steps') or [])} | repairs: {off_exec.get('repair_count', 0)}")
             print(f"Inject tool_steps: {len(inj_exec.get('tool_steps') or [])} | repairs: {inj_exec.get('repair_count', 0)}")
             if off_exec.get("structured_result_source") or inj_exec.get("structured_result_source"):
                 print(f"Sources: off={off_exec.get('structured_result_source')} inject={inj_exec.get('structured_result_source')}")
+            if off_exec.get("classification") == "memory_helped":
+                print("WARNING: off branch classified as memory_helped; check policy selection.")
             if result.get("comparison_report_path"):
                 print(f"Comparison report: {result.get('comparison_report_path')}")
         if result.get("mode") == "preview":
