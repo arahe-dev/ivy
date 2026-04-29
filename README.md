@@ -162,6 +162,30 @@ The passive memory stack is documented separately from active agent runtime beha
 
 Memory remains safe-by-default: SQLite is the source-of-truth ledger, FTS5 is exact retrieval, vectors are local retrieval hints, and all memory injection is opt-in through experiment/runtime flags. Normal agent runs do not receive memory packets by default.
 
+## Phase 2D Guarded Preview (MoME v0)
+
+Guarded preview is a wrapper around the Phase 2C experiment path. It adds category gates, preview-only mode, and a strict compare baseline that runs **policy none** (no memory) vs explicit injection.
+
+```text
+off (no memory)  -> agent run
+preview          -> packet only, no run
+inject           -> packet + agent run
+compare          -> off vs inject, side-by-side
+```
+
+Category gates (default config):
+
+| Category | Injection | Notes |
+|---|---|---|
+| benchmark | allowed | memory helped recall; caution required |
+| runbook | allowed | memory helped exact command/artifact recall |
+| json_tool_debug | allowed with cap | packet max 400 chars to avoid fs_list bias |
+| workflow | allowed | neutral/no harm in suite |
+| safety | allowed | neutral/no harm in suite |
+| general | blocked | not enough evidence for injection |
+
+Guarded preview keeps memory opt-in and advisory. It never bypasses validators, policy gates, or sandbox rules.
+
 ## MoME v0 Opt-In Memory Runtime
 
 IVY now has a first MoME-shaped memory runtime for experiments. It is system-side routing, not neural MoE: the router classifies a task, selects memory experts, scores provenance-backed candidates, asks the existing packet composer for a compact advisory packet, and injects that packet only inside the opt-in experiment harness.
