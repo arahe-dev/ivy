@@ -259,7 +259,7 @@ def run_self_test() -> int:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Compare memory backends.")
     parser.add_argument("--cases", default=None)
-    parser.add_argument("--backends", default="ivy_native,mem0")
+    parser.add_argument("--backends", nargs="+", default=["ivy_native", "mem0"])
     parser.add_argument("--policy", default=None)
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--max-chars", type=int, default=800)
@@ -283,7 +283,27 @@ def main() -> None:
         test_cases = []
     else:
         test_cases = load_cases(cases_path)
-    backends = args.backends.split(",")
+    raw_tokens = []
+    for token in args.backends:
+        raw_tokens.extend(token.split(","))
+    backends = []
+    for token in raw_tokens:
+        for name in token.split():
+            if name:
+                backends.append(name)
+    if not backends:
+        raise SystemExit("No backends specified. Use --backends ivy_native mem0")
+    seen = set()
+    ordered = []
+    for name in backends:
+        if name not in seen:
+            ordered.append(name)
+            seen.add(name)
+    backends = ordered
+    supported = {"ivy_native", "mem0"}
+    unknown = [b for b in backends if b not in supported]
+    if unknown:
+        raise SystemExit(f"Unknown backend(s): {', '.join(unknown)}. Supported: {', '.join(sorted(supported))}")
     
     config = {
         "run_id": datetime.now().strftime("%Y%m%d_%H%M%S_%f"),
