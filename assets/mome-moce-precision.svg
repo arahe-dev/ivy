@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="360" viewBox="0 0 920 360" role="img" aria-labelledby="title desc">
+  <title id="title">Ivy-real v2 required-only precision comparison</title>
+  <desc id="desc">Bar chart comparing naive BM25, source-family BM25, exact-anchor only, and compact ACCA precision.</desc>
+  <rect width="920" height="360" rx="18" fill="#0b1020"/>
+  <text x="40" y="48" fill="#f8fafc" font-family="Segoe UI, Arial, sans-serif" font-size="26" font-weight="700">Ivy-real v2: Required-Only Precision</text>
+  <text x="40" y="78" fill="#94a3b8" font-family="Segoe UI, Arial, sans-serif" font-size="15">119 cases. Higher is better. Forbidden hits shown in red.</text>
+
+  <line x1="230" y1="285" x2="840" y2="285" stroke="#334155" stroke-width="1"/>
+  <line x1="230" y1="105" x2="230" y2="285" stroke="#334155" stroke-width="1"/>
+  <text x="206" y="290" fill="#94a3b8" font-family="Segoe UI, Arial, sans-serif" font-size="12">0</text>
+  <text x="199" y="110" fill="#94a3b8" font-family="Segoe UI, Arial, sans-serif" font-size="12">1.0</text>
+
+  <text x="40" y="130" fill="#cbd5e1" font-family="Segoe UI, Arial, sans-serif" font-size="16">Naive BM25 top-5</text>
+  <rect x="230" y="111" width="145" height="28" rx="6" fill="#f97316"/>
+  <text x="388" y="131" fill="#f8fafc" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">0.238</text>
+  <text x="760" y="130" fill="#fca5a5" font-family="Segoe UI, Arial, sans-serif" font-size="14">12 forbidden</text>
+
+  <text x="40" y="178" fill="#cbd5e1" font-family="Segoe UI, Arial, sans-serif" font-size="16">Source-family BM25</text>
+  <rect x="230" y="159" width="149" height="28" rx="6" fill="#f59e0b"/>
+  <text x="392" y="179" fill="#f8fafc" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">0.245</text>
+  <text x="768" y="178" fill="#fca5a5" font-family="Segoe UI, Arial, sans-serif" font-size="14">4 forbidden</text>
+
+  <text x="40" y="226" fill="#cbd5e1" font-family="Segoe UI, Arial, sans-serif" font-size="16">Exact-anchor only</text>
+  <rect x="230" y="207" width="610" height="28" rx="6" fill="#38bdf8"/>
+  <text x="792" y="227" fill="#082f49" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">1.000</text>
+  <text x="761" y="226" fill="#bae6fd" font-family="Segoe UI, Arial, sans-serif" font-size="14" transform="translate(95 0)">0 forbidden</text>
+
+  <text x="40" y="274" fill="#cbd5e1" font-family="Segoe UI, Arial, sans-serif" font-size="16">Compact ACCA</text>
+  <rect x="230" y="255" width="610" height="28" rx="6" fill="#22c55e"/>
+  <text x="792" y="275" fill="#052e16" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">1.000</text>
+  <text x="856" y="274" fill="#bbf7d0" font-family="Segoe UI, Arial, sans-serif" font-size="14">0 forbidden</text>
+
+  <text x="40" y="326" fill="#64748b" font-family="Segoe UI, Arial, sans-serif" font-size="12">Source: MoME-MoCE-Exp out/baseline_comparison_ivy_real_v2.md</text>
+</svg>

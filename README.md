@@ -9,7 +9,7 @@
 <h1 align="center">IVY — Local LLM Systems Lab</h1>
 
 <p align="center">
-  Making strong open LLMs usable on constrained consumer hardware through MoE placement, prompt packing, hot-session cache reuse, and tool-call reliability testing.
+  Making strong open LLMs usable on constrained consumer hardware through MoE placement, prompt packing, hot-session cache reuse, tool-call reliability testing, and policy-gated memory-to-context packets.
 </p>
 
 <p align="center">
@@ -35,6 +35,7 @@
 | Tool reliability (benchmark) | 25-case benchmark: 96% raw strict pass, 100% final pass with validator/retry |
 | Cache reuse (agent demo) | Phase 1.1: all steps `partial_reuse` (13) vs Phase 1: all `cold_or_lost_reuse` (15); avg `prompt_ms` **6322.6 → 2854.2** (2.2x faster) |
 | Passive + opt-in memory | SQLite ledger + FTS5 + deterministic hashed-vector fallback; MoME v0 experiment runner exists, no default prompt injection |
+| Memory-to-context control plane | `MoME-MoCE-Exp`: ACCA packet ABI, route proofs, taint/exposure gates, Ivy-real v2 **119/119**, stress Rust batch **62/62**, warm route mean **1.694 ms** |
 | Fast prose path | Q2/IQ2 remains useful, but is not trusted for raw tool use |
 | KV eviction | Circular KV Lite is simulation/observability-only for this model |
 
@@ -53,6 +54,7 @@ IVY focuses on the parts that decide whether a local model is actually usable:
 - strict JSON and tool-call reliability
 - reproducible benchmark harnesses
 - passive memory retrieval and opt-in MoME packet experiments before default prompt injection
+- policy-gated memory-to-context compilation through MoME/MoCE + ACCA packets
 - structured autoresearch loops
 
 Test machine:
@@ -161,6 +163,77 @@ The passive memory stack is documented separately from active agent runtime beha
 - `docs/IVY_MOME_V0.md`: first opt-in MoME-style memory runtime and evaluation results.
 
 Memory remains safe-by-default: SQLite is the source-of-truth ledger, FTS5 is exact retrieval, vectors are local retrieval hints, and all memory injection is opt-in through experiment/runtime flags. Normal agent runs do not receive memory packets by default.
+
+## MoME/MoCE + ACCA: Memory-To-Context Control Plane
+
+The newest standalone experiment is [`MoME-MoCE-Exp`](MoME-MoCE-Exp/). It moves beyond "retrieve some docs" and tests a stricter question:
+
+> Can IVY turn messy memory into a tiny, admissible, provenance-backed context packet that a model can safely use or reject?
+
+This is not just RAG. Retrieval is only the candidate layer. The central object is an **ACCA frontier packet** with selected evidence, rejected evidence, route proof, answerability, authority/freshness/safety gates, and taint/exposure labels.
+
+```mermaid
+flowchart LR
+  Q["User task / query"] --> G["MoCE context gate"]
+  G -->|no anchor| N["No context / abstain"]
+  G -->|context needed| M["MoME candidate memory"]
+  M --> B["Candidate backend<br/>scan / indexed / Rust"]
+  B --> S["Scoring + policy gates<br/>authority / freshness / safety / budget"]
+  S --> P["Packet compiler"]
+  P --> A["ACCA frontier packet"]
+  S --> R["Route proof<br/>selected + rejected evidence"]
+  A --> L["Local or frontier model"]
+```
+
+### What Was Built
+
+| Component | Result |
+|---|---|
+| Context-stress benchmark | deterministic smoke/medium/stress corpora up to about 2M tokens |
+| Ivy-real v2 | 45 real IVY evidence items, 119 labeled cases across 10 categories |
+| ACCA packet ABI | schema-validated frontier context packets with answerability and compact evidence |
+| Route proofs | selected, rejected, overflowed evidence plus expert outputs and authority chain |
+| Taint/exposure layer | `safety_label`, `taint_labels`, `exposure_policy`, packet-level `exposure_summary` |
+| Candidate backends | scan, indexed Python, direct Rust, batch-preloaded Rust |
+| Model-facing demo | no-memory vs naive BM25 vs ACCA packet prompt artifacts |
+
+### Why It Matters
+
+Naive retrieval had high recall but poor precision: it pulled stale and decoy records into context. ACCA kept recall while cutting the packet to only admissible evidence.
+
+![MoME/MoCE precision comparison](assets/mome-moce-precision.svg)
+
+| Mode | Cases | Passed | Required Precision | Forbidden Hits | Stale Extra | Decoy Extra |
+|---|---:|---:|---:|---:|---:|---:|
+| Naive BM25 top-5 | 119 | 1 | 0.2376 | 12 | 33 | 64 |
+| Source-family BM25 top-5 | 119 | 8 | 0.2447 | 4 | 19 | 27 |
+| Exact-anchor only | 119 | 3 | 1.0 | 0 | 0 | 0 |
+| Compact ACCA | 119 | 119 | 1.0 | 0 | 0 | 0 |
+
+### Speed Result
+
+The Rust candidate backend was first correct but slow because Python spawned Rust and Rust rebuilt the corpus per query. CP9.1 added batch preload: Rust indexes the dataset once, then Python keeps proof/gate/packet authority.
+
+![MoME/MoCE stress speed comparison](assets/mome-moce-speed.svg)
+
+| Dataset / Backend | Upfront Preload | Warm Route Mean | Warm Route P50 | Warm Route Max | Quality |
+|---|---:|---:|---:|---:|---:|
+| Ivy-real v2 indexed | 0 ms | 1.120 ms | 1.061 ms | 2.540 ms | 119/119 |
+| Ivy-real v2 Rust batch | 59.793 ms | 0.953 ms | 0.977 ms | 1.984 ms | 119/119 |
+| Stress scan | 0 ms | 307.263 ms | n/a | n/a | 62/62 |
+| Stress indexed | 0 ms | about 120 ms | about 55 ms | about 486 ms | 62/62 |
+| Stress Rust batch | 4483.781 ms | 1.694 ms | 1.859 ms | 3.744 ms | 62/62 |
+
+### Current Limitation
+
+Selected-evidence parity between Rust and indexed Python is 1.0, but raw candidate-set Jaccard is still low on the large stress corpus. That is recorded as the next optimization target. The likely next build is a persistent Rust index daemon or library binding so arbitrary one-off stress queries are warm without batch preload.
+
+Key docs:
+
+- [`MoME-MoCE-Exp/README.md`](MoME-MoCE-Exp/README.md)
+- [`MoME-MoCE-Exp/docs/AUTORESEARCH_TRACK_RECORD_2026-05-10.md`](MoME-MoCE-Exp/docs/AUTORESEARCH_TRACK_RECORD_2026-05-10.md)
+- [`MoME-MoCE-Exp/docs/CP7_CP9_STATUS_2026-05-10.md`](MoME-MoCE-Exp/docs/CP7_CP9_STATUS_2026-05-10.md)
+- [`MoME-MoCE-Exp/HANDOFF_CONTEXT.md`](MoME-MoCE-Exp/HANDOFF_CONTEXT.md)
 
 ## Phase 2D Guarded Preview (MoME v0)
 
@@ -492,6 +565,7 @@ Decision: observability/simulation-only for now.
 ```text
 ivy/
   assets/                      # README logos
+  MoME-MoCE-Exp/               # Memory-to-context compiler experiment, ACCA packets, Rust index
   docs/                        # Current state, results, specs, figures
   docs/figures/                # GitHub-friendly visualizations
   manifests/                   # Runtime and experiment manifests
@@ -507,16 +581,19 @@ Useful docs:
 - [`ivy/docs/HOT_SESSION_RUNNER.md`](ivy/docs/HOT_SESSION_RUNNER.md)
 - [`ivy/docs/TOOL_SAFETY.md`](ivy/docs/TOOL_SAFETY.md)
 - [`ivy/docs/results/Q4KM_TOOL_BENCHMARK_25.md`](ivy/docs/results/Q4KM_TOOL_BENCHMARK_25.md)
+- [`MoME-MoCE-Exp/README.md`](MoME-MoCE-Exp/README.md)
 
 ---
 
 ## Roadmap
 
 1. Expand Q4_K_M tool testing from 25 cases to a larger adversarial suite.
-2. Add optional slot save/restore or session persistence experiment.
-3. Build execution gating around validator verdicts and human-confirmation requirements.
-4. Keep Q2/IQ2 available as a fast prose/research lane, not the default tool lane.
-5. Expand reports so every run produces pass/warn/fail recommendations.
+2. Make the MoME/MoCE Rust index always warm through a persistent daemon or library binding.
+3. Add answer-level model evals that consume only ACCA packets and cite selected evidence IDs.
+4. Add optional slot save/restore or session persistence experiment.
+5. Build execution gating around validator verdicts and human-confirmation requirements.
+6. Keep Q2/IQ2 available as a fast prose/research lane, not the default tool lane.
+7. Expand reports so every run produces pass/warn/fail recommendations.
 
 ---
 
@@ -532,4 +609,4 @@ Useful docs:
 
 ## Summary
 
-IVY has turned a pile of local model experiments into a reproducible systems workflow: benchmark model tracks, tune MoE placement, measure prompt packing, validate output safety, and exploit hot prompt/KV reuse. The current best local agent path is Qwen3.6-35B-A3B Q4_K_M through stock `llama.cpp` with a fixed-slot hot-session runner.
+IVY has turned a pile of local model experiments into a reproducible systems workflow: benchmark model tracks, tune MoE placement, measure prompt packing, validate output safety, exploit hot prompt/KV reuse, and now compile messy memory into safe compact context packets. The current best local agent path is Qwen3.6-35B-A3B Q4_K_M through stock `llama.cpp` with a fixed-slot hot-session runner, with MoME/MoCE + ACCA emerging as the memory-to-context control plane around it.

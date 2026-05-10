@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="360" viewBox="0 0 920 360" role="img" aria-labelledby="title desc">
+  <title id="title">Stress corpus warm routing speed comparison</title>
+  <desc id="desc">Horizontal bar chart showing scan, indexed Python, and Rust batch warm route mean latency on the stress corpus.</desc>
+  <rect width="920" height="360" rx="18" fill="#07111f"/>
+  <text x="40" y="48" fill="#f8fafc" font-family="Segoe UI, Arial, sans-serif" font-size="26" font-weight="700">Stress Corpus Warm Route Mean</text>
+  <text x="40" y="78" fill="#94a3b8" font-family="Segoe UI, Arial, sans-serif" font-size="15">2M-token corpus. Lower is better. Rust batch includes a one-time 4.48s preload, then warm route calls are tiny.</text>
+
+  <line x1="220" y1="285" x2="840" y2="285" stroke="#334155" stroke-width="1"/>
+  <line x1="220" y1="105" x2="220" y2="285" stroke="#334155" stroke-width="1"/>
+  <text x="206" y="303" fill="#94a3b8" font-family="Segoe UI, Arial, sans-serif" font-size="12">0</text>
+  <text x="805" y="303" fill="#94a3b8" font-family="Segoe UI, Arial, sans-serif" font-size="12">307 ms</text>
+
+  <text x="40" y="132" fill="#cbd5e1" font-family="Segoe UI, Arial, sans-serif" font-size="17">Scan</text>
+  <rect x="220" y="111" width="620" height="34" rx="7" fill="#ef4444"/>
+  <text x="735" y="134" fill="#fee2e2" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700">307.3 ms</text>
+
+  <text x="40" y="190" fill="#cbd5e1" font-family="Segoe UI, Arial, sans-serif" font-size="17">Indexed Python</text>
+  <rect x="220" y="169" width="242" height="34" rx="7" fill="#f59e0b"/>
+  <text x="480" y="192" fill="#fffbeb" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700">about 120 ms</text>
+
+  <text x="40" y="248" fill="#cbd5e1" font-family="Segoe UI, Arial, sans-serif" font-size="17">Rust batch</text>
+  <rect x="220" y="227" width="4" height="34" rx="2" fill="#22c55e"/>
+  <circle cx="224" cy="244" r="8" fill="#22c55e"/>
+  <text x="246" y="250" fill="#bbf7d0" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700">1.694 ms</text>
+
+  <rect x="602" y="222" width="238" height="62" rx="10" fill="#0f172a" stroke="#1e293b"/>
+  <text x="622" y="247" fill="#e2e8f0" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">Observed speedup</text>
+  <text x="622" y="270" fill="#bbf7d0" font-family="Segoe UI, Arial, sans-serif" font-size="14">~70x vs indexed warm route</text>
+
+  <text x="40" y="326" fill="#64748b" font-family="Segoe UI, Arial, sans-serif" font-size="12">Source: MoME-MoCE-Exp docs/AUTORESEARCH_TRACK_RECORD_2026-05-10.md</text>
+</svg>
