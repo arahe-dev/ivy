@@ -1,0 +1,384 @@
+{
+  "meta": {
+    "purpose": "Reusable corpus templates for synthetic tool traces, JSON parsing failures, and debug failure patterns used in evidence-routing evaluation.",
+    "caution": "These templates simulate failure modes for testing the routing systems ability to detect and handle malformed tool calls, JSON errors, and debug logs.",
+    "ascii_only": true
+  },
+  "json_failure_patterns": [
+    {
+      "template_id": "json-malformed-001",
+      "category": "json_parse_error",
+      "failure_type": "missing_comma",
+      "severity": "LOW",
+      "content_template": {
+        "error_type": "JSONDecodeError",
+        "raw_tool_call": "{\"action\": \"search\" \"query\": \"recent papers\"}",
+        "error_msg": "Expecting ',' delimiter: line 1 column 22 (char 21)",
+        "expected_detection": "routing_rule::catch_json_parse_error",
+        "recovery_suggestion": "Insert comma between key-value pairs.",
+        "test_guidance": "Verify the routing layer catches this and does not propagate a traceback to the user."
+      }
+    },
+    {
+      "template_id": "json-malformed-002",
+      "category": "json_parse_error",
+      "failure_type": "unterminated_string",
+      "severity": "LOW",
+      "content_template": {
+        "error_type": "JSONDecodeError",
+        "raw_tool_call": "{\"tool\": \"calculator\", \"expression\": \"2 +",
+        "error_msg": "Unterminated string starting at: line 1 column 37 (char 36)",
+        "expected_detection": "routing_rule::catch_json_parse_error",
+        "recovery_suggestion": "Fix unterminated string or truncation.",
+        "test_guidance": "Verify router returns a structured error, not a raw exception dump."
+      }
+    },
+    {
+      "template_id": "json-malformed-003",
+      "category": "json_parse_error",
+      "failure_type": "trailing_garbage",
+      "severity": "LOW",
+      "content_template": {
+        "error_type": "JSONDecodeError",
+        "raw_tool_call": "{\"tool\": \"search\"} extra text here",
+        "error_msg": "Extra data: line 1 column 18 (char 17)",
+        "expected_detection": "routing_rule::catch_json_parse_error",
+        "recovery_suggestion": "Strip trailing non-JSON content.",
+        "test_guidance": "Router should gracefully handle trailing text without crashing."
+      }
+    },
+    {
+      "template_id": "json-malformed-004",
+      "category": "json_parse_error",
+      "failure_type": "unexpected_keyword",
+      "severity": "LOW",
+      "content_template": {
+        "error_type": "JSONDecodeError",
+        "raw_tool_call": "{action: \"search\"}",
+        "error_msg": "Expecting property name enclosed in double quotes: line 1 column 2 (char 1)",
+        "expected_detection": "routing_rule::catch_json_parse_error",
+        "recovery_suggestion": "Keys must be double-quoted.",
+        "test_guidance": "Unquoted keys should be caught by the JSON parser, not silently fixed."
+      }
+    },
+    {
+      "template_id": "json-malformed-005",
+      "category": "json_parse_error",
+      "failure_type": "truncated",
+      "severity": "MEDIUM",
+      "content_template": {
+        "error_type": "JSONDecodeError",
+        "raw_tool_call": "{\"tool\": \"code_executor\", \"code\": \"",
+        "error_msg": "Unterminated string starting at: line 1 column 35 (char 34)",
+        "expected_detection": "routing_rule::catch_truncated_tool_call",
+        "recovery_suggestion": "Detect truncation and re-request full tool call token window.",
+        "test_guidance": "Truncated tool calls indicate token-limit issues. Router should handle gracefully."
+      }
+    }
+  ],
+  "tool_debug_failures": [
+    {
+      "template_id": "tool-debug-001",
+      "category": "tool_execution_error",
+      "failure_type": "timeout",
+      "severity": "MEDIUM",
+      "content_template": {
+        "tool_name": "code_executor",
+        "error_class": "TimeoutError",
+        "error_msg": "Execution exceeded 30.0s timeout.",
+        "raw_stderr": "No output before timeout.",
+        "expected_detection": "routing_rule::catch_execution_timeout",
+        "recovery_suggestion": "Retry with timeout=60.0 or split the task into smaller subtasks.",
+        "test_guidance": "Router must distinguish timeouts from crashes. Timeout is recoverable; crash is not."
+      }
+    },
+    {
+      "template_id": "tool-debug-002",
+      "category": "tool_execution_error",
+      "failure_type": "out_of_memory",
+      "severity": "HIGH",
+      "content_template": {
+        "tool_name": "code_executor",
+        "error_class": "MemoryError",
+        "error_msg": "stdout: Killed\\nstderr: (process exited with status 137) out of memory",
+        "raw_stderr": "Killed by OOM killer.",
+        "expected_detection": "routing_rule::catch_oom",
+        "recovery_suggestion": "Reduce memory footprint or request a larger instance. Not recoverable via simple retry.",
+        "test_guidance": "OOM is distinct from timeout. Router should flag as resource exhaustion."
+      }
+    },
+    {
+      "template_id": "tool-debug-003",
+      "category": "tool_execution_error",
+      "failure_type": "import_error",
+      "severity": "LOW",
+      "content_template": {
+        "tool_name": "code_executor",
+        "error_class": "ModuleNotFoundError",
+        "error_msg": "No module named 'nonexistent_package'",
+        "raw_stderr": "Traceback (most recent call last):\\n  File \\\"<exec>\\\", line 1, in <module>\\nModuleNotFoundError: No module named 'nonexistent_package'",
+        "expected_detection": "routing_rule::catch_import_error",
+        "recovery_suggestion": "Install missing package or use an alternative library.",
+        "test_guidance": "Import errors are recoverable by suggesting pip install or alternative approach."
+      }
+    },
+    {
+      "template_id": "tool-debug-004",
+      "category": "tool_execution_error",
+      "failure_type": "type_error",
+      "severity": "LOW",
+      "content_template": {
+        "tool_name": "calculator",
+        "error_class": "TypeError",
+        "error_msg": "unsupported operand type(s) for +: 'int' and 'str'",
+        "raw_stderr": "Traceback (most recent call last):\\n  ...\\nTypeError: unsupported operand type(s) for +: 'int' and 'str'",
+        "expected_detection": "routing_rule::catch_type_error",
+        "recovery_suggestion": "Cast operands to consistent types before computation.",
+        "test_guidance": "Type errors indicate a bug in generated code. Router should route back for code fix."
+      }
+    },
+    {
+      "template_id": "tool-debug-005",
+      "category": "tool_execution_error",
+      "failure_type": "api_rate_limit",
+      "severity": "MEDIUM",
+      "content_template": {
+        "tool_name": "web_search",
+        "error_class": "RateLimitError",
+        "error_msg": "429 Too Many Requests. Retry after 60 seconds.",
+        "raw_stderr": "HTTP 429: rate limit exceeded",
+        "expected_detection": "routing_rule::catch_rate_limit",
+        "recovery_suggestion": "Backoff and retry with exponential delay (jitter: 1.0s, base: 2.0s, max: 120.0s).",
+        "test_guidance": "Rate limits should trigger backoff, not abort the entire pipeline."
+      }
+    },
+    {
+      "template_id": "tool-debug-006",
+      "category": "tool_execution_error",
+      "failure_type": "api_auth_error",
+      "severity": "HIGH",
+      "content_template": {
+        "tool_name": "web_search",
+        "error_class": "AuthenticationError",
+        "error_msg": "401 Unauthorized: Invalid API key.",
+        "raw_stderr": "HTTP 401: invalid credentials",
+        "expected_detection": "routing_rule::catch_auth_error",
+        "recovery_suggestion": "Check API key validity and environment variable configuration.",
+        "test_guidance": "Auth errors are non-recoverable without human intervention. Flag for operator attention."
+      }
+    },
+    {
+      "template_id": "tool-debug-007",
+      "category": "tool_debug_log",
+      "failure_type": "infinite_loop",
+      "severity": "HIGH",
+      "content_template": {
+        "tool_name": "code_executor",
+        "error_class": "TimeoutError (likely infinite loop)",
+        "error_msg": "Execution terminated after 30s. No new output in last 25s.",
+        "raw_stderr": "Program appears stuck in a loop.",
+        "expected_detection": "routing_rule::catch_infinite_loop",
+        "recovery_suggestion": "Add loop bounds, timeout per iteration, or use recursive approach instead.",
+        "test_guidance": "Differentiate from normal timeout by output stall pattern. Flag for code review."
+      }
+    },
+    {
+      "template_id": "tool-debug-008",
+      "category": "tool_debug_log",
+      "failure_type": "recursion_depth",
+      "severity": "MEDIUM",
+      "content_template": {
+        "tool_name": "code_executor",
+        "error_class": "RecursionError",
+        "error_msg": "maximum recursion depth exceeded in comparison",
+        "raw_stderr": "Traceback (most recent call last):\\n  ...\\nRecursionError: maximum recursion depth exceeded",
+        "expected_detection": "routing_rule::catch_recursion_error",
+        "recovery_suggestion": "Convert recursion to iteration or increase recursion limit with sys.setrecursionlimit().",
+        "test_guidance": "Recursion errors are implementation bugs. Route for code fix."
+      }
+    },
+    {
+      "template_id": "tool-debug-009",
+      "category": "tool_debug_log",
+      "failure_type": "file_not_found",
+      "severity": "LOW",
+      "content_template": {
+        "tool_name": "file_operations",
+        "error_class": "FileNotFoundError",
+        "error_msg": "[Errno 2] No such file or directory: '/nonexistent/path/data.csv'",
+        "raw_stderr": "Traceback (most recent call last):\\n  ...\\nFileNotFoundError: [Errno 2] No such file or directory",
+        "expected_detection": "routing_rule::catch_file_not_found",
+        "recovery_suggestion": "Check file path existence before operations. Use os.path.exists() or pathlib.",
+        "test_guidance": "File-not-found is common in generated code; router should not treat as critical."
+      }
+    },
+    {
+      "template_id": "tool-debug-010",
+      "category": "tool_debug_log",
+      "failure_type": "permission_denied",
+      "severity": "MEDIUM",
+      "content_template": {
+        "tool_name": "file_operations",
+        "error_class": "PermissionError",
+        "error_msg": "[Errno 13] Permission denied: '/restricted/config.yml'",
+        "raw_stderr": "Traceback (most recent call last):\\n  ...\\nPermissionError: [Errno 13] Permission denied",
+        "expected_detection": "routing_rule::catch_permission_error",
+        "recovery_suggestion": "Verify running user has appropriate permissions. May require elevated privileges.",
+        "test_guidance": "Permission errors may indicate sandbox / security issues. Flag for review."
+      }
+    }
+  ],
+  "debug_log_patterns": [
+    {
+      "template_id": "debug-log-001",
+      "category": "routing_debug",
+      "failure_type": "model_selection_mismatch",
+      "severity": "MEDIUM",
+      "content_template": {
+        "routing_rule": "experts::router_v3",
+        "expected_model": "gpt-4o",
+        "actual_model": "gpt-3.5-turbo",
+        "debug_log": "ROUTER: selecting expert for query={query_hash} | cache_hit=False | fallback_reason=expert_overloaded | selected=gpt-3.5-turbo",
+        "expected_detection": "routing_rule::verify_model_selection",
+        "recovery_suggestion": "Check expert capacity routing logic. Fallback model may degrade quality.",
+        "test_guidance": "Model mismatches due to capacity routing should be logged and auditable."
+      }
+    },
+    {
+      "template_id": "debug-log-002",
+      "category": "routing_debug",
+      "failure_type": "cache_staleness",
+      "severity": "LOW",
+      "content_template": {
+        "routing_rule": "cache::response_cache",
+        "cache_key": "mmlu_v1.3.0_0.0_tokenizer_v2",
+        "cached_entry_date": "2025-10-01",
+        "current_date": "2026-05-09",
+        "stale_age_days": 220,
+        "debug_log": "CACHE_HIT: key={cache_key}, age=220d | WARN: age exceeds threshold (180d)",
+        "expected_detection": "routing_rule::detect_stale_cache",
+        "recovery_suggestion": "Invalidate cache entries older than 180d or re-evaluate with current model version.",
+        "test_guidance": "Stale cache entries silently return outdated scores. Router must log age warnings."
+      }
+    },
+    {
+      "template_id": "debug-log-003",
+      "category": "routing_debug",
+      "failure_type": "fallback_loop",
+      "severity": "HIGH",
+      "content_template": {
+        "routing_rule": "recovery::fallback_chain",
+        "fallback_attempts": 4,
+        "debug_log": "FALLBACK: attempt=1 expert_busy -> attempt=2 rate_limited -> attempt=3 auth_error -> attempt=4 timeout -> FALLBACK_EXHAUSTED",
+        "expected_detection": "routing_rule::detect_fallback_exhaustion",
+        "recovery_suggestion": "Alert operator. Fallback chain exhausted after {n} attempts. Manual intervention required.",
+        "test_guidance": "Fallback loops waste budget and time. Router should detect cascading failures early."
+      }
+    },
+    {
+      "template_id": "debug-log-004",
+      "category": "routing_debug",
+      "failure_type": "cross_contamination",
+      "severity": "CRITICAL",
+      "content_template": {
+        "routing_rule": "context::window_management",
+        "debug_log": "ROUTER: append_trace(query_A) -> context window full -> evict_trace(query_B) continued_injection(query_A_trace_into_query_B_context) | RISK: cross-contamination detected",
+        "expected_detection": "routing_rule::detect_context_leak",
+        "recovery_suggestion": "Flush context between independent queries. Use separate context windows per session.",
+        "test_guidance": "Cross-contamination can cause data leakage between user sessions. Must be zero-tolerance."
+      }
+    }
+  ],
+  "tool_traces": [
+    {
+      "template_id": "trace-json-schema-repair-success-current",
+      "category": "workflow_success",
+      "workflow": "json_schema_repair",
+      "status": "success",
+      "content_template": {
+        "trace_id": "trace_json_schema_repair_success_current",
+        "created_at": "2026-05-09",
+        "steps": [
+          "fs_read",
+          "json_validate",
+          "repair_minimal_diff",
+          "json_validate",
+          "fs_write"
+        ],
+        "result_path": "out/json_validation_result.txt",
+        "authority_note": "Current successful workflow. Prefer this over stale list-loop traces.",
+        "anti_pattern": "Do not start with repeated fs_list calls when the file path is already known."
+      }
+    },
+    {
+      "template_id": "trace-calc-write-verified-current",
+      "category": "workflow_success",
+      "workflow": "calculate_then_write",
+      "status": "success",
+      "content_template": {
+        "trace_id": "trace_calc_write_verified_current",
+        "created_at": "2026-05-09",
+        "steps": [
+          "calc_eval",
+          "fs_write",
+          "fs_read_verify"
+        ],
+        "result_path": "out/calc_result.txt",
+        "verification": "Read back the written result before final response when exact output matters.",
+        "stale_conflicts": [
+          "trace_calc_write_failed_old"
+        ]
+      }
+    },
+    {
+      "template_id": "trace-stale-list-loop-superseded",
+      "category": "workflow_stale_failure",
+      "workflow": "json_validation",
+      "status": "failed_stale",
+      "content_template": {
+        "trace_id": "trace_stale_list_loop_superseded",
+        "created_at": "2026-04-14",
+        "staleness": "stale",
+        "steps": [
+          "fs_list",
+          "fs_list",
+          "fs_list",
+          "json_validate"
+        ],
+        "failure": "Repeated directory listing consumed budget and delayed validation.",
+        "superseded_by": "trace_json_schema_repair_success_current"
+      }
+    }
+  ],
+  "debug_failures": [
+    {
+      "template_id": "debug-think-tags-json-boundary-current",
+      "category": "strict_json_failure",
+      "failure_type": "reasoning_tag_contamination",
+      "severity": "HIGH",
+      "content_template": {
+        "failure_id": "debug_think_tags_json_boundary_current",
+        "symptom": "Output placed <think> or reasoning prose before a JSON object required by a strict parser.",
+        "validator_error": "Expected JSON object at byte 0; found '<'.",
+        "root_cause": "Reasoning text leaked into a machine-readable channel.",
+        "recovery_suggestion": "Emit only the JSON object for strict-output tasks; put explanations outside the tool payload only when schema permits.",
+        "conflicts_with": [
+          "decoy_debug_markdown_only"
+        ]
+      }
+    },
+    {
+      "template_id": "debug-memory-retrieval-overbroad-packet",
+      "category": "retrieval_bias_failure",
+      "failure_type": "overbroad_memory_packet",
+      "severity": "MEDIUM",
+      "content_template": {
+        "failure_id": "debug_memory_retrieval_overbroad_packet",
+        "symptom": "Generic memory packet caused the agent to prefer fs_list over the requested fs_read -> json_validate -> fs_write sequence.",
+        "root_cause": "Retriever over-weighted a broad 'inspect files first' note despite an exact file path in the query.",
+        "recovery_suggestion": "Rank exact workflow traces above broad habits; penalize stale or decoy traces.",
+        "related_case": "debug_002"
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+.venv/
+.pytest_cache/
+__pycache__/
+*.egg-info/
+
+# Generated datasets, harness outputs, route proofs, and reports.
+# Recreate them with the scripts in README.md.
+out/
+
+# Rust build products.
+rust/**/target/
+
+*.log
+*.tmp

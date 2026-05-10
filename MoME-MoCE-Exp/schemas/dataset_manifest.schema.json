@@ -1,0 +1,366 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "context_stress.dataset_manifest.v0.2",
+  "title": "Context Stress Dataset Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "dataset_id",
+    "scale",
+    "seed",
+    "created_at",
+    "token_target",
+    "estimated_tokens",
+    "token_target_met",
+    "item_count",
+    "case_count",
+    "source_family_counts",
+    "authority_counts",
+    "staleness_counts",
+    "category_counts",
+    "template_stats",
+    "files",
+    "file_sha256",
+    "generator"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "context_stress_manifest.v0.2"
+    },
+    "dataset_id": {
+      "type": "string",
+      "pattern": "^context_stress_(smoke|medium|stress|ivy_real)_[0-9]+$"
+    },
+    "scale": {
+      "type": "string",
+      "enum": [
+        "smoke",
+        "medium",
+        "stress",
+        "ivy_real"
+      ]
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "token_target": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "estimated_tokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "token_target_met": {
+      "type": "boolean"
+    },
+    "item_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "case_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "source_family_counts": {
+      "$ref": "#/$defs/source_family_counts"
+    },
+    "authority_counts": {
+      "$ref": "#/$defs/authority_counts"
+    },
+    "staleness_counts": {
+      "$ref": "#/$defs/staleness_counts"
+    },
+    "category_counts": {
+      "$ref": "#/$defs/category_counts"
+    },
+    "template_stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "template_files",
+        "record_keys",
+        "warnings"
+      ],
+      "properties": {
+        "template_files": {
+          "$ref": "#/$defs/string_int_map"
+        },
+        "record_keys": {
+          "$ref": "#/$defs/string_int_map"
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "corpus",
+        "cases"
+      ],
+      "properties": {
+        "corpus": {
+          "type": "string",
+          "const": "corpus/corpus_items.jsonl"
+        },
+        "cases": {
+          "type": "string",
+          "const": "eval/cases.json"
+        },
+        "manifest": {
+          "type": "string",
+          "const": "metadata/dataset_manifest.json"
+        }
+      }
+    },
+    "file_sha256": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "corpus",
+        "cases"
+      ],
+      "properties": {
+        "corpus": {
+          "$ref": "#/$defs/sha256"
+        },
+        "cases": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "script",
+        "rough_tokenizer",
+        "deterministic"
+      ],
+      "properties": {
+        "script": {
+          "type": "string",
+          "enum": [
+            "scripts/generate_context_stress_dataset.py",
+            "scripts/generate_ivy_real_dataset.py",
+            "scripts/generate_ivy_real_v2_dataset.py"
+          ]
+        },
+        "rough_tokenizer": {
+          "type": "string",
+          "const": "whitespace_split_v1"
+        },
+        "deterministic": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "schema_ids": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "corpus_item": {
+          "type": "string"
+        },
+        "eval_case": {
+          "type": "string"
+        },
+        "dataset_manifest": {
+          "type": "string"
+        }
+      }
+    },
+    "generation": {
+      "type": "object"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[A-Fa-f0-9]{64}$"
+    },
+    "string_int_map": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "source_family_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "doc_memory",
+        "runbook",
+        "benchmark_artifact",
+        "safety_policy",
+        "workflow_trace",
+        "debug_failure",
+        "source_code",
+        "distractor"
+      ],
+      "properties": {
+        "doc_memory": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "runbook": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "benchmark_artifact": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "safety_policy": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "workflow_trace": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "debug_failure": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_code": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "distractor": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "authority_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "high",
+        "medium",
+        "low",
+        "decoy"
+      ],
+      "properties": {
+        "high": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "medium": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "low": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "decoy": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "staleness_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "current",
+        "stale",
+        "unknown",
+        "decoy"
+      ],
+      "properties": {
+        "current": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stale": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unknown": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "decoy": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "category_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "general",
+        "local_codebase",
+        "exact_command",
+        "benchmark",
+        "safety",
+        "workflow",
+        "debug",
+        "unanswerable",
+        "stale_conflict",
+        "adversarial_decoy"
+      ],
+      "properties": {
+        "general": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "local_codebase": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "exact_command": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "benchmark": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "safety": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "workflow": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "debug": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unanswerable": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stale_conflict": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "adversarial_decoy": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

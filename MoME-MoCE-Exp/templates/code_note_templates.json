@@ -1,0 +1,177 @@
+{
+  "schema_version": "context_stress_templates.v0.1",
+  "family": "source_code",
+  "templates": [
+    {
+      "id": "code_context_need_schema_validator",
+      "source_family": "source_code",
+      "authority": "high",
+      "created_at": "2026-05-09",
+      "supersedes": [],
+      "tags": [
+        "context_need_schema",
+        "validator",
+        "local_codebase",
+        "source_file"
+      ],
+      "text": "The synthetic ContextNeedSpec validator is implemented in `ivy_agent_demo/context_need_schema.py`. It checks `schema_version`, `evidence_requests`, required flags, source family filters, and budget limits. Prefer this source_code record for exact validator implementation questions over docs or decoys.",
+      "provenance": {
+        "artifact_path": "templates/code_note_templates.json"
+      },
+      "staleness": "current",
+      "conflicts_with": [
+        "decoy_context_need_validator_docs"
+      ]
+    },
+    {
+      "id": "code_context_retrieval_planner",
+      "source_family": "source_code",
+      "authority": "high",
+      "created_at": "2026-05-09",
+      "supersedes": [],
+      "tags": [
+        "context_retrieval_planner",
+        "evidence_request",
+        "experts",
+        "local_codebase",
+        "source_file"
+      ],
+      "text": "The `context_retrieval_planner` module maps each EvidenceRequest kind to allowed MoME experts, source-family filters, provenance requirements, and max evidence item caps. Use this for questions asking which module maps evidence requests to memory experts.",
+      "provenance": {
+        "artifact_path": "templates/code_note_templates.json"
+      },
+      "staleness": "current",
+      "conflicts_with": [
+        "decoy_planner_wrong_module"
+      ]
+    },
+    {
+      "id": "code_dataset_generator_script",
+      "source_family": "source_code",
+      "authority": "high",
+      "created_at": "2026-05-09",
+      "supersedes": [],
+      "tags": [
+        "context_stress",
+        "generator",
+        "script",
+        "local_codebase",
+        "source_file"
+      ],
+      "text": "The local dataset generator is `scripts/generate_context_stress_dataset.py` in `C:/ivy/MoME-MoCE-Exp`. It loads every JSON template under `templates/`, expands support items until the selected token target is reached, writes `corpus/corpus_items.jsonl`, copies eval cases to `eval/cases.json`, and writes `metadata/dataset_manifest.json`.",
+      "provenance": {
+        "artifact_path": "scripts/generate_context_stress_dataset.py"
+      },
+      "staleness": "current"
+    },
+    {
+      "id": "code_dataset_validator_script",
+      "source_family": "source_code",
+      "authority": "high",
+      "created_at": "2026-05-09",
+      "supersedes": [],
+      "tags": [
+        "context_stress",
+        "validator",
+        "script",
+        "local_codebase",
+        "source_file"
+      ],
+      "text": "The local dataset validator is `scripts/validate_context_stress_dataset.py`. Run it with `--dataset out/context_stress_<scale>` from `C:/ivy/MoME-MoCE-Exp` to validate generated context-stress output against the repo schemas and eval case requirements.",
+      "provenance": {
+        "artifact_path": "scripts/validate_context_stress_dataset.py"
+      },
+      "staleness": "current"
+    },
+    {
+      "id": "code_corpus_item_schema_file",
+      "source_family": "source_code",
+      "authority": "high",
+      "created_at": "2026-05-09",
+      "supersedes": [],
+      "tags": [
+        "schema",
+        "corpus_item",
+        "local_codebase",
+        "source_file"
+      ],
+      "text": "Generated corpus items are validated against `schemas/corpus_item.schema.json`. The schema requires stable IDs, source_family, authority, created_at, supersedes, tags, and text, and it restricts source families to doc_memory, runbook, benchmark_artifact, safety_policy, workflow_trace, debug_failure, source_code, and distractor.",
+      "provenance": {
+        "artifact_path": "schemas/corpus_item.schema.json"
+      },
+      "staleness": "current"
+    },
+    {
+      "id": "code_eval_case_schema_file",
+      "source_family": "source_code",
+      "authority": "high",
+      "created_at": "2026-05-09",
+      "supersedes": [],
+      "tags": [
+        "schema",
+        "eval_case",
+        "local_codebase",
+        "source_file"
+      ],
+      "text": "Eval cases are validated against `schemas/eval_case.schema.json`. Case records include the query, category, retrieval policy fields, required_source_ids, forbidden_source_ids, expected_terms, forbidden_terms, and must_abstain.",
+      "provenance": {
+        "artifact_path": "schemas/eval_case.schema.json"
+      },
+      "staleness": "current"
+    },
+    {
+      "id": "code_context_stress_eval_seed_file",
+      "source_family": "source_code",
+      "authority": "high",
+      "created_at": "2026-05-09",
+      "supersedes": [],
+      "tags": [
+        "eval",
+        "cases_seed",
+        "local_codebase",
+        "source_file"
+      ],
+      "text": "The canonical seed eval cases live in `eval/cases_seed.json`. The generator copies this file into each generated dataset as `eval/cases.json`; template changes must preserve all referenced source IDs so validation continues to pass.",
+      "provenance": {
+        "artifact_path": "eval/cases_seed.json"
+      },
+      "staleness": "current"
+    },
+    {
+      "id": "decoy_planner_wrong_module",
+      "source_family": "distractor",
+      "authority": "decoy",
+      "created_at": "2026-05-09",
+      "supersedes": [],
+      "tags": [
+        "planner",
+        "wrong_module",
+        "decoy"
+      ],
+      "text": "Wrong module note: planning is implemented in `docs/planner_notes.md`. This is a decoy and should not answer exact module questions.",
+      "provenance": {
+        "artifact_path": "templates/code_note_templates.json"
+      },
+      "staleness": "unknown",
+      "safety_label": "unsafe_decoy"
+    },
+    {
+      "id": "decoy_classify_context_need_spec_file",
+      "source_family": "distractor",
+      "authority": "decoy",
+      "created_at": "2026-05-09",
+      "supersedes": [],
+      "tags": [
+        "classify_context_need_spec",
+        "decoy",
+        "unanswerable"
+      ],
+      "text": "A nonexistent `classify_context_need_spec.py` file is mentioned here as a decoy. No authoritative source confirms this file exists; answers should abstain rather than name this file as real.",
+      "provenance": {
+        "artifact_path": "templates/code_note_templates.json"
+      },
+      "staleness": "unknown",
+      "safety_label": "unsafe_decoy"
+    }
+  ]
+}

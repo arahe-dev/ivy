@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mome-moce-exp"
+version = "0.1.0"
+description = "Deterministic MoME/MoCE context-stress benchmark and ACCA route-proof harness."
+requires-python = ">=3.11"
+dependencies = [
+  "jsonschema>=4.23,<5"
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest>=8,<9"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+
+[tool.setuptools]
+py-modules = []

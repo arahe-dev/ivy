@@ -1,0 +1,238 @@
+{
+  "meta": {
+    "purpose": "Reusable corpus templates for synthetic benchmark artifacts used in evidence-routing evaluation (MoME/MoCE experiments).",
+    "caution": "These are template records for synthetic data generation. They are not real benchmark results.",
+    "ascii_only": true
+  },
+  "records": [
+    {
+      "template_id": "bench-stale-001",
+      "category": "stale_superseded",
+      "benchmark_name": "MMLU",
+      "version": "v1.3.0",
+      "superseded_by": "MMLU v1.4.0",
+      "supersession_date": "2025-11-01",
+      "supersession_reason": "Removed 47 leaked questions, corrected 12 answer keys, added few-shot cot partition.",
+      "content_template": {
+        "benchmark": "mmlu",
+        "version": "1.3.0",
+        "split": "test",
+        "score": 0.0,
+        "metric": "accuracy",
+        "note": "STALE: Superseded by v1.4.0 as of 2025-11-01. Do not use for leaderboard comparison."
+      }
+    },
+    {
+      "template_id": "bench-stale-002",
+      "category": "stale_superseded",
+      "benchmark_name": "HumanEval",
+      "version": "v1.0",
+      "superseded_by": "HumanEval v2.0",
+      "supersession_date": "2026-01-15",
+      "supersession_reason": "v2.0 adds anti-cheat hashing, 40 new problems, and canonical solution seeds.",
+      "content_template": {
+        "benchmark": "humaneval",
+        "version": "1.0",
+        "split": "test",
+        "pass_at_1": 0.0,
+        "note": "STALE: Superseded by v2.0. Scores from v1.0 are inflated due to prompt leakage in earlier public versions."
+      }
+    },
+    {
+      "template_id": "bench-stale-003",
+      "category": "stale_superseded",
+      "benchmark_name": "GSM8K",
+      "version": "original",
+      "superseded_by": "GSM8K v1.1 (revised)",
+      "supersession_date": "2025-09-01",
+      "supersession_reason": "Revised 23 ambiguous word problems and standardised numeric precision tolerance.",
+      "content_template": {
+        "benchmark": "gsm8k",
+        "version": "original",
+        "split": "test",
+        "accuracy": 0.0,
+        "metric": "exact_match",
+        "note": "STALE: original GSM8K superseded by v1.1. Exact-match scores differ from v1.1 by up to 3% on some seeds."
+      }
+    },
+    {
+      "template_id": "bench-conflict-001",
+      "category": "version_conflict",
+      "benchmark_name": "HumanEval",
+      "old_version": "v1.0",
+      "old_score": 87.3,
+      "new_version": "v2.0",
+      "new_score": 73.1,
+      "conflict_type": "INFLATED_OLD",
+      "resolution": "Use v2.0. v1.0 allowed test-case backfitting; v2.0 seals test harness.",
+      "content_template": {
+        "benchmark": "humaneval",
+        "conflicting_versions": [
+          "1.0",
+          "2.0"
+        ],
+        "reported_scores": {
+          "1.0": 87.3,
+          "2.0": 73.1
+        },
+        "discrepancy_pct": 16.2,
+        "root_cause": "v1.0 test harness exposed canonical solutions via docstring metadata; v2.0 hashes golden solutions server-side.",
+        "adjudicated_verdict": "v2.0 is authoritative. All v1.0 entries should be flagged as stale.",
+        "recommended_action": "Re-run on HumanEval v2.0 before including in any aggregate."
+      }
+    },
+    {
+      "template_id": "bench-conflict-002",
+      "category": "version_conflict",
+      "benchmark_name": "MMLU",
+      "old_version": "v1.3.0",
+      "old_score": 86.4,
+      "new_version": "v1.4.0",
+      "new_score": 82.1,
+      "conflict_type": "DEFLATED_NEW",
+      "resolution": "Use v1.4.0 but note that 12 answer-key corrections cause score shifts of -2% to -6% across categories.",
+      "content_template": {
+        "benchmark": "mmlu",
+        "conflicting_versions": [
+          "1.3.0",
+          "1.4.0"
+        ],
+        "reported_scores": {
+          "1.3.0": 86.4,
+          "1.4.0": 82.1
+        },
+        "discrepancy_pct": 4.3,
+        "root_cause": "12 answer-key corrections in virology and computer security sub-sets reduced spurious correct answers.",
+        "adjudicated_verdict": "v1.4.0 is authoritative.",
+        "single_dataset_note": "Both scores are valid on their respective versions. Do not mix in meta-evaluation."
+      }
+    },
+    {
+      "template_id": "bench-caution-001",
+      "category": "single_run_caution",
+      "benchmark_name": "GSM8K",
+      "run_seed": 42,
+      "score": 84.5,
+      "ci_95": [
+        81.2,
+        87.8
+      ],
+      "num_runs": 1,
+      "caution_level": "HIGH",
+      "content_template": {
+        "benchmark": "gsm8k",
+        "version": "v1.1",
+        "split": "test",
+        "seed": 42,
+        "accuracy": 84.5,
+        "statistical_caution": "Single run reported. GSM8K exhibits +/- 3% variance across 5 seeds due to CoT stochasticity. Report 5-run mean and std for reliable comparison.",
+        "recommended_reporting": "mean: {mean}, std: {std}, n={n}"
+      }
+    },
+    {
+      "template_id": "bench-caution-002",
+      "category": "single_run_caution",
+      "benchmark_name": "HumanEval v2.0",
+      "run_seed": 7,
+      "pass_at_1": 73.1,
+      "num_runs": 1,
+      "caution_level": "MEDIUM",
+      "content_template": {
+        "benchmark": "humaneval",
+        "version": "2.0",
+        "seed": 7,
+        "pass_at_1": 73.1,
+        "statistical_caution": "Single run. HumanEval pass@1 variance is low (approx 0.5%) but prompt template phrasing can shift scores by 2-3%. Verify template before claiming generalisation.",
+        "recommended_reporting": "pass@1={value} (single run; prompt: {prompt_template_id})"
+      }
+    },
+    {
+      "template_id": "bench-caution-003",
+      "category": "single_run_caution",
+      "benchmark_name": "IFEval",
+      "run_seed": 123,
+      "score": 78.9,
+      "num_runs": 1,
+      "caution_level": "HIGH",
+      "content_template": {
+        "benchmark": "ifeval",
+        "version": "1.0",
+        "seed": 123,
+        "loose_accuracy": 78.9,
+        "strict_accuracy": 72.4,
+        "statistical_caution": "IFEval strict vs loose differs by 6+ points. Single-run metrics should not be used for pass/fail decisions on instruction-following capability.",
+        "recommended_reporting": "loose={loose}, strict={strict} (n={n}, prompt_set={prompt_set})"
+      }
+    },
+    {
+      "template_id": "bench-regression-001",
+      "category": "regression_flag",
+      "benchmark_name": "BigBench-Hard",
+      "old_score": 72.3,
+      "new_score": 68.1,
+      "delta": -4.2,
+      "regression_type": "POSSIBLE_REGRESSION",
+      "content_template": {
+        "benchmark": "bigbench_hard",
+        "version": "1.0",
+        "previous_run": {
+          "score": 72.3,
+          "date": "2026-04-01"
+        },
+        "current_run": {
+          "score": 68.1,
+          "date": "2026-05-01"
+        },
+        "delta": -4.2,
+        "delta_pct": -5.8,
+        "flag": "REGRESSION_DETECTED",
+        "note": "Single-run comparison. Verify with 5-run paired eval before declaring regression. BBH per-task std can reach 3%.",
+        "recommended_action": "Run 5-shot paired eval with identical prompt template. Check for seed sensitivity."
+      }
+    },
+    {
+      "template_id": "bench-boreal-jsonrepair-20260509-current",
+      "category": "current_benchmark_with_ci",
+      "benchmark_name": "JSONRepairEval",
+      "model": "Model Boreal",
+      "run_date": "2026-05-09",
+      "content_template": {
+        "benchmark": "json_repair_eval",
+        "model": "Model Boreal",
+        "version": "2026-05-09",
+        "metric": "valid_json_after_repair_rate",
+        "score": 0.941,
+        "ci_95": [
+          0.923,
+          0.959
+        ],
+        "num_cases": 1200,
+        "seed_set": [
+          11,
+          17,
+          23,
+          29,
+          31
+        ],
+        "recommended_reporting": "Report score with CI and seed set; do not compare to stale v2026-04-18 harness."
+      }
+    },
+    {
+      "template_id": "bench-boreal-jsonrepair-20260418-stale",
+      "category": "stale_superseded",
+      "benchmark_name": "JSONRepairEval",
+      "model": "Model Boreal",
+      "superseded_by": "bench-boreal-jsonrepair-20260509-current",
+      "supersession_date": "2026-05-09",
+      "content_template": {
+        "benchmark": "json_repair_eval",
+        "model": "Model Boreal",
+        "version": "2026-04-18",
+        "score": 0.972,
+        "staleness": "stale",
+        "superseded_by": "bench_boreal_jsonrepair_20260509_current",
+        "root_cause": "Old harness accepted markdown-fenced JSON and leading think tags as valid, inflating scores."
+      }
+    }
+  ]
+}

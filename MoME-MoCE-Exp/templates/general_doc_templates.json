@@ -1,0 +1,114 @@
+{
+  "schema_version": "context_stress_templates.v0.1",
+  "family": "doc_memory",
+  "templates": [
+    {
+      "id": "doc_vector_search_general",
+      "source_family": "doc_memory",
+      "authority": "medium",
+      "created_at": "2026-05-09",
+      "supersedes": [],
+      "tags": [
+        "vector_search",
+        "general",
+        "no_retrieval",
+        "parametric"
+      ],
+      "text": "General explanation: vector search represents text, images, or other items as numeric vectors and compares similarity between those vectors. It helps find related concepts even when the query and the matching document do not use the exact same words. This is general background knowledge, not an IVY-specific command or artifact path.",
+      "provenance": {
+        "artifact_path": "templates/general_doc_templates.json"
+      },
+      "staleness": "current"
+    },
+    {
+      "id": "doc_rag_general",
+      "source_family": "doc_memory",
+      "authority": "medium",
+      "created_at": "2026-05-09",
+      "supersedes": [],
+      "tags": [
+        "rag",
+        "general",
+        "no_retrieval",
+        "parametric"
+      ],
+      "text": "General explanation: retrieval augmented generation combines a search or retrieval step with model generation. The retrieval layer supplies evidence from documents or tools, and the model uses that evidence to compose the final answer. For a broad definition of RAG, no local IVY corpus lookup is required unless the question asks for project-specific evidence.",
+      "provenance": {
+        "artifact_path": "templates/general_doc_templates.json"
+      },
+      "staleness": "current"
+    },
+    {
+      "id": "doc_memory_types_general",
+      "source_family": "doc_memory",
+      "authority": "medium",
+      "created_at": "2026-05-09",
+      "supersedes": [],
+      "tags": [
+        "episodic",
+        "semantic",
+        "memory",
+        "general",
+        "no_retrieval"
+      ],
+      "text": "General explanation: episodic memory stores event-like observations, interactions, or run history, while semantic memory stores stable concepts and facts. In agent systems, episodic memory is useful for recent task context and semantic memory is useful for reusable knowledge. This distinction can be answered without retrieving exact local artifacts.",
+      "provenance": {
+        "artifact_path": "templates/general_doc_templates.json"
+      },
+      "staleness": "current"
+    },
+    {
+      "id": "doc_retrieval_skip_policy_general",
+      "source_family": "doc_memory",
+      "authority": "medium",
+      "created_at": "2026-05-09",
+      "supersedes": [],
+      "tags": [
+        "retrieval_policy",
+        "general",
+        "no_retrieval",
+        "parametric"
+      ],
+      "text": "General policy note: for broad educational questions, answer from stable general knowledge and keep retrieval near zero. Retrieve local evidence only when the user asks for an exact command, path, benchmark number, local source file, policy rule, workflow trace, or proof that a project-specific claim is unsupported.",
+      "provenance": {
+        "artifact_path": "eval/category_policy.md"
+      },
+      "staleness": "current"
+    },
+    {
+      "id": "doc_embedding_general",
+      "source_family": "doc_memory",
+      "authority": "medium",
+      "created_at": "2026-05-09",
+      "supersedes": [],
+      "tags": [
+        "embedding",
+        "vector_search",
+        "general",
+        "no_retrieval"
+      ],
+      "text": "General explanation: an embedding is a numeric representation that places similar meanings near each other in vector space. Search systems compare embeddings to rank likely matches by semantic similarity, then may pass the best matches to a downstream answer generator.",
+      "provenance": {
+        "artifact_path": "templates/general_doc_templates.json"
+      },
+      "staleness": "current"
+    },
+    {
+      "id": "doc_context_window_general",
+      "source_family": "doc_memory",
+      "authority": "medium",
+      "created_at": "2026-05-09",
+      "supersedes": [],
+      "tags": [
+        "context_window",
+        "general",
+        "no_retrieval"
+      ],
+      "text": "General explanation: a context window is the amount of input and generated text a model can consider at one time. Larger windows can hold more material, but retrieval and summarization are still useful because irrelevant context can distract the model and increase cost.",
+      "provenance": {
+        "artifact_path": "templates/general_doc_templates.json"
+      },
+      "staleness": "current"
+    }
+  ]
+}

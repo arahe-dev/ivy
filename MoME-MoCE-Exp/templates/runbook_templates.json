@@ -1,0 +1,186 @@
+{
+  "schema_version": "context_stress_templates.v0.1",
+  "family": "runbook",
+  "templates": [
+    {
+      "id": "runbook_memory_eval_command_current",
+      "source_family": "runbook",
+      "authority": "high",
+      "created_at": "2026-05-09",
+      "supersedes": [
+        "runbook_memory_eval_command_old"
+      ],
+      "tags": [
+        "memory_eval",
+        "command",
+        "current",
+        "exact_command"
+      ],
+      "text": "Current synthetic Memory Eval rerun command: from the IVY workspace, run `python -m ivy_agent_demo.memory_eval --cases ivy_agent_demo/memory_eval_cases.json --top-k 5 --compare-latest`. Artifacts are saved under `C:/ivy/runs/memory_eval/<timestamp>`. Use this exact command when the query asks what reruns the synthetic memory eval; do not replace it with old_eval_runner.",
+      "provenance": {
+        "artifact_path": "templates/runbook_templates.json"
+      },
+      "staleness": "current",
+      "conflicts_with": [
+        "runbook_memory_eval_command_old"
+      ]
+    },
+    {
+      "id": "runbook_memory_eval_command_old",
+      "source_family": "runbook",
+      "authority": "low",
+      "created_at": "2026-05-09",
+      "supersedes": [],
+      "tags": [
+        "memory_eval",
+        "command",
+        "stale",
+        "exact_command"
+      ],
+      "text": "Stale Memory Eval command: `old_eval_runner --memory-eval`. This command was superseded by `runbook_memory_eval_command_current` and should only be retrieved to explain a stale/current conflict, never as the final command to run.",
+      "provenance": {
+        "artifact_path": "templates/runbook_templates.json"
+      },
+      "staleness": "stale",
+      "conflicts_with": [
+        "runbook_memory_eval_command_current"
+      ]
+    },
+    {
+      "id": "runbook_context_stress_generate_smoke_command",
+      "source_family": "runbook",
+      "authority": "high",
+      "created_at": "2026-05-09",
+      "supersedes": [],
+      "tags": [
+        "context_stress",
+        "generate",
+        "smoke",
+        "command",
+        "local_path"
+      ],
+      "text": "Generate the smoke context-stress dataset from the repository root with: `cd C:/ivy/MoME-MoCE-Exp` then `python scripts/generate_context_stress_dataset.py --scale smoke --seed 123`. The generator is deterministic for a fixed scale and seed.",
+      "provenance": {
+        "artifact_path": "docs/RUNBOOK.md"
+      },
+      "staleness": "current"
+    },
+    {
+      "id": "runbook_context_stress_validate_smoke_command",
+      "source_family": "runbook",
+      "authority": "high",
+      "created_at": "2026-05-09",
+      "supersedes": [],
+      "tags": [
+        "context_stress",
+        "validate",
+        "smoke",
+        "command",
+        "local_path"
+      ],
+      "text": "Validate the smoke context-stress dataset from `C:/ivy/MoME-MoCE-Exp` with: `python scripts/validate_context_stress_dataset.py --dataset out/context_stress_smoke`. This validates the generated corpus, manifest, and eval cases for the smoke output directory.",
+      "provenance": {
+        "artifact_path": "docs/RUNBOOK.md"
+      },
+      "staleness": "current"
+    },
+    {
+      "id": "runbook_context_stress_generate_medium_command",
+      "source_family": "runbook",
+      "authority": "high",
+      "created_at": "2026-05-09",
+      "supersedes": [],
+      "tags": [
+        "context_stress",
+        "generate",
+        "medium",
+        "command",
+        "local_path"
+      ],
+      "text": "Generate the medium context-stress dataset from `C:/ivy/MoME-MoCE-Exp` with: `python scripts/generate_context_stress_dataset.py --scale medium --seed 123`, then validate it with `python scripts/validate_context_stress_dataset.py --dataset out/context_stress_medium`.",
+      "provenance": {
+        "artifact_path": "docs/RUNBOOK.md"
+      },
+      "staleness": "current"
+    },
+    {
+      "id": "runbook_context_stress_generate_stress_command",
+      "source_family": "runbook",
+      "authority": "high",
+      "created_at": "2026-05-09",
+      "supersedes": [],
+      "tags": [
+        "context_stress",
+        "generate",
+        "stress",
+        "command",
+        "local_path"
+      ],
+      "text": "Generate the stress context-stress dataset from `C:/ivy/MoME-MoCE-Exp` with: `python scripts/generate_context_stress_dataset.py --scale stress --seed 123`, then validate it with `python scripts/validate_context_stress_dataset.py --dataset out/context_stress_stress`.",
+      "provenance": {
+        "artifact_path": "docs/RUNBOOK.md"
+      },
+      "staleness": "current"
+    },
+    {
+      "id": "runbook_context_stress_artifact_path",
+      "source_family": "runbook",
+      "authority": "high",
+      "created_at": "2026-05-09",
+      "supersedes": [],
+      "tags": [
+        "context_stress",
+        "artifact_path",
+        "current",
+        "exact_path"
+      ],
+      "text": "Context stress datasets are generated under `C:/ivy/MoME-MoCE-Exp/out/context_stress_<scale>`. Inside each dataset, the corpus file is `corpus/corpus_items.jsonl`, the manifest is `metadata/dataset_manifest.json`, and eval cases are copied to `eval/cases.json`. For smoke scale, the dataset root is `C:/ivy/MoME-MoCE-Exp/out/context_stress_smoke`.",
+      "provenance": {
+        "artifact_path": "docs/RUNBOOK.md"
+      },
+      "staleness": "current",
+      "conflicts_with": [
+        "decoy_context_stress_artifact_path"
+      ]
+    },
+    {
+      "id": "runbook_context_stress_output_files",
+      "source_family": "runbook",
+      "authority": "high",
+      "created_at": "2026-05-09",
+      "supersedes": [],
+      "tags": [
+        "context_stress",
+        "outputs",
+        "artifact_path",
+        "files"
+      ],
+      "text": "The context-stress output files are always relative to the selected dataset directory: `corpus/corpus_items.jsonl`, `metadata/dataset_manifest.json`, and `eval/cases.json`. These relative paths are the authoritative output layout for generated datasets.",
+      "provenance": {
+        "artifact_path": "docs/RUNBOOK.md"
+      },
+      "staleness": "current"
+    },
+    {
+      "id": "decoy_context_stress_artifact_path",
+      "source_family": "distractor",
+      "authority": "decoy",
+      "created_at": "2026-05-09",
+      "supersedes": [],
+      "tags": [
+        "context_stress",
+        "artifact_path",
+        "decoy"
+      ],
+      "text": "Decoy artifact path: `tmp/random/context_blob.txt`. This is not the IVY context stress output path and must not answer exact artifact-path questions.",
+      "provenance": {
+        "artifact_path": "templates/runbook_templates.json"
+      },
+      "staleness": "unknown",
+      "conflicts_with": [
+        "runbook_context_stress_artifact_path"
+      ],
+      "safety_label": "unsafe_decoy"
+    }
+  ]
+}

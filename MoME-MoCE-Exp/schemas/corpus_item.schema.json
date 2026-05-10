@@ -1,0 +1,319 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "context_stress.corpus_item.v0.2",
+  "title": "Context Stress Corpus Item",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "source_family",
+    "authority",
+    "created_at",
+    "supersedes",
+    "tags",
+    "text",
+    "provenance",
+    "staleness",
+    "conflicts_with",
+    "safety_label"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/id"
+    },
+    "source_family": {
+      "$ref": "#/$defs/source_family"
+    },
+    "authority": {
+      "$ref": "#/$defs/authority"
+    },
+    "created_at": {
+      "$ref": "#/$defs/date"
+    },
+    "supersedes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      },
+      "uniqueItems": true
+    },
+    "tags": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 96,
+        "pattern": "^[^\\r\\n]+$"
+      },
+      "uniqueItems": true
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20000
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "artifact_path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^(templates|eval|docs|scripts|schemas|out|root|ivy|ivy_agent_demo|llama_moe_autotune)/[^\\r\\n]*$"
+        },
+        "run_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "pattern": "^[A-Za-z0-9_.:\\-/]+$"
+        },
+        "source_hash": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128,
+          "pattern": "^[A-Fa-f0-9:]+$"
+        },
+        "line_start": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "line_end": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "generator": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "record_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "record_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "generated_from": {
+          "$ref": "#/$defs/id"
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "support_index": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "staleness": {
+      "$ref": "#/$defs/staleness"
+    },
+    "conflicts_with": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      },
+      "uniqueItems": true
+    },
+    "safety_label": {
+      "type": "string",
+      "enum": [
+        "normal",
+        "safety_critical",
+        "unsafe_decoy",
+        "secret_like"
+      ]
+    },
+    "taint_labels": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "normal",
+          "safety_critical",
+          "unsafe_decoy",
+          "secret_like",
+          "private_path",
+          "policy_memory",
+          "stale_claim",
+          "benchmark_claim",
+          "source_code_path"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "exposure_policy": {
+      "type": "string",
+      "enum": [
+        "frontier_ok",
+        "contrastive_ok",
+        "metadata_only",
+        "forbidden"
+      ]
+    },
+    "valid_from": {
+      "$ref": "#/$defs/date"
+    },
+    "valid_until": {
+      "$ref": "#/$defs/date"
+    },
+    "claim_type": {
+      "type": "string",
+      "enum": [
+        "fact",
+        "command",
+        "path",
+        "metric",
+        "policy",
+        "procedure",
+        "failure_mode",
+        "code_reference",
+        "decoy"
+      ]
+    },
+    "canonical_for": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+      },
+      "uniqueItems": true
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "authority": {
+            "const": "decoy"
+          }
+        },
+        "required": [
+          "authority"
+        ]
+      },
+      "then": {
+        "properties": {
+          "source_family": {
+            "const": "distractor"
+          },
+          "staleness": {
+            "enum": [
+              "decoy",
+              "unknown"
+            ]
+          },
+          "safety_label": {
+            "enum": [
+              "unsafe_decoy",
+              "secret_like"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "staleness": {
+            "const": "stale"
+          }
+        },
+        "required": [
+          "staleness"
+        ]
+      },
+      "then": {
+        "properties": {
+          "authority": {
+            "enum": [
+              "low",
+              "decoy"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "source_family": {
+            "const": "safety_policy"
+          }
+        },
+        "required": [
+          "source_family"
+        ]
+      },
+      "then": {
+        "properties": {
+          "authority": {
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "staleness": {
+            "enum": [
+              "current",
+              "stale",
+              "unknown"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_\\-]*$",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "date": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}$"
+    },
+    "source_family": {
+      "type": "string",
+      "enum": [
+        "doc_memory",
+        "runbook",
+        "benchmark_artifact",
+        "safety_policy",
+        "workflow_trace",
+        "debug_failure",
+        "source_code",
+        "distractor"
+      ]
+    },
+    "authority": {
+      "type": "string",
+      "enum": [
+        "high",
+        "medium",
+        "low",
+        "decoy"
+      ]
+    },
+    "staleness": {
+      "type": "string",
+      "enum": [
+        "current",
+        "stale",
+        "unknown",
+        "decoy"
+      ]
+    }
+  }
+}
