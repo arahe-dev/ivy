@@ -29,6 +29,15 @@ The important shift:
 | `2a4702d` | CP42 | Added stale/current conflict lane to plugin benchmark. | Benchmark 6/6; 23 focused tests. |
 | `1ca782b` | CP43 | Added stable committed plugin benchmark scoreboard. | Scoreboard 6/6; plugin tests passed. |
 | `dba5a98` | CP44 | Added Codex/OpenCode memory plugin bootstrap guide. | Documentation checkpoint. |
+| `098e81f` | CP45 | Added real-conversation autoresearch loop and 10M-token sharded capacity rating. | 24 focused tests; plugin benchmark 6/6. |
+| `d66f34d` | CP46 | Mined hard cases from autoresearch failures and real conversation records. | 13 focused tests. |
+| `af7255d` | CP47 | Evaluated mined hard cases and selected `max_prefilter_items=32`. | 14 focused tests; mined eval 5/5. |
+| `c987669` | CP48 | Added deterministic reranker feature profiles. | 15 focused tests; profile eval 5/5. |
+| `49fc812` | CP49 | Added guarded policy promotion for feature-profile winners. | 16 focused tests; policy promotion validated. |
+| `ff021ba` | CP50 | Added combined context-memory regression gate. | 18 focused tests; gate passed. |
+| `2362997` | CP51 | Lowered no-policy default prefilter budget from 192 to 32. | Full plugin router latency dropped from about 11.3 ms to 2.5 ms. |
+| `3419774` | CP52 | Added in-process query-index cache. | Plugin query wall dropped from about 64 ms to 30 ms in probe. |
+| `7b4c380` | CP53 | Added converted `CorpusItem` cache. | Plugin query wall improved to about 28 ms in probe. |
 
 ## Latest Benchmark
 
@@ -42,8 +51,9 @@ Latest result:
 
 - Query count: `6`
 - Passed expectations: `6 / 6`
-- Avg query wall: `105.959 ms`
-- Avg router latency: `12.401 ms`
+- Avg query wall: `28.416 ms` in CP53 probe
+- Avg router latency: `2.548 ms` in CP53 probe
+- Combined regression gate plugin router latency: `2.564 ms`
 
 | Query Type | Expected Behavior | Result |
 |---|---|---|
@@ -111,6 +121,25 @@ Fix:
 - `remember` accepts `conflicts_with`
 - CLI, HTTP, and MCP all expose the metadata
 
+### Too-Wide Default Prefilter
+
+The plugin benchmark store did not have an autoresearch runtime policy, so it used the old default prefilter width of `192` even though the mined eval consistently selected `32`.
+
+Fix:
+
+- default no-policy `max_prefilter_items` to `32`
+- keep runtime policy override support
+- add a combined regression gate that exposes both hot mined latency and full-plugin latency
+
+### Repeated Query Index Decode
+
+After CP51, router latency was good but query wall time still paid repeated disk and JSON decode cost.
+
+Fix:
+
+- cache decoded query indexes by path, `mtime_ns`, and size
+- cache converted `CorpusItem` objects by id/source-hash/text length
+
 ## Architecture Snapshot
 
 ```mermaid
@@ -130,8 +159,9 @@ flowchart LR
   Build --> Cache["CP32 build fingerprint cache"]
   Build --> Corpus["ACCA corpus dataset"]
   Corpus --> Index["CP29 persisted query index"]
+  Index --> HotCache["CP52 index cache + CP53 item cache"]
   Query --> Index
-  Index --> Router["MoME/MoCE router"]
+  HotCache --> Router["MoME/MoCE router"]
   Router --> Packet["CP30 packet_mode + ACCA packet"]
   Packet --> Agent
 ```
@@ -143,10 +173,14 @@ flowchart LR
 - MCP resources and prompts now exist.
 - Direct memories are retrievable through the same interface that stores them.
 - Query hot path is now low tens of milliseconds inside the router.
+- Regression gate keeps mined/feature router latency under `5 ms`.
+- Full plugin benchmark router latency is now around `2.5 ms` with a `32` prefilter budget.
+- Repeated plugin query wall time is down to roughly `28-30 ms` in the current benchmark harness.
 - Repeatable benchmark catches both positive retrieval and negative over-retrieval.
 - Build refresh can reuse unchanged file chunks after source edits.
 - Plugin-authored notes can participate in stale/current conflict routing.
 - Safety still rejects obvious secret-like remembered notes.
+- Autoresearch now mines hard cases, evaluates deterministic feature profiles, and can promote a winning policy under guard.
 
 ## Current Weaknesses
 
@@ -154,13 +188,14 @@ flowchart LR
 - MCP server is useful but still minimal compared with a full production MCP package.
 - Ranking is still mostly sparse/token-based with policy gates; no learned reranker.
 - Benchmark set is useful but small.
+- End-to-end query wall time is still tens of milliseconds because prefilter scoring and packet generation are outside the measured router latency.
 - Signal pings failed this session because the local Signal daemon needs a real VAPID subject configured.
 
 ## Next High-Leverage Work
 
-1. Add a small contradiction/stale benchmark lane to the plugin benchmark.
-2. Add persistent benchmark scoreboard in `docs/`.
-3. Add OpenCode/Codex bootstrap docs that show MCP configuration end to end.
-4. Add optional rerank stage that can consume prefilter score, note priority, authority, and volatility features.
-5. Add section-level chunk cache for large Markdown files.
-6. Add optional watcher mode for near-real-time memory freshness.
+1. Add end-to-end wall-time budgets to the regression gate, not only router latency.
+2. Profile prefilter scoring and packet rendering to chase sub-10 ms wall time.
+3. Add section-level chunk cache for large Markdown files.
+4. Add optional watcher mode for near-real-time memory freshness.
+5. Expand mined hard cases beyond IVY docs with external project corpora.
+6. Add an optional learned/advisory reranker only behind the deterministic gate.
