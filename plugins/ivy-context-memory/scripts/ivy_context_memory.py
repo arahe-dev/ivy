@@ -60,6 +60,7 @@ except ModuleNotFoundError:
 SECRET_RE = re.compile(r"\b(api[_ -]?key|password|private[_ -]?key|secret|token|bearer)\b", re.I)
 _QUERY_INDEX_CACHE: dict[str, tuple[int, int, dict[str, Any]]] = {}
 _CORPUS_ITEM_CACHE: dict[tuple[str, str, int], CorpusItem] = {}
+_ITEM_FEATURE_CACHE: dict[tuple[str, str, int], dict[str, Any]] = {}
 
 
 def utc_now() -> str:
@@ -406,11 +407,15 @@ def raw_to_corpus_item(raw: dict[str, Any]) -> CorpusItem:
     )
 
 
+def item_cache_key(item: dict[str, Any]) -> tuple[str, str, int]:
+    provenance = item.get("provenance", {})
+    return (str(item.get("id", "")), str(provenance.get("source_hash", "")), len(str(item.get("text", ""))))
+
+
 def raw_items_to_corpus(items: list[dict[str, Any]]) -> list[CorpusItem]:
     converted: list[CorpusItem] = []
     for item in items:
-        provenance = item.get("provenance", {})
-        cache_key = (str(item.get("id", "")), str(provenance.get("source_hash", "")), len(str(item.get("text", ""))))
+        cache_key = item_cache_key(item)
         cached = _CORPUS_ITEM_CACHE.get(cache_key)
         if cached is None:
             cached = raw_to_corpus_item(item)
@@ -423,21 +428,34 @@ def checkpoint_numbers(text: str) -> set[str]:
     return set(re.findall(r"\bcp[-_ ]?(\d+)\b", text.lower()))
 
 
-def prefilter_feature_bonus(item: dict[str, Any], query: str, policy: dict[str, Any]) -> float:
+def prefilter_item_features(item: dict[str, Any]) -> dict[str, Any]:
+    cache_key = item_cache_key(item)
+    cached = _ITEM_FEATURE_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+    features = {
+        "tags": set(str(tag).lower() for tag in item.get("tags", [])),
+        "checkpoints": checkpoint_numbers(item_search_text(item)),
+        "source_family": item.get("source_family"),
+    }
+    _ITEM_FEATURE_CACHE[cache_key] = features
+    return features
+
+
+def prefilter_feature_bonus(item: dict[str, Any], query_lower: str, query_checkpoints: set[str], policy: dict[str, Any]) -> float:
     weights = policy.get("prefilter_feature_weights", {}) if isinstance(policy, dict) else {}
-    tags = set(str(tag).lower() for tag in item.get("tags", []))
-    item_text = item_search_text(item).lower()
-    query_checkpoints = checkpoint_numbers(query)
+    features = prefilter_item_features(item)
+    tags = features["tags"]
     bonus = 0.0
     if "agent_note" in tags:
         bonus += float(weights.get("agent_note_boost", 500.0))
     if query_checkpoints:
-        item_checkpoints = checkpoint_numbers(item_text)
+        item_checkpoints = features["checkpoints"]
         if query_checkpoints & item_checkpoints:
             bonus += float(weights.get("checkpoint_match_boost", 0.0))
         elif "agent_note" in tags:
             bonus += float(weights.get("agent_note_checkpoint_mismatch_penalty", 0.0))
-    if item.get("source_family") == "source_code" and not any(token in query.lower() for token in ["code", "function", "script", "schema", "module"]):
+    if features["source_family"] == "source_code" and not any(token in query_lower for token in ["code", "function", "script", "schema", "module"]):
         bonus += float(weights.get("source_code_non_code_penalty", 0.0))
     return bonus
 
@@ -465,10 +483,13 @@ def select_prefilter_items(store: Path, query: str, *, max_items: int = 192, pol
         return [], {"enabled": True, "reason": "no_token_hits", "candidate_count": 0, "total_items": total_items}
     policy = policy or {}
     feature_adjustments: dict[str, float] = {}
-    for item_id, item in docs.items():
-        if item_id not in scores:
+    query_lower = query.lower()
+    query_checkpoints = checkpoint_numbers(query)
+    for item_id in list(scores):
+        item = docs.get(item_id)
+        if item is None:
             continue
-        adjustment = prefilter_feature_bonus(item, query, policy)
+        adjustment = prefilter_feature_bonus(item, query_lower, query_checkpoints, policy)
         if adjustment:
             scores[item_id] += adjustment
             feature_adjustments[item_id] = round(adjustment, 3)
