@@ -713,8 +713,8 @@ def query_is_external_out_of_scope(query: str) -> bool:
 def query_requests_unsupported_commercial_fact(query: str) -> bool:
     q = norm(query)
     return (
-        any(term in q for term in ["price", "pricing", "cost", "charge"])
-        and any(term in q for term in ["latest", "production", "unreleased", "cloud", "saas"])
+        any(term in q for term in ["price", "pricing", "cost", "charge", "release status", "production status", "ga status"])
+        and any(term in q for term in ["latest", "current", "production", "unreleased", "cloud", "saas", "release", "ga"])
     )
 
 
@@ -1018,13 +1018,13 @@ class MoMEMoCERouter:
             stale_requested = False
             latest_requested = False
             strict_terms = []
-        if query_is_external_out_of_scope(query) or unsupported_commercial:
+        if query_is_external_out_of_scope(query):
             families = set()
             decoy_requested = False
             stale_requested = False
             latest_requested = False
             strict_terms = []
-        anchored = (query_has_anchor(query) or bool(families) or bool(strict_terms)) and not unsupported_commercial
+        anchored = query_has_anchor(query) or bool(families) or bool(strict_terms)
         if "exact_anchor_memory" in self.disabled_experts:
             strict_terms = []
         target_evidence_count = self._target_evidence_count(
@@ -1101,6 +1101,10 @@ class MoMEMoCERouter:
             latest_requested=latest_requested,
             strict_terms=strict_terms,
         )
+        if unsupported_commercial:
+            candidates = [
+                row for row in candidates if self._supports_current_commercial_fact(query, row[0])
+            ]
 
         if strict_terms:
             strict_candidates = [(item, score, parts) for item, score, parts in candidates if parts.get("strict_identifier", 0.0) > 0]
@@ -1664,6 +1668,34 @@ class MoMEMoCERouter:
             return "debug_failure"
         return None
 
+    def _supports_current_commercial_fact(self, query: str, item: CorpusItem) -> bool:
+        q = norm(query)
+        blob = norm(
+            " ".join(
+                [
+                    item.id,
+                    " ".join(item.tags),
+                    item.text,
+                    json.dumps(item.raw.get("canonical_for", []), sort_keys=True),
+                    json.dumps(item.provenance, sort_keys=True),
+                ]
+            )
+        )
+        asks_price = any(term in q for term in ["price", "pricing", "cost", "charge"])
+        asks_release = any(term in q for term in ["release status", "production status", "ga status", "public ga"])
+        for entity in ["recall cloud", "nebula cloud", "signal", "recall board", "recall"]:
+            if entity in q and entity not in blob:
+                return False
+        if item.authority not in {"high", "medium"} or item.staleness != "current":
+            return False
+        if not (item.raw.get("valid_from") or item.raw.get("created_at")):
+            return False
+        if asks_price and not any(term in blob for term in ["price", "pricing", "cost", "charge", "usd", "$", "per month"]):
+            return False
+        if asks_release and not any(term in blob for term in ["release status", "production status", "ga", "beta", "public release"]):
+            return False
+        return asks_price or asks_release
+
     def _priority_candidate_ids(self, query: str) -> list[str]:
         q = norm(query)
         ids: list[str] = []
@@ -1713,6 +1745,10 @@ class MoMEMoCERouter:
             ids.append("external_recall_graph_ir")
         if "recall" in q and ("backlinks" in q or "subpages" in q or "daily board" in q or "second brain" in q):
             ids.append("external_recall_search_backlinks")
+        if "recall cloud" in q and ("price" in q or "pricing" in q or "cost" in q or "charge" in q):
+            ids.append("cp27_recall_cloud_current_price")
+        if "signal" in q and ("release status" in q or "production status" in q or "ga status" in q):
+            ids.append("cp27_signal_current_release_status")
         if "ivy-real v3" in q and "latency" in q:
             ids.append("cp22_current_v3_latency_gate")
         if "deepseek" in q and ("router" in q or "advisory" in q):
@@ -2175,10 +2211,10 @@ def evaluate_case(case: dict[str, Any], result: RouteResult) -> dict[str, Any]:
     max_evidence_items = int(case.get("max_evidence_items", default_max_evidence_items(case)))
     compactness_pass = len(selected) <= max_evidence_items
 
-    if not case.get("should_retrieve", False):
+    if case.get("must_abstain", False):
+        passed = not selected and result.decision in {"no_context_needed", "searched_no_authoritative_evidence"}
+    elif not case.get("should_retrieve", False):
         passed = len(selected) == 0 and result.decision == "no_context_needed"
-    elif case.get("must_abstain", False):
-        passed = not selected or result.decision == "searched_no_authoritative_evidence"
     elif required:
         passed = not missing_required and not hit_forbidden
     else:
