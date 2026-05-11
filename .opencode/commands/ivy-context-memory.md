@@ -31,3 +31,21 @@ Then call `POST http://127.0.0.1:8768/query` with:
 ```json
 { "query": "<task or question>", "variant": "auto" }
 ```
+
+## MCP Mode
+
+The plugin also exposes native MCP tools through:
+
+```powershell
+python C:\ivy\plugins\ivy-context-memory\scripts\ivy_context_memory.py mcp
+```
+
+Tools:
+
+- `ivy_memory_query`
+- `ivy_memory_remember`
+- `ivy_memory_ingest`
+- `ivy_memory_build`
+- `ivy_memory_status`
+
+Prefer MCP mode when the client supports local tool discovery; use CLI/API mode as a fallback.

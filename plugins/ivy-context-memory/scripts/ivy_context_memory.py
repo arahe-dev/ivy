@@ -624,6 +624,7 @@ def status(store: Path) -> dict[str, Any]:
     state = load_state(store)
     data = dataset_path(store)
     index = load_query_index(store)
+    build_cache = load_build_cache(store)
     corpus_items = 0
     if (data / "corpus" / "corpus_items.jsonl").exists():
         corpus_items = sum(1 for line in (data / "corpus" / "corpus_items.jsonl").read_text(encoding="utf-8").splitlines() if line.strip())
@@ -639,6 +640,13 @@ def status(store: Path) -> dict[str, Any]:
             "tokens": index.get("tokens", 0) if index else 0,
             "path": str(index_path(store)),
             "exists": bool(index),
+        },
+        "build_cache": {
+            "exists": bool(build_cache),
+            "path": str(build_cache_path(store)),
+            "updated_at": build_cache.get("updated_at") if build_cache else None,
+            "fingerprint_sha256": build_cache.get("fingerprint", {}).get("fingerprint_sha256") if build_cache else None,
+            "file_count": build_cache.get("fingerprint", {}).get("file_count") if build_cache else 0,
         },
         "last_build": state.get("last_build"),
     }

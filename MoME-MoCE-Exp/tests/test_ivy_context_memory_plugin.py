@@ -129,10 +129,13 @@ def test_repeated_build_uses_fingerprint_cache(tmp_path: Path) -> None:
     store = tmp_path / "store"
     first = plugin.add_source(store, source, build=True)
     second = plugin.build_store(store)
+    current_status = plugin.status(store)
 
     assert first["build"]["cache"]["status"] == "miss"
     assert second["cache"]["status"] == "hit"
     assert second["corpus_items"] == first["build"]["corpus_items"]
+    assert current_status["build_cache"]["exists"] is True
+    assert current_status["build_cache"]["file_count"] == 1
 
 
 def test_mcp_stdio_lists_and_calls_status(tmp_path: Path) -> None:
