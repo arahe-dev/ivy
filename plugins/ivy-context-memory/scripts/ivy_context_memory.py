@@ -431,6 +431,9 @@ def remember(store: Path, *, text: str, source_path: str, tags: list[str], autho
 
 
 def auto_variant(result: Any) -> str:
+    packet_mode = result.frontier_packet.get("packet_mode")
+    if packet_mode in {"compact_default", "proof_lite", "contradiction_aware"}:
+        return str(packet_mode)
     proof = result.route_proof
     if proof.get("conflict_pairs") or proof.get("exposure_summary", {}).get("masked_selected", 0):
         return "contradiction_aware"
@@ -506,6 +509,7 @@ def query_store(
         "route_dataset": str(route_dataset),
         "query": query,
         "variant": chosen_variant,
+        "packet_mode": result.frontier_packet.get("packet_mode", chosen_variant),
         "decision": result.decision,
         "answerability": result.frontier_packet.get("answerability"),
         "selected_ids": result.selected_ids,

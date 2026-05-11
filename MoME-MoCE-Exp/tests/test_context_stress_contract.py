@@ -42,6 +42,12 @@ def test_smoke_harness_preserves_recall_and_emits_schema_valid_proofs() -> None:
         assert list(packet_validator.iter_errors(result.frontier_packet)) == []
         assert isinstance(result.frontier_packet, dict)
         assert result.frontier_packet["packet_version"] == "acca.frontier_context_packet.v0.1"
+        assert result.frontier_packet["packet_mode"] in {
+            "compact_default",
+            "proof_lite",
+            "contradiction_aware",
+            "abstain_notice",
+        }
         assert result.route_proof["proof_version"] == "acca.route_proof.v0.1"
     assert passed == 62
 
@@ -58,4 +64,3 @@ def test_route_proofs_expose_real_expert_outputs() -> None:
     assert proof["selected_evidence"]
     assert proof["authority_chain"]
     assert proof["tokens_avoided"] > proof["frontier_packet_tokens"]
-

@@ -1604,6 +1604,16 @@ class MoMEMoCERouter:
                 if len(selected) >= target_count:
                     return selected[:target_count]
 
+        for item, _, parts in candidates:
+            if "agent_note" not in item.tags:
+                continue
+            direct_match = parts.get("lexical_bm25", 0.0) >= 5.0 or parts.get("tag_overlap", 0.0) >= 0.76
+            if direct_match and admissible(item):
+                add_item(item)
+                add_conflict_partners(item)
+                if len(selected) >= target_count:
+                    return selected[:target_count]
+
         if preferred_family and not selected:
             for item, _, _ in candidates:
                 if item.source_family == preferred_family and admissible(item):
@@ -2162,6 +2172,7 @@ class MoMEMoCERouter:
     ) -> dict[str, Any]:
         return {
             "packet_version": "acca.frontier_context_packet.v0.1",
+            "packet_mode": self._packet_mode(proof, selected_items),
             "role": "frontier_model_context_packet",
             "instruction": (
                 "Use only authoritative selected evidence for factual claims. "
@@ -2187,6 +2198,20 @@ class MoMEMoCERouter:
             "rejected_evidence_summary": proof["rejected_evidence"][:8],
             "route_trace": trace,
         }
+
+    def _packet_mode(self, proof: dict[str, Any], selected_items: list[dict[str, Any]]) -> str:
+        if not selected_items or proof.get("answerability") != "answerable_with_context":
+            return "abstain_notice"
+        rejected_reasons = {str(row.get("reason", "")) for row in proof.get("rejected_evidence", [])}
+        if (
+            proof.get("conflict_pairs")
+            or proof.get("exposure_summary", {}).get("masked_selected", 0)
+            or any(reason in {"decoy_not_admissible_as_authority", "stale_not_requested"} for reason in rejected_reasons)
+        ):
+            return "contradiction_aware"
+        if len(selected_items) > 1 or proof.get("routing_confidence") == "low":
+            return "proof_lite"
+        return "compact_default"
 
 
 def default_max_evidence_items(case: dict[str, Any]) -> int:
