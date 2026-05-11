@@ -5,6 +5,7 @@ from pathlib import Path
 
 from scripts.run_answer_level_eval import run_eval
 from scripts.generate_ivy_real_v3_dataset import write_dataset
+from scripts.memory_write_barrier import MemoryWriteError, append_memory_record, validate_memory_record
 from scripts.run_latency_gate import run_latency_gate
 from scripts.mome_moce_harness import OpenCodeGoFinder, MoMEMoCERouter, benchmark, load_cases, load_corpus
 
@@ -45,3 +46,46 @@ def test_cp12_latency_gate_passes_sub_5ms_p50(tmp_path: Path) -> None:
 def test_cp13_opencode_go_finder_is_optional_without_proxy_token(tmp_path: Path) -> None:
     finder = OpenCodeGoFinder(proxy_token_file=tmp_path / "missing.token")
     assert finder.available is False
+
+
+def test_cp14_memory_write_barrier_accepts_normal_record(tmp_path: Path) -> None:
+    record = {
+        "text": "Hot-session reuse depends on keeping the static prefix byte-identical.",
+        "source_family": "doc_memory",
+        "authority": "high",
+        "staleness": "current",
+        "source_path": "docs/HOT_SESSION_RUNNER.md",
+        "safety_label": "normal",
+        "taint_labels": ["normal"],
+        "exposure_policy": "frontier_ok",
+    }
+    normalized = append_memory_record(tmp_path / "memory.jsonl", record)
+    assert normalized["id"].startswith("mem_")
+    assert normalized["content_sha256"]
+    assert (tmp_path / "memory.jsonl").read_text(encoding="utf-8").count("\n") == 1
+
+
+def test_cp14_memory_write_barrier_rejects_absolute_or_secret_records() -> None:
+    base = {
+        "text": "normal note",
+        "source_family": "user_note",
+        "authority": "low",
+        "staleness": "current",
+        "source_path": "notes/example.md",
+        "safety_label": "normal",
+        "taint_labels": ["normal"],
+        "exposure_policy": "frontier_ok",
+    }
+    bad_path = dict(base, source_path=r"C:\ivy\private.txt")
+    try:
+        validate_memory_record(bad_path)
+        raise AssertionError("absolute paths must be rejected")
+    except MemoryWriteError:
+        pass
+
+    secret = dict(base, text="api key token should not enter frontier memory")
+    try:
+        validate_memory_record(secret)
+        raise AssertionError("secret-like text must be rejected")
+    except MemoryWriteError:
+        pass
