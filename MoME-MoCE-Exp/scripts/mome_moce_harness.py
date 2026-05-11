@@ -164,8 +164,17 @@ ANCHOR_TERMS = {
     "litter",
     "tailscale",
     "signal pings",
+    "signal",
+    "web push",
+    "tailscale serve",
     "http 401",
     "unauthorized",
+    "recall",
+    "recall board",
+    "excalidraw",
+    "ai context",
+    "text graph",
+    "graph ir",
     "llama-99",
     "tps",
     "tmp/random",
@@ -701,6 +710,14 @@ def query_is_external_out_of_scope(query: str) -> bool:
     )
 
 
+def query_requests_unsupported_commercial_fact(query: str) -> bool:
+    q = norm(query)
+    return (
+        any(term in q for term in ["price", "pricing", "cost", "charge"])
+        and any(term in q for term in ["latest", "production", "unreleased", "cloud", "saas"])
+    )
+
+
 def strict_identifiers(query: str) -> list[str]:
     q = norm(query)
     out = []
@@ -993,6 +1010,7 @@ class MoMEMoCERouter:
         decoy_requested = query_requests_decoy(query)
         stale_requested = query_requests_stale_or_comparison(query)
         latest_requested = query_requests_latest(query)
+        unsupported_commercial = query_requests_unsupported_commercial_fact(query)
         strict_terms = strict_identifiers(query)
         if self._generic_no_context_question(query):
             families = set()
@@ -1000,13 +1018,13 @@ class MoMEMoCERouter:
             stale_requested = False
             latest_requested = False
             strict_terms = []
-        if query_is_external_out_of_scope(query):
+        if query_is_external_out_of_scope(query) or unsupported_commercial:
             families = set()
             decoy_requested = False
             stale_requested = False
             latest_requested = False
             strict_terms = []
-        anchored = query_has_anchor(query) or bool(families) or bool(strict_terms)
+        anchored = (query_has_anchor(query) or bool(families) or bool(strict_terms)) and not unsupported_commercial
         if "exact_anchor_memory" in self.disabled_experts:
             strict_terms = []
         target_evidence_count = self._target_evidence_count(
@@ -1677,6 +1695,24 @@ class MoMEMoCERouter:
             ids.append("litter_tailscale_ssh_connection")
         if "signal" in q and ("401" in q or "unauthorized" in q or "pings" in q):
             ids.append("signal_ping_token_runtime_note")
+        if "iphone" in q and ("vps" in q or "web push" in q or "tailscale" in q):
+            ids.append("external_signal_tailscale_webpush")
+        if "signal" in q and ("codex-specific" in q or "cloud service" in q or "cloud" in q):
+            ids.append("external_signal_not_cloud_service")
+        if "signal" in q and ("event log" in q or "durable coordination" in q or "source of truth" in q):
+            ids.append("external_signal_event_log")
+        if "signal" in q and "context snapshot" in q:
+            ids.append("external_signal_context_artifacts")
+        if "signal" in q and "daemon" in q and ("shell" in q or "execute" in q or "execution" in q):
+            ids.append("external_signal_worker_boundary")
+        if "recall" in q and ("screenshot" in q or "ai context" in q):
+            ids.append("external_recall_ai_context")
+        if "recall" in q and "text graph" in q:
+            ids.append("external_recall_text_graph")
+        if "recall" in q and "graph ir" in q:
+            ids.append("external_recall_graph_ir")
+        if "recall" in q and ("backlinks" in q or "subpages" in q or "daily board" in q or "second brain" in q):
+            ids.append("external_recall_search_backlinks")
         if "ivy-real v3" in q and "latency" in q:
             ids.append("cp22_current_v3_latency_gate")
         if "deepseek" in q and ("router" in q or "advisory" in q):
