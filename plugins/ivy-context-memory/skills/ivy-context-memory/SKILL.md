@@ -22,6 +22,14 @@ python .\plugins\ivy-context-memory\scripts\ivy_context_memory.py build
 python .\plugins\ivy-context-memory\scripts\ivy_context_memory.py query --query "What context matters for this task?" --text
 ```
 
+Preferred hot daemon bootstrap:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\MoME-MoCE-Exp\scripts\start_context_memory_daemon.ps1
+```
+
+This starts the localhost sidecar if it is not already healthy, ingests the configured source root, calls `/warm`, and prints process cache counts. Use this before substantial Codex/OpenCode sessions when low-latency repeated memory queries matter.
+
 Remember a safe result:
 
 ```powershell
@@ -50,6 +58,7 @@ Endpoints:
 - `POST /remember` with `{ "text": "...", "source_path": "root/notes/x.md", "tags": ["tag"] }`
 - `POST /query` with `{ "query": "...", "variant": "auto" }`
 - `POST /build`
+- `POST /warm` with `{ "queries": ["..."] }`
 
 ## MCP
 
@@ -65,6 +74,7 @@ Available tools:
 - `ivy_memory_remember`
 - `ivy_memory_ingest`
 - `ivy_memory_build`
+- `ivy_memory_warm`
 - `ivy_memory_status`
 
 Available resources:
@@ -82,9 +92,10 @@ Available prompts:
 
 Before a deep task:
 
-1. Query the sidecar for the current task.
-2. Read only the returned packet text and selected evidence IDs.
-3. Treat memory as advisory. User, system, developer, repo state, and tool safety still outrank memory.
-4. After a verified milestone, call `remember` with a short factual note.
+1. Start or reuse the daemon and warm it when available.
+2. Query the sidecar for the current task.
+3. Read only the returned packet text and selected evidence IDs.
+4. Treat memory as advisory. User, system, developer, repo state, and tool safety still outrank memory.
+5. After a verified milestone, call `remember` with a short factual note.
 
 Do not store secrets, API keys, credentials, or private path contents. The CLI rejects obvious secret-like note text.

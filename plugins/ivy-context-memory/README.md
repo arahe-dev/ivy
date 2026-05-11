@@ -19,6 +19,17 @@ flowchart LR
 
 ## Quick Start
 
+Hot daemon path for Codex/OpenCode:
+
+```powershell
+cd C:\ivy
+powershell -ExecutionPolicy Bypass -File .\MoME-MoCE-Exp\scripts\start_context_memory_daemon.ps1
+```
+
+This starts the localhost HTTP sidecar if needed, ingests `MoME-MoCE-Exp`, warms the query/index caches, and prints cache status. The default API URL is `http://127.0.0.1:8768`.
+
+One-shot CLI path:
+
 ```powershell
 cd C:\ivy
 python .\plugins\ivy-context-memory\scripts\ivy_context_memory.py init
@@ -36,6 +47,7 @@ python .\plugins\ivy-context-memory\scripts\ivy_context_memory.py query --query 
 | `remember --text ...` | Store a short safe milestone note and rebuild; supports `--staleness`, `--supersedes`, and `--conflicts-with` |
 | `query --query ...` | Return JSON with selected IDs, packet text, route proof |
 | `query --query ... --text` | Return only the packet text |
+| `warm` | Preload query-index, feature, and corpus-item caches in the current process |
 | `serve` | Start localhost HTTP API for OpenCode or other tools |
 | `mcp` | Start a local MCP stdio server |
 
@@ -49,6 +61,7 @@ Then:
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8768/status
+Invoke-RestMethod http://127.0.0.1:8768/warm -Method Post -ContentType application/json -Body '{"queries":["What matters for CP29?"]}'
 Invoke-RestMethod http://127.0.0.1:8768/query -Method Post -ContentType application/json -Body '{"query":"What matters for CP29?","variant":"auto"}'
 ```
 
@@ -60,6 +73,7 @@ The plugin now exposes local MCP tools through `.mcp.json`:
 - `ivy_memory_remember`
 - `ivy_memory_ingest`
 - `ivy_memory_build`
+- `ivy_memory_warm`
 - `ivy_memory_status`
 
 The stdio command is:
@@ -87,6 +101,7 @@ And MCP prompts:
 - Uses CP29 persisted prefilter indexes for query routing.
 - Uses CP30 packet modes and direct note priority.
 - Uses CP32 build fingerprint caching for unchanged rebuilds.
+- Uses process-local query-index, feature, and corpus-item caches; `warm` / `/warm` / `ivy_memory_warm` preheats them.
 - Can consume an autoresearch runtime policy from `store/policy/autoresearch_policy.json`.
 - Stores route packets under `.ivy-context-memory/packets/`.
 - Keeps memory advisory; it never outranks current user/system/developer instructions or repo state.
@@ -94,6 +109,6 @@ And MCP prompts:
 ## Current Limitations
 
 - The MCP server exposes tools, resources, and workflow prompts.
-- Build caching is whole-build fingerprint caching, not per-file incremental chunk reuse yet.
-- Large ingested corpora are correct but still need more ranking/latency optimization.
+- File-level chunk caching exists, but section-level semantic-delta caching is still future work.
+- Warmup is process-local; a one-shot CLI warm proves behavior but does not warm later processes.
 - The note write barrier is intentionally conservative and rejects obvious secret-like text.
