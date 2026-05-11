@@ -1,6 +1,6 @@
 # External Generalization Gate
 
-Created: `2026-05-11T19:37:40Z`
+Created: `2026-05-11T19:55:13Z`
 Gate passed: `True`
 Dataset: `context_stress_external_signal_recall`
 Corpus items: `14`
@@ -21,10 +21,10 @@ It uses the external Signal and Recall Board pack, including decoys and an unsup
 | Required-only precision | `1.0000` |
 | Forbidden hits | `0` |
 | Avg selected | `0.8889` |
-| Mean latency | `0.457 ms` |
-| P50 latency | `0.385 ms` |
-| P95 latency | `0.762 ms` |
-| Max latency | `0.856 ms` |
+| Mean latency | `0.505 ms` |
+| P50 latency | `0.436 ms` |
+| P95 latency | `0.855 ms` |
+| Max latency | `1.011 ms` |
 
 ## Checks
 
@@ -60,6 +60,12 @@ It uses the external Signal and Recall Board pack, including decoys and an unsup
 | `negative_control_no_forbidden_hits` | `True` |
 | `negative_control_mean_latency_under_budget` | `True` |
 | `negative_control_p95_latency_under_budget` | `True` |
+| `source_removal_all_cases_pass` | `True` |
+| `source_removal_required_recall_perfect` | `True` |
+| `source_removal_required_only_precision_perfect` | `True` |
+| `source_removal_no_forbidden_hits` | `True` |
+| `source_removal_mean_latency_under_budget` | `True` |
+| `source_removal_p95_latency_under_budget` | `True` |
 
 ## No Exact Anchor Ablation
 
@@ -72,8 +78,8 @@ This reruns the same external cases with `exact_anchor_memory` disabled. Passing
 | Required recall | `1.0000` |
 | Required-only precision | `1.0000` |
 | Forbidden hits | `0` |
-| Mean latency | `0.400 ms` |
-| P95 latency | `0.525 ms` |
+| Mean latency | `0.486 ms` |
+| P95 latency | `0.653 ms` |
 
 ## Semantic Paraphrase Ablation
 
@@ -86,8 +92,8 @@ This reruns the external cases with hand-paraphrased queries that avoid copying 
 | Required recall | `1.0000` |
 | Required-only precision | `1.0000` |
 | Forbidden hits | `0` |
-| Mean latency | `0.445 ms` |
-| P95 latency | `0.669 ms` |
+| Mean latency | `0.469 ms` |
+| P95 latency | `0.638 ms` |
 
 ## Semantic Paraphrase Without Exact Anchor
 
@@ -100,8 +106,8 @@ This reruns the hand-paraphrased external cases with `exact_anchor_memory` disab
 | Required recall | `1.0000` |
 | Required-only precision | `1.0000` |
 | Forbidden hits | `0` |
-| Mean latency | `0.429 ms` |
-| P95 latency | `0.651 ms` |
+| Mean latency | `0.551 ms` |
+| P95 latency | `0.822 ms` |
 
 ## Negative Control Abstention
 
@@ -115,19 +121,32 @@ This runs near-miss external questions that mention known products but ask for u
 | Required-only precision | `1.0000` |
 | Forbidden hits | `0` |
 | Avg selected | `0.0000` |
-| Mean latency | `0.506 ms` |
-| P95 latency | `0.661 ms` |
+| Mean latency | `0.484 ms` |
+| P95 latency | `0.645 ms` |
+
+## Source-Removal Sensitivity
+
+This removes each required external source and reruns that case. Passing it means the router abstains instead of selecting adjacent evidence when the necessary source is missing.
+
+| Metric | Value |
+|---|---:|
+| Passed | `8 / 8` |
+| Quality | `1.0000` |
+| Required-only precision | `1.0000` |
+| Avg selected | `0.0000` |
+| Mean latency | `0.407 ms` |
+| P95 latency | `0.518 ms` |
 
 ## Case Results
 
 | Case | Pass | Decision | Selected | Latency ms |
 |---|---:|---|---|---:|
-| `cp23_signal_iphone_without_vps` | `True` | `context_packet_ready` | `external_signal_tailscale_webpush` | `0.856` |
-| `cp23_signal_not_codex_cloud` | `True` | `context_packet_ready` | `external_signal_not_cloud_service` | `0.399` |
-| `cp23_signal_durable_coordination_primitive` | `True` | `context_packet_ready` | `external_signal_event_log` | `0.621` |
-| `cp23_signal_daemon_shell_boundary` | `True` | `context_packet_ready` | `external_signal_worker_boundary` | `0.385` |
-| `cp23_recall_screenshot_free_context` | `True` | `context_packet_ready` | `external_recall_ai_context` | `0.368` |
-| `cp23_recall_text_graph_contents` | `True` | `context_packet_ready` | `external_recall_text_graph` | `0.371` |
-| `cp23_recall_graph_ir_role` | `True` | `context_packet_ready` | `external_recall_graph_ir` | `0.358` |
-| `cp23_recall_second_brain_features` | `True` | `context_packet_ready` | `external_recall_search_backlinks` | `0.269` |
-| `cp23_recall_cloud_price_abstain` | `True` | `searched_no_authoritative_evidence` | `` | `0.489` |
+| `cp23_signal_iphone_without_vps` | `True` | `context_packet_ready` | `external_signal_tailscale_webpush` | `1.011` |
+| `cp23_signal_not_codex_cloud` | `True` | `context_packet_ready` | `external_signal_not_cloud_service` | `0.490` |
+| `cp23_signal_durable_coordination_primitive` | `True` | `context_packet_ready` | `external_signal_event_log` | `0.620` |
+| `cp23_signal_daemon_shell_boundary` | `True` | `context_packet_ready` | `external_signal_worker_boundary` | `0.424` |
+| `cp23_recall_screenshot_free_context` | `True` | `context_packet_ready` | `external_recall_ai_context` | `0.507` |
+| `cp23_recall_text_graph_contents` | `True` | `context_packet_ready` | `external_recall_text_graph` | `0.406` |
+| `cp23_recall_graph_ir_role` | `True` | `context_packet_ready` | `external_recall_graph_ir` | `0.416` |
+| `cp23_recall_second_brain_features` | `True` | `context_packet_ready` | `external_recall_search_backlinks` | `0.236` |
+| `cp23_recall_cloud_price_abstain` | `True` | `searched_no_authoritative_evidence` | `` | `0.436` |

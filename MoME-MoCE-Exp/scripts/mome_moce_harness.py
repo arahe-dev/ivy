@@ -1129,6 +1129,9 @@ class MoMEMoCERouter:
             candidates = [
                 row for row in candidates if self._supports_current_commercial_fact(query, row[0])
             ]
+        candidates = [
+            row for row in candidates if self._supports_query_specificity(query, row[0])
+        ]
 
         if strict_terms:
             strict_candidates = [(item, score, parts) for item, score, parts in candidates if parts.get("strict_identifier", 0.0) > 0]
@@ -1747,6 +1750,61 @@ class MoMEMoCERouter:
         if asks_launch and not any(term in blob for term in ["ship", "shipped", "launch", "production app", "ios app", "app store"]):
             return False
         return asks_price or asks_release or asks_sla or asks_certification or asks_launch
+
+    def _supports_query_specificity(self, query: str, item: CorpusItem) -> bool:
+        q = norm(query)
+        blob = norm(
+            " ".join(
+                [
+                    item.id,
+                    " ".join(item.tags),
+                    item.text,
+                    json.dumps(item.raw.get("canonical_for", []), sort_keys=True),
+                    json.dumps(item.provenance, sort_keys=True),
+                ]
+            )
+        )
+        if "recall" in q and any(term in q for term in ["screenshot", "machine-readable", "ai inspect", "ai context"]):
+            if not (
+                "structured board context" in blob
+                or "board facts" in blob
+                or ("text graph" in blob and "ai context" in blob)
+            ):
+                return False
+        checks = [
+            (
+                "signal" in q and any(term in q for term in ["iphone", "ios", "vps", "public server", "web push", "tailscale", "private delivery"]),
+                ["iphone", "ios", "web push", "tailscale", "vps", "public server"],
+            ),
+            (
+                "signal" in q and any(term in q for term in ["cloud service", "cloud broker", "hosted cloud", "codex-specific", "codex specific"]),
+                ["cloud", "codex", "broker"],
+            ),
+            (
+                "signal" in q and any(term in q for term in ["durable coordination", "source of truth", "coordination source", "durable local record"]),
+                ["event log", "sqlite", "source of truth", "hash chain", "coordination kernel"],
+            ),
+            (
+                "signal" in q and "daemon" in q and any(term in q for term in ["shell", "worker", "execute", "execution", "arbitrary"]),
+                ["daemon"],
+            ),
+            (
+                "recall" in q and "text graph" in q,
+                ["text graph", "nodes", "edges", "groups", "annotations"],
+            ),
+            (
+                "recall" in q and "graph ir" in q,
+                ["graph ir", "semantic diagram", "stable ids", "round-trip", "renderer target"],
+            ),
+            (
+                "recall" in q and any(term in q for term in ["second brain", "personal knowledge", "plain canvas", "plain drawing"]),
+                ["search", "backlinks", "subpages", "daily-board", "daily board", "recent-board"],
+            ),
+        ]
+        for applies, required_terms in checks:
+            if applies and not any(term in blob for term in required_terms):
+                return False
+        return True
 
     def _priority_candidate_ids(self, query: str) -> list[str]:
         q = norm(query)

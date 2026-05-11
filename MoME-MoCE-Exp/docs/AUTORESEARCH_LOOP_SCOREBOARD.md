@@ -1,6 +1,6 @@
 # IVY Autoresearch Loop Scoreboard
 
-Last updated: `2026-05-11T19:37:58Z`
+Last updated: `2026-05-11T19:55:31Z`
 
 | Metric | Value |
 |---|---:|
@@ -13,9 +13,9 @@ Last updated: `2026-05-11T19:37:58Z`
 | Capacity rated | `True` |
 | Mined hard-case eval | `5 / 5` |
 | Regression gate | `passed` |
-| Regression gate feature router | `2.068 ms` |
-| Regression gate plugin router | `2.454 ms` |
-| Regression gate plugin wall | `16.598 ms` |
+| Regression gate feature router | `2.927 ms` |
+| Regression gate plugin router | `3.404 ms` |
+| Regression gate plugin wall | `17.717 ms` |
 | Hot repeated plugin wall | `~7.5-7.7 ms` |
 | MCP warmup contract | `verified` |
 | Process cache status | `visible` |
@@ -24,17 +24,20 @@ Last updated: `2026-05-11T19:37:58Z`
 | Post-warm daemon router | `3.236 ms` |
 | Daemon bootstrap | `documented + tested` |
 | External generalization gate | `9 / 9 in combined gate` |
-| External gate mean latency | `0.378 ms` |
-| External gate p95 latency | `0.522 ms` |
+| External gate mean latency | `0.503 ms` |
+| External gate p95 latency | `0.808 ms` |
 | External no-exact-anchor gate | `9 / 9` |
-| External no-exact-anchor p95 | `0.516 ms` |
+| External no-exact-anchor p95 | `0.614 ms` |
 | External semantic-paraphrase gate | `9 / 9` |
-| External semantic-paraphrase p95 | `0.601 ms` |
+| External semantic-paraphrase p95 | `0.673 ms` |
 | External semantic+no-exact gate | `9 / 9` |
-| External semantic+no-exact p95 | `0.631 ms` |
+| External semantic+no-exact p95 | `0.669 ms` |
 | External negative-control gate | `5 / 5` |
 | External negative-control avg selected | `0.0` |
-| External negative-control p95 | `0.674 ms` |
+| External negative-control p95 | `0.656 ms` |
+| External source-removal gate | `8 / 8` |
+| External source-removal avg selected | `0.0` |
+| External source-removal p95 | `0.539 ms` |
 | Focused test suite | `37 passed` |
 
 ## Notes
@@ -53,3 +56,4 @@ Last updated: `2026-05-11T19:37:58Z`
 - CP77 added semantic-paraphrase external queries; the paraphrase pack passes `9/9`.
 - CP78 combined semantic paraphrases with exact-anchor disabled; the combined ablation still passes `9/9`.
 - CP79 added near-miss external negative controls; unsupported current/product facts abstain `5/5`.
+- CP80 added source-removal sensitivity; removing required external evidence now abstains `8/8`.

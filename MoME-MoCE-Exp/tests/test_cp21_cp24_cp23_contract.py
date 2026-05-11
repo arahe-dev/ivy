@@ -69,6 +69,7 @@ def test_cp74_external_generalization_gate(tmp_path: Path) -> None:
     paraphrase = gate["semantic_paraphrase_ablation"]
     combined = gate["semantic_no_exact_anchor_ablation"]
     negative = gate["negative_control_ablation"]
+    removal = gate["source_removal_ablation"]
     assert gate["status"]["passed"]
     assert summary["passed"] == summary["cases"] == 9
     assert summary["evidence_metrics"]["required_recall"] == 1.0
@@ -86,3 +87,6 @@ def test_cp74_external_generalization_gate(tmp_path: Path) -> None:
     assert negative["passed"] == negative["cases"] == 5
     assert negative["evidence_metrics"]["avg_selected"] == 0.0
     assert gate["status"]["checks"]["negative_control_all_cases_pass"]
+    assert removal["passed"] == removal["cases"] == 8
+    assert removal["evidence_metrics"]["avg_selected"] == 0.0
+    assert gate["status"]["checks"]["source_removal_all_cases_pass"]

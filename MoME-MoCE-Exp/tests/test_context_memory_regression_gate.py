@@ -30,6 +30,7 @@ def add_external_gate(gate: dict, *, passed: bool = True) -> dict:
             "semantic_paraphrase_p95_latency_ms": 1.0,
             "semantic_no_exact_anchor_p95_latency_ms": 1.1,
             "negative_control_p95_latency_ms": 0.7,
+            "source_removal_p95_latency_ms": 0.8,
         },
         "no_exact_anchor_ablation": {
             "cases": 9,
@@ -55,6 +56,22 @@ def add_external_gate(gate: dict, *, passed: bool = True) -> dict:
             "evidence_metrics": {"avg_selected": 0.0},
             "latency_ms": {"mean": 0.6},
             "results": [{"case_id": "neg_signal_hosted_sla", "passed": passed, "decision": "searched_no_authoritative_evidence", "selected_ids": [], "latency_ms": 0.6}],
+        },
+        "source_removal_ablation": {
+            "cases": 8,
+            "passed": 8 if passed else 7,
+            "evidence_metrics": {"avg_selected": 0.0},
+            "latency_ms": {"mean": 0.7},
+            "results": [
+                {
+                    "case_id": "cp23_signal_iphone_without_vps",
+                    "passed": passed,
+                    "removed_source_ids": ["external_signal_tailscale_webpush"],
+                    "decision": "searched_no_authoritative_evidence",
+                    "selected_ids": [],
+                    "latency_ms": 0.7,
+                }
+            ],
         },
         "summary": {
             "cases": 9,
@@ -123,4 +140,5 @@ def test_write_gate_report_contains_core_sections(tmp_path: Path) -> None:
     assert "External Semantic Paraphrase Ablation" in text
     assert "External Semantic Plus No-Exact Ablation" in text
     assert "External Negative Controls" in text
+    assert "External Source-Removal Sensitivity" in text
     assert "external_signal_tailscale_webpush" in text

@@ -277,6 +277,21 @@ Fix:
 - require explicit authoritative evidence for release versions, app-store status, hosted SLAs, ship dates, and certifications
 - latest combined gate: negative controls `5/5`, avg selected `0.0`, p95 `0.674 ms`
 
+### Required-Source Causality Risk
+
+If removing the required source still produces a plausible packet, the label is not causal enough.
+
+Initial finding:
+
+- source-removal sensitivity initially abstained only `1/8`
+- adjacent Signal/Recall identity or context notes filled in for missing required sources
+
+Fix:
+
+- add query-specific support checks for external subclaims
+- require exact subclaim evidence for iOS delivery, cloud/Codex identity, event-log source-of-truth, daemon shell boundaries, screenshot-free structured context, text graph, Graph IR, and second-brain features
+- latest combined gate: source-removal `8/8`, avg selected `0.0`, p95 `0.539 ms`
+
 ## Architecture Snapshot
 
 ```mermaid
@@ -327,6 +342,7 @@ flowchart LR
 - The external guard now also tests hand-paraphrased query wording.
 - The external guard now combines those two pressures in one default ablation.
 - The external guard now includes near-miss negative controls that must abstain.
+- The external guard now verifies required-source causality by removing required evidence.
 - Repeatable benchmark catches both positive retrieval and negative over-retrieval.
 - Build refresh can reuse unchanged file chunks after source edits.
 - Plugin-authored notes can participate in stale/current conflict routing.

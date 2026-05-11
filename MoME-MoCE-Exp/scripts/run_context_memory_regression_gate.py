@@ -210,6 +210,17 @@ def write_gate_report(gate: dict[str, Any], out: Path) -> None:
                     f"| External negative-control mean latency | `{negative_latency.get('mean')} ms` |",
                 ]
             )
+        if external.get("source_removal_ablation") is not None:
+            removal = external["source_removal_ablation"]
+            removal_latency = removal.get("latency_ms", {})
+            lines.extend(
+                [
+                    f"| External source-removal pass | `{removal['passed']} / {removal['cases']}` |",
+                    f"| External source-removal avg selected | `{removal['evidence_metrics']['avg_selected']}` |",
+                    f"| External source-removal p95 latency | `{external['status']['source_removal_p95_latency_ms']} ms` |",
+                    f"| External source-removal mean latency | `{removal_latency.get('mean')} ms` |",
+                ]
+            )
     lines.extend(["", "## Checks", "", "| Check | Pass |", "|---|---:|"])
     for name, passed in status["checks"].items():
         lines.append(f"| `{name}` | `{passed}` |")
@@ -244,6 +255,12 @@ def write_gate_report(gate: dict[str, Any], out: Path) -> None:
             for result in gate["external_generalization"]["negative_control_ablation"]["results"]:
                 selected = ", ".join(result.get("selected_ids", []))
                 lines.append(f"| `{result['case_id']}` | `{result['passed']}` | `{result['decision']}` | `{selected}` | `{result.get('latency_ms', 0.0)}` |")
+        if gate["external_generalization"].get("source_removal_ablation") is not None:
+            lines.extend(["", "## External Source-Removal Sensitivity", "", "| Case | Pass | Removed | Decision | Selected | Latency ms |", "|---|---:|---|---|---|---:|"])
+            for result in gate["external_generalization"]["source_removal_ablation"]["results"]:
+                selected = ", ".join(result.get("selected_ids", []))
+                removed = ", ".join(result.get("removed_source_ids", []))
+                lines.append(f"| `{result['case_id']}` | `{result['passed']}` | `{removed}` | `{result['decision']}` | `{selected}` | `{result.get('latency_ms', 0.0)}` |")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
