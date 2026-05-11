@@ -1,6 +1,6 @@
 # IVY Autoresearch Loop Scoreboard
 
-Last updated: `2026-05-11T17:47:52Z`
+Last updated: `2026-05-11T17:59:56Z`
 
 | Metric | Value |
 |---|---:|
@@ -13,9 +13,10 @@ Last updated: `2026-05-11T17:47:52Z`
 | Capacity rated | `True` |
 | Mined hard-case eval | `5 / 5` |
 | Regression gate | `passed` |
-| Regression gate feature router | `2.074 ms` |
-| Regression gate plugin router | `2.564 ms` |
-| Plugin query wall after index/item cache | `~28-30 ms` |
+| Regression gate feature router | `2.05 ms` |
+| Regression gate plugin router | `2.433 ms` |
+| Regression gate plugin wall | `16.544 ms` |
+| Hot repeated plugin wall | `~7.5-7.7 ms` |
 
 ## Notes
 
@@ -23,3 +24,4 @@ Last updated: `2026-05-11T17:47:52Z`
 - Raw/redacted conversation stash remains under `out/autoresearch_loop/` and is not committed.
 - The 10M-token rating is a sharded-memory capacity rating, not a single-prompt context-window claim.
 - CP48-CP53 added mined-case policy eval, deterministic reranker profile eval, guarded runtime policy promotion, a combined regression gate, a validated `32` default prefilter budget, query-index caching, and converted-item caching.
+- CP55-CP60 added wall-time gate checks, timing breakdowns, prefilter feature caching, tighter default wall budgets, a refreshed plugin scoreboard, and a hot repeated-query benchmark.

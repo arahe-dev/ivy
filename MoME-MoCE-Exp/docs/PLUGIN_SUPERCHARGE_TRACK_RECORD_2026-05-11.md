@@ -38,6 +38,13 @@ The important shift:
 | `2362997` | CP51 | Lowered no-policy default prefilter budget from 192 to 32. | Full plugin router latency dropped from about 11.3 ms to 2.5 ms. |
 | `3419774` | CP52 | Added in-process query-index cache. | Plugin query wall dropped from about 64 ms to 30 ms in probe. |
 | `7b4c380` | CP53 | Added converted `CorpusItem` cache. | Plugin query wall improved to about 28 ms in probe. |
+| `0bc03b6` | CP54 | Updated autoresearch and plugin track record docs through CP53. | Documentation checkpoint. |
+| `2598fb6` | CP55 | Added wall-time checks to the regression gate. | 19 focused tests; gate passed. |
+| `8363efc` | CP56 | Added plugin timing breakdown instrumentation and benchmark aggregation. | 19 focused tests; prefilter identified as dominant wall cost. |
+| `ec81cf4` | CP57 | Cached prefilter feature metadata. | Plugin wall dropped to about 18.5 ms in probe; gate passed. |
+| `40f355d` | CP58 | Tightened default wall budgets. | Gate passed with `35 ms` mined/feature and `25 ms` plugin wall budgets. |
+| `33633a3` | CP59 | Refreshed committed plugin benchmark scoreboard. | Scoreboard 6/6, avg query wall `15.535 ms`. |
+| `0bccc3c` | CP60 | Added hot repeated-query benchmark. | 21 focused tests; repeated hot wall around `7.5-7.7 ms`. |
 
 ## Latest Benchmark
 
@@ -51,9 +58,10 @@ Latest result:
 
 - Query count: `6`
 - Passed expectations: `6 / 6`
-- Avg query wall: `28.416 ms` in CP53 probe
-- Avg router latency: `2.548 ms` in CP53 probe
-- Combined regression gate plugin router latency: `2.564 ms`
+- Avg query wall: `15.535 ms` in CP59 scoreboard
+- Avg router latency: `2.478 ms` in CP59 scoreboard
+- Combined regression gate plugin wall: `16.544 ms`
+- Hot repeated plugin wall: `~7.5-7.7 ms`
 
 | Query Type | Expected Behavior | Result |
 |---|---|---|
@@ -140,6 +148,16 @@ Fix:
 - cache decoded query indexes by path, `mtime_ns`, and size
 - cache converted `CorpusItem` objects by id/source-hash/text length
 
+### Prefilter Feature Recompute
+
+CP56 showed prefilter scoring was the dominant wall-time stage because repeated queries rebuilt per-item feature metadata.
+
+Fix:
+
+- add per-item feature cache for tags, checkpoint ids, and source family
+- tighten regression wall budgets after the new latency profile is stable
+- add a hot repeated-query benchmark that captures long-running sidecar behavior
+
 ## Architecture Snapshot
 
 ```mermaid
@@ -159,7 +177,7 @@ flowchart LR
   Build --> Cache["CP32 build fingerprint cache"]
   Build --> Corpus["ACCA corpus dataset"]
   Corpus --> Index["CP29 persisted query index"]
-  Index --> HotCache["CP52 index cache + CP53 item cache"]
+  Index --> HotCache["CP52 index cache + CP53/CP57 item caches"]
   Query --> Index
   HotCache --> Router["MoME/MoCE router"]
   Router --> Packet["CP30 packet_mode + ACCA packet"]
@@ -172,10 +190,10 @@ flowchart LR
 - Native MCP tools now exist.
 - MCP resources and prompts now exist.
 - Direct memories are retrievable through the same interface that stores them.
-- Query hot path is now low tens of milliseconds inside the router.
+- Query hot path is now low tens of milliseconds for cold-ish plugin runs and single-digit milliseconds for repeated hot queries.
 - Regression gate keeps mined/feature router latency under `5 ms`.
 - Full plugin benchmark router latency is now around `2.5 ms` with a `32` prefilter budget.
-- Repeated plugin query wall time is down to roughly `28-30 ms` in the current benchmark harness.
+- Repeated plugin query wall time is down to roughly `7.5-7.7 ms` in the hot-query benchmark.
 - Repeatable benchmark catches both positive retrieval and negative over-retrieval.
 - Build refresh can reuse unchanged file chunks after source edits.
 - Plugin-authored notes can participate in stale/current conflict routing.
@@ -188,14 +206,14 @@ flowchart LR
 - MCP server is useful but still minimal compared with a full production MCP package.
 - Ranking is still mostly sparse/token-based with policy gates; no learned reranker.
 - Benchmark set is useful but small.
-- End-to-end query wall time is still tens of milliseconds because prefilter scoring and packet generation are outside the measured router latency.
+- First-pass query wall time can still hit tens of milliseconds while caches warm.
 - Signal pings failed this session because the local Signal daemon needs a real VAPID subject configured.
 
 ## Next High-Leverage Work
 
-1. Add end-to-end wall-time budgets to the regression gate, not only router latency.
-2. Profile prefilter scoring and packet rendering to chase sub-10 ms wall time.
-3. Add section-level chunk cache for large Markdown files.
-4. Add optional watcher mode for near-real-time memory freshness.
-5. Expand mined hard cases beyond IVY docs with external project corpora.
-6. Add an optional learned/advisory reranker only behind the deterministic gate.
+1. Add a daemon/MCP warmup command so the sidecar can preheat index, feature, and item caches before a task.
+2. Add section-level chunk cache for large Markdown files.
+3. Add optional watcher mode for near-real-time memory freshness.
+4. Expand mined hard cases beyond IVY docs with external project corpora.
+5. Add an optional learned/advisory reranker only behind the deterministic gate.
+6. Add end-to-end answer-quality A/B runs using the hot memory sidecar.
