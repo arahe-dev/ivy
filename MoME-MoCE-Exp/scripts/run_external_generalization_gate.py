@@ -68,6 +68,7 @@ def gate_status(
     max_p95_latency_ms: float,
     no_exact_anchor_ablation: dict[str, Any] | None = None,
     semantic_paraphrase_ablation: dict[str, Any] | None = None,
+    semantic_no_exact_anchor_ablation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     p95 = latency_p95(summary)
     checks = summary_checks(summary, max_mean_latency_ms=max_mean_latency_ms, max_p95_latency_ms=max_p95_latency_ms)
@@ -93,6 +94,17 @@ def gate_status(
                 prefix="semantic_paraphrase_",
             )
         )
+    semantic_no_exact_p95 = None
+    if semantic_no_exact_anchor_ablation is not None:
+        semantic_no_exact_p95 = latency_p95(semantic_no_exact_anchor_ablation)
+        checks.update(
+            summary_checks(
+                semantic_no_exact_anchor_ablation,
+                max_mean_latency_ms=max_mean_latency_ms,
+                max_p95_latency_ms=max_p95_latency_ms,
+                prefix="semantic_no_exact_anchor_",
+            )
+        )
     return {
         "passed": all(checks.values()),
         "checks": checks,
@@ -101,6 +113,7 @@ def gate_status(
         "p95_latency_ms": round(float(p95), 3),
         "no_exact_anchor_p95_latency_ms": None if ablation_p95 is None else round(float(ablation_p95), 3),
         "semantic_paraphrase_p95_latency_ms": None if paraphrase_p95 is None else round(float(paraphrase_p95), 3),
+        "semantic_no_exact_anchor_p95_latency_ms": None if semantic_no_exact_p95 is None else round(float(semantic_no_exact_p95), 3),
     }
 
 
@@ -128,17 +141,25 @@ def run_gate(
     max_p95_latency_ms: float,
     include_no_exact_anchor_ablation: bool = True,
     include_semantic_paraphrase_ablation: bool = True,
+    include_semantic_no_exact_anchor_ablation: bool = True,
 ) -> dict[str, Any]:
     manifest = write_dataset(dataset)
     summary = run_summary(dataset)
+    semantic_cases = paraphrased_cases(dataset)
     no_exact_anchor_ablation = run_summary(dataset, disabled_experts={"exact_anchor_memory"}) if include_no_exact_anchor_ablation else None
-    semantic_paraphrase_ablation = run_summary(dataset, cases=paraphrased_cases(dataset)) if include_semantic_paraphrase_ablation else None
+    semantic_paraphrase_ablation = run_summary(dataset, cases=semantic_cases) if include_semantic_paraphrase_ablation else None
+    semantic_no_exact_anchor_ablation = (
+        run_summary(dataset, disabled_experts={"exact_anchor_memory"}, cases=semantic_cases)
+        if include_semantic_no_exact_anchor_ablation
+        else None
+    )
     status = gate_status(
         summary,
         max_mean_latency_ms=max_mean_latency_ms,
         max_p95_latency_ms=max_p95_latency_ms,
         no_exact_anchor_ablation=no_exact_anchor_ablation,
         semantic_paraphrase_ablation=semantic_paraphrase_ablation,
+        semantic_no_exact_anchor_ablation=semantic_no_exact_anchor_ablation,
     )
     return {
         "schema_version": "mome_moce.external_generalization_gate.v0.1",
@@ -148,6 +169,7 @@ def run_gate(
         "summary": summary,
         "no_exact_anchor_ablation": no_exact_anchor_ablation,
         "semantic_paraphrase_ablation": semantic_paraphrase_ablation,
+        "semantic_no_exact_anchor_ablation": semantic_no_exact_anchor_ablation,
         "status": status,
     }
 
@@ -235,6 +257,27 @@ def write_report(gate: dict[str, Any], out: Path) -> None:
                 f"| P95 latency | `{status['semantic_paraphrase_p95_latency_ms']:.3f} ms` |",
             ]
         )
+    if gate.get("semantic_no_exact_anchor_ablation") is not None:
+        combined = gate["semantic_no_exact_anchor_ablation"]
+        combined_metrics = combined.get("evidence_metrics", {})
+        lines.extend(
+            [
+                "",
+                "## Semantic Paraphrase Without Exact Anchor",
+                "",
+                "This reruns the hand-paraphrased external cases with `exact_anchor_memory` disabled. Passing it means the router can handle the external pack without exact-anchor expert support and without copied query wording.",
+                "",
+                "| Metric | Value |",
+                "|---|---:|",
+                f"| Passed | `{combined['passed']} / {combined['cases']}` |",
+                f"| Quality | `{combined['quality']:.4f}` |",
+                f"| Required recall | `{combined_metrics.get('required_recall', 0.0):.4f}` |",
+                f"| Required-only precision | `{combined_metrics.get('required_only_precision', 0.0):.4f}` |",
+                f"| Forbidden hits | `{combined_metrics.get('forbidden_hits', 0)}` |",
+                f"| Mean latency | `{summary_latency(combined, 'mean'):.3f} ms` |",
+                f"| P95 latency | `{status['semantic_no_exact_anchor_p95_latency_ms']:.3f} ms` |",
+            ]
+        )
     lines.extend(
         [
             "",
@@ -262,6 +305,7 @@ def main() -> int:
     parser.add_argument("--max-p95-latency-ms", type=float, default=5.0)
     parser.add_argument("--skip-no-exact-anchor-ablation", action="store_true")
     parser.add_argument("--skip-semantic-paraphrase-ablation", action="store_true")
+    parser.add_argument("--skip-semantic-no-exact-anchor-ablation", action="store_true")
     args = parser.parse_args()
 
     dataset = args.dataset.resolve()
@@ -271,6 +315,7 @@ def main() -> int:
         max_p95_latency_ms=args.max_p95_latency_ms,
         include_no_exact_anchor_ablation=not args.skip_no_exact_anchor_ablation,
         include_semantic_paraphrase_ablation=not args.skip_semantic_paraphrase_ablation,
+        include_semantic_no_exact_anchor_ablation=not args.skip_semantic_no_exact_anchor_ablation,
     )
     write_report(gate, args.out.resolve())
     if args.json_out is not None:
@@ -297,6 +342,10 @@ def main() -> int:
                     if gate.get("semantic_paraphrase_ablation") is None
                     else gate["semantic_paraphrase_ablation"]["passed"],
                     "semantic_paraphrase_p95_latency_ms": gate["status"]["semantic_paraphrase_p95_latency_ms"],
+                    "semantic_no_exact_anchor_passed": None
+                    if gate.get("semantic_no_exact_anchor_ablation") is None
+                    else gate["semantic_no_exact_anchor_ablation"]["passed"],
+                    "semantic_no_exact_anchor_p95_latency_ms": gate["status"]["semantic_no_exact_anchor_p95_latency_ms"],
                 },
             },
             indent=2,

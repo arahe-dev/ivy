@@ -1,6 +1,6 @@
 # IVY Autoresearch Loop Scoreboard
 
-Last updated: `2026-05-11T19:07:37Z`
+Last updated: `2026-05-11T19:22:15Z`
 
 | Metric | Value |
 |---|---:|
@@ -13,9 +13,9 @@ Last updated: `2026-05-11T19:07:37Z`
 | Capacity rated | `True` |
 | Mined hard-case eval | `5 / 5` |
 | Regression gate | `passed` |
-| Regression gate feature router | `1.982 ms` |
-| Regression gate plugin router | `2.652 ms` |
-| Regression gate plugin wall | `17.686 ms` |
+| Regression gate feature router | `2.148 ms` |
+| Regression gate plugin router | `2.295 ms` |
+| Regression gate plugin wall | `14.868 ms` |
 | Hot repeated plugin wall | `~7.5-7.7 ms` |
 | MCP warmup contract | `verified` |
 | Process cache status | `visible` |
@@ -24,12 +24,14 @@ Last updated: `2026-05-11T19:07:37Z`
 | Post-warm daemon router | `3.236 ms` |
 | Daemon bootstrap | `documented + tested` |
 | External generalization gate | `9 / 9 in combined gate` |
-| External gate mean latency | `0.424 ms` |
-| External gate p95 latency | `0.598 ms` |
+| External gate mean latency | `0.411 ms` |
+| External gate p95 latency | `0.596 ms` |
 | External no-exact-anchor gate | `9 / 9` |
-| External no-exact-anchor p95 | `0.682 ms` |
+| External no-exact-anchor p95 | `0.500 ms` |
 | External semantic-paraphrase gate | `9 / 9` |
-| External semantic-paraphrase p95 | `0.813 ms` |
+| External semantic-paraphrase p95 | `0.586 ms` |
+| External semantic+no-exact gate | `9 / 9` |
+| External semantic+no-exact p95 | `0.597 ms` |
 | Focused test suite | `37 passed` |
 
 ## Notes
@@ -46,3 +48,4 @@ Last updated: `2026-05-11T19:07:37Z`
 - CP75 wired that external guard into the combined regression gate by default.
 - CP76 added a no-`exact_anchor_memory` ablation; the external pack still passes `9/9`.
 - CP77 added semantic-paraphrase external queries; the paraphrase pack passes `9/9`.
+- CP78 combined semantic paraphrases with exact-anchor disabled; the combined ablation still passes `9/9`.

@@ -189,6 +189,16 @@ def write_gate_report(gate: dict[str, Any], out: Path) -> None:
                     f"| External semantic-paraphrase p95 latency | `{external['status']['semantic_paraphrase_p95_latency_ms']} ms` |",
                 ]
             )
+        if external.get("semantic_no_exact_anchor_ablation") is not None:
+            combined = external["semantic_no_exact_anchor_ablation"]
+            combined_latency = combined.get("latency_ms", {})
+            lines.extend(
+                [
+                    f"| External semantic+no-exact pass | `{combined['passed']} / {combined['cases']}` |",
+                    f"| External semantic+no-exact mean latency | `{combined_latency.get('mean')} ms` |",
+                    f"| External semantic+no-exact p95 latency | `{external['status']['semantic_no_exact_anchor_p95_latency_ms']} ms` |",
+                ]
+            )
     lines.extend(["", "## Checks", "", "| Check | Pass |", "|---|---:|"])
     for name, passed in status["checks"].items():
         lines.append(f"| `{name}` | `{passed}` |")
@@ -211,6 +221,11 @@ def write_gate_report(gate: dict[str, Any], out: Path) -> None:
         if gate["external_generalization"].get("semantic_paraphrase_ablation") is not None:
             lines.extend(["", "## External Semantic Paraphrase Ablation", "", "| Case | Pass | Selected | Latency ms |", "|---|---:|---|---:|"])
             for result in gate["external_generalization"]["semantic_paraphrase_ablation"]["results"]:
+                selected = ", ".join(result.get("selected_ids", []))
+                lines.append(f"| `{result['case_id']}` | `{result['passed']}` | `{selected}` | `{result.get('latency_ms', 0.0)}` |")
+        if gate["external_generalization"].get("semantic_no_exact_anchor_ablation") is not None:
+            lines.extend(["", "## External Semantic Plus No-Exact Ablation", "", "| Case | Pass | Selected | Latency ms |", "|---|---:|---|---:|"])
+            for result in gate["external_generalization"]["semantic_no_exact_anchor_ablation"]["results"]:
                 selected = ", ".join(result.get("selected_ids", []))
                 lines.append(f"| `{result['case_id']}` | `{result['passed']}` | `{selected}` | `{result.get('latency_ms', 0.0)}` |")
     out.parent.mkdir(parents=True, exist_ok=True)

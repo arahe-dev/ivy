@@ -252,6 +252,16 @@ Fix:
 - preserve required/forbidden labels while changing query wording
 - latest combined gate: paraphrase `9/9`, required precision `1.0`, forbidden hits `0`, mean `0.497 ms`, p95 `0.813 ms`
 
+### Combined Ablation Risk
+
+Separate ablations can hide interaction effects.
+
+Fix:
+
+- add a semantic-paraphrase plus no-exact-anchor ablation
+- make it default-on in the external gate
+- latest combined gate: semantic+no-exact `9/9`, required precision `1.0`, forbidden hits `0`, mean `0.416 ms`, p95 `0.597 ms`
+
 ## Architecture Snapshot
 
 ```mermaid
@@ -300,6 +310,7 @@ flowchart LR
 - The combined regression gate now fails if the external guard fails.
 - The external guard now also tests that exact-anchor memory is not the sole success path.
 - The external guard now also tests hand-paraphrased query wording.
+- The external guard now combines those two pressures in one default ablation.
 - Repeatable benchmark catches both positive retrieval and negative over-retrieval.
 - Build refresh can reuse unchanged file chunks after source edits.
 - Plugin-authored notes can participate in stale/current conflict routing.
