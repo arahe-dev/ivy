@@ -17,6 +17,7 @@ from scripts.run_answer_level_eval import run_eval
 from scripts.generate_ivy_real_v3_dataset import write_dataset
 from scripts.memory_write_barrier import MemoryWriteError, append_memory_record, validate_memory_record
 from scripts.run_latency_gate import run_latency_gate
+from scripts.run_provider_certification_matrix import certification_decision
 from scripts.mome_moce_harness import OpenCodeGoFinder, MoMEMoCERouter, benchmark, load_cases, load_corpus
 
 
@@ -168,6 +169,22 @@ def test_cp19_milestone_record_passes_write_barrier() -> None:
     assert normalized["source_family"] == "workflow_trace"
     assert normalized["authority"] == "high"
     assert "CP19 validates milestone memories" in normalized["text"]
+
+
+def test_cp20_provider_certification_gate() -> None:
+    passing = {
+        "contract_json": {"pass_rate": 1.0, "invalid_json": 0, "wrong_tool": 0, "think_tags": 0},
+        "native_tools": {"pass_rate": 1.0, "invalid_json": 0, "wrong_tool": 0, "think_tags": 0},
+    }
+    failing = {
+        "contract_json": {"pass_rate": 1.0, "invalid_json": 0, "wrong_tool": 0, "think_tags": 0},
+        "native_tools": {"pass_rate": 0.9, "invalid_json": 0, "wrong_tool": 1, "think_tags": 0},
+    }
+    assert certification_decision(passing)["certified"] is True
+    decision = certification_decision(failing)
+    assert decision["certified"] is False
+    assert decision["checks"]["native_tool_pass_rate"] is False
+    assert decision["checks"]["wrong_tool_zero"] is False
 
 
 def test_cp13_opencode_go_finder_is_optional_without_proxy_token(tmp_path: Path) -> None:
