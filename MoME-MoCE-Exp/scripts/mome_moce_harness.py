@@ -101,6 +101,7 @@ ANCHOR_TERMS = {
     "exact module",
     "fs_list",
     "hot-session",
+    "hot sessions",
     "humaneval",
     "id_slot",
     "ivy",
@@ -116,6 +117,7 @@ ANCHOR_TERMS = {
     "memory eval",
     "memory experts",
     "memory override",
+    "prefix thing",
     "memory packet",
     "memory packets",
     "model atlas",
@@ -138,6 +140,7 @@ ANCHOR_TERMS = {
     "runbook",
     "source-family",
     "static prefix",
+    "recurring prefix",
     "synthetic memory eval",
     "non-progressing",
     "progress guard",
@@ -683,6 +686,14 @@ def query_requests_latest(query: str) -> bool:
     return any(term in q for term in ["latest", "current", "current command", "authoritative", "higher authority", "command reruns", "reruns the synthetic"])
 
 
+def query_is_external_out_of_scope(query: str) -> bool:
+    q = norm(query)
+    return (
+        any(term in q for term in ["unrelated", "external", "outside ivy", "outside this repo"])
+        and any(term in q for term in ["service", "project", "system", "product"])
+    )
+
+
 def strict_identifiers(query: str) -> list[str]:
     q = norm(query)
     out = []
@@ -977,6 +988,12 @@ class MoMEMoCERouter:
         latest_requested = query_requests_latest(query)
         strict_terms = strict_identifiers(query)
         if self._generic_no_context_question(query):
+            families = set()
+            decoy_requested = False
+            stale_requested = False
+            latest_requested = False
+            strict_terms = []
+        if query_is_external_out_of_scope(query):
             families = set()
             decoy_requested = False
             stale_requested = False
@@ -1350,6 +1367,8 @@ class MoMEMoCERouter:
             "tailscale ssh",
             "signal pings",
             "http 401",
+            "recurring prefix",
+            "prefix thing",
         ]:
             if phrase in original_q and phrase in item.search_text:
                 parts["phrase"] += 1.1
@@ -1366,6 +1385,19 @@ class MoMEMoCERouter:
         if "memory" in q_token_set and any(token in q_token_set for token in {"packet", "packets", "override", "authority", "policy"}):
             if item.id == "safety_memory_advisory_only":
                 parts["memory_policy_specificity"] += 15.0
+        if (
+            ("remembered" in q_token_set or "memory" in q_token_set)
+            and "ignore" in q_token_set
+            and "policy" in q_token_set
+            and item.id == "safety_memory_advisory_only"
+        ):
+            parts["memory_policy_specificity"] += 18.0
+        if (
+            ("recurring" in q_token_set or "prefix" in q_token_set)
+            and ("reuse" in q_token_set or "breaking" in q_token_set)
+            and item.id == "doc_hot_session_cache_rule"
+        ):
+            parts["hot_prefix_paraphrase"] += 12.0
 
         if strict_terms:
             matched_strict = False
@@ -1598,6 +1630,8 @@ class MoMEMoCERouter:
             return "benchmark_artifact"
         if "absolute" in q or "private.txt" in q or "sandbox" in q:
             return "safety_policy"
+        if ("remembered" in q or "memory" in q) and "policy" in q and ("ignore" in q or "override" in q):
+            return "safety_policy"
         if "module" in q or "function" in q or "schema" in q:
             return "source_code"
         if "debug" in families:
@@ -1611,6 +1645,12 @@ class MoMEMoCERouter:
             ids.append("runbook_context_stress_artifact_path")
         if "memory packet" in q and ("private.txt" in q or "absolute" in q):
             ids.extend(["safety_sandbox_relative_write_rule", "safety_memory_advisory_only"])
+        if "sandbox" in q and "read" in q and "write" in q and "private.txt" not in q:
+            ids.append("safety_sandbox_paths")
+        if ("remembered" in q or "memory" in q) and "policy" in q and ("ignore" in q or "override" in q):
+            ids.append("safety_memory_advisory_only")
+        if ("recurring" in q or "prefix thing" in q) and ("hot session" in q or "hot sessions" in q or "reuse" in q):
+            ids.append("doc_hot_session_cache_rule")
         if "calculation" in q and "write" in q:
             ids.append("trace_calc_write_success_current")
         if ("cp7" in q and "ivy-real" in q) or ("ivy real" in q and "mini" in q):

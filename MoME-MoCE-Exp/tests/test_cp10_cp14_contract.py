@@ -43,6 +43,16 @@ def test_cp12_latency_gate_passes_sub_5ms_p50(tmp_path: Path) -> None:
     assert payload["summary"]["evidence_metrics"]["forbidden_hits"] == 0
 
 
+def test_cp15_ivy_real_v3_hard_cases_are_solved(tmp_path: Path) -> None:
+    out_dir = tmp_path / "context_stress_ivy_real_v3"
+    write_dataset(IVY_REAL_V2, out_dir)
+    router = MoMEMoCERouter(load_corpus(out_dir), candidate_backend="indexed", dataset_path=out_dir)
+    summary = benchmark(router, load_cases(out_dir), validate_artifacts=False)
+    assert summary["passed"] == summary["cases"]
+    assert summary["evidence_metrics"]["forbidden_hits"] == 0
+    assert summary["latency_ms"]["p50"] <= 5.0
+
+
 def test_cp13_opencode_go_finder_is_optional_without_proxy_token(tmp_path: Path) -> None:
     finder = OpenCodeGoFinder(proxy_token_file=tmp_path / "missing.token")
     assert finder.available is False
