@@ -1,22 +1,35 @@
 # IVY Context Memory Plugin Benchmark Scoreboard
 
-Last updated: `2026-05-11T17:16:55Z`
+Last updated: `2026-05-11T17:58:28Z`
 
 | Metric | Value |
 |---|---:|
 | Query count | `6` |
 | Passed expectations | `6 / 6` |
-| Avg query wall | `105.959 ms` |
-| Avg router latency | `12.401 ms` |
+| Avg query wall | `15.535 ms` |
+| Avg router latency | `2.478 ms` |
+| Avg plugin-reported wall | `15.401 ms` |
 
 | Query | Wall ms | Router ms | Mode | Selected | Pass |
 |---|---:|---:|---|---|---|
-| What did CP28 show about final answer packet formats? | 121.259 | 13.464 | proof_lite | `note_651ce93b6060d428` | True |
-| What MCP tools does ivy-context-memory expose? | 94.922 | 7.959 | proof_lite | `note_76de75586f91c809` | True |
-| What did CP29 change about generated output ingestion? | 121.403 | 15.159 | proof_lite | `note_c6d2da6960a255cf` | True |
-| How does CP32 make repeated plugin builds faster? | 100.173 | 14.747 | proof_lite | `note_5806b2ca5c492ccc` | True |
-| What is the latest CP42 rebuild policy versus stale memory? | 108.502 | 14.568 | contradiction_aware | `ing_mome_moce_exp_cp42_stale_conflict_plugin_b_1_ecb99cd394d5, ing_mome_moce_exp_cp42_stale_conflict_plugin_b_2_3c84bb96f20d` | True |
-| What is today's Bitcoin price? | 89.496 | 8.509 | abstain_notice | `none` | True |
+| What did CP28 show about final answer packet formats? | 38.798 | 2.915 | proof_lite | `note_651ce93b6060d428` | True |
+| What MCP tools does ivy-context-memory expose? | 10.31 | 1.457 | contradiction_aware | `ing_mome_moce_exp_codex_opencode_memory_plugin_2_a6ca53bab3c1` | True |
+| What did CP29 change about generated output ingestion? | 11.497 | 2.564 | proof_lite | `note_c6d2da6960a255cf` | True |
+| How does CP32 make repeated plugin builds faster? | 12.581 | 2.604 | contradiction_aware | `note_5806b2ca5c492ccc` | True |
+| What is the latest CP42 rebuild policy versus stale memory? | 10.086 | 2.348 | contradiction_aware | `ing_mome_moce_exp_cp42_stale_conflict_plugin_b_1_ecb99cd394d5, ing_mome_moce_exp_cp42_stale_conflict_plugin_b_2_3c84bb96f20d` | True |
+| What is today's Bitcoin price? | 9.94 | 2.981 | abstain_notice | `none` | True |
+
+## Timing Breakdown
+
+| Stage | Avg ms |
+|---|---:|
+| `prefilter` | 5.686 |
+| `corpus` | 4.161 |
+| `router_init` | 1.925 |
+| `route` | 2.478 |
+| `render` | 0.022 |
+| `packet_write` | 0.941 |
+| `total` | 15.401 |
 
 ## Notes
 
