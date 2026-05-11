@@ -1,8 +1,14 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
+IVY_ROOT = Path(__file__).resolve().parents[2]
+if str(IVY_ROOT) not in sys.path:
+    sys.path.insert(0, str(IVY_ROOT))
+
+from ivy_agent_demo.acca_context import route_context
 from scripts.run_answer_level_eval import run_eval
 from scripts.generate_ivy_real_v3_dataset import write_dataset
 from scripts.memory_write_barrier import MemoryWriteError, append_memory_record, validate_memory_record
@@ -51,6 +57,19 @@ def test_cp15_ivy_real_v3_hard_cases_are_solved(tmp_path: Path) -> None:
     assert summary["passed"] == summary["cases"]
     assert summary["evidence_metrics"]["forbidden_hits"] == 0
     assert summary["latency_ms"]["p50"] <= 5.0
+
+
+def test_cp16_acca_context_bridge_renders_prompt_packet(tmp_path: Path) -> None:
+    out_dir = tmp_path / "context_stress_ivy_real_v3"
+    write_dataset(IVY_REAL_V2, out_dir)
+    result = route_context(
+        "That recurring prefix thing for hot sessions: what rule keeps reuse from breaking?",
+        dataset=out_dir,
+    )
+    assert result.selected_ids == ["doc_hot_session_cache_rule"]
+    assert "ACCA CONTEXT PACKET" in result.context_text
+    assert "doc_hot_session_cache_rule" in result.context_text
+    assert result.latency_ms <= 10.0
 
 
 def test_cp13_opencode_go_finder_is_optional_without_proxy_token(tmp_path: Path) -> None:
