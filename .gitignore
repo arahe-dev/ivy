@@ -8,6 +8,7 @@ q4km_opt/
 q4km_autoresearch/
 q4km_hot_cache/
 capability_bench/
+.ivy-context-memory/
 
 # --- Slot save / restore artifacts ---
 **/slot_saves/
