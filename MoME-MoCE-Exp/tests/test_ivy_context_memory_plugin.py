@@ -93,3 +93,18 @@ def test_direct_agent_note_can_beat_generic_source_doc(tmp_path: Path) -> None:
 
     assert result["selected_ids"][0].startswith("note_")
     assert result["variant"] == result["packet_mode"]
+
+
+def test_repeated_build_uses_fingerprint_cache(tmp_path: Path) -> None:
+    plugin = load_plugin_module()
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "README.md").write_text("CP32 cache source memory should build once and then reuse.", encoding="utf-8")
+
+    store = tmp_path / "store"
+    first = plugin.add_source(store, source, build=True)
+    second = plugin.build_store(store)
+
+    assert first["build"]["cache"]["status"] == "miss"
+    assert second["cache"]["status"] == "hit"
+    assert second["corpus_items"] == first["build"]["corpus_items"]

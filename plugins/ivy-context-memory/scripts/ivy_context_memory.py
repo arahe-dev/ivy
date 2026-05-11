@@ -27,7 +27,7 @@ if str(MOME_ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(MOME_ROOT / "scripts"))
 
 try:
-    from scripts.ingest_external_corpus import DEFAULT_EXTENSIONS, ingest  # type: ignore  # noqa: E402
+    from scripts.ingest_external_corpus import DEFAULT_EXTENSIONS, SKIP_DIRS, ingest  # type: ignore  # noqa: E402
     from scripts.mome_moce_harness import (  # type: ignore  # noqa: E402
         CorpusItem,
         MoMEMoCERouter,
@@ -41,7 +41,7 @@ try:
     )
     from scripts.run_packet_format_ab import render_variant  # type: ignore  # noqa: E402
 except ModuleNotFoundError:
-    from ingest_external_corpus import DEFAULT_EXTENSIONS, ingest  # type: ignore  # noqa: E402
+    from ingest_external_corpus import DEFAULT_EXTENSIONS, SKIP_DIRS, ingest  # type: ignore  # noqa: E402
     from mome_moce_harness import (  # type: ignore  # noqa: E402
         CorpusItem,
         MoMEMoCERouter,
@@ -96,6 +96,10 @@ def query_subset_path(store: Path) -> Path:
     return store / "query_subset"
 
 
+def build_cache_path(store: Path) -> Path:
+    return store / "cache" / "build_fingerprint.json"
+
+
 def load_state(store: Path) -> dict[str, Any]:
     path = state_path(store)
     if not path.exists():
@@ -122,6 +126,7 @@ def init_store(store: Path) -> dict[str, Any]:
     store.mkdir(parents=True, exist_ok=True)
     (store / "datasets").mkdir(parents=True, exist_ok=True)
     (store / "packets").mkdir(parents=True, exist_ok=True)
+    (store / "cache").mkdir(parents=True, exist_ok=True)
     state = load_state(store)
     save_state(store, state)
     notes_path(store).touch(exist_ok=True)
@@ -137,6 +142,78 @@ def read_notes(store: Path) -> list[dict[str, Any]]:
         if line.strip():
             notes.append(json.loads(line))
     return notes
+
+
+def iter_fingerprint_files(roots: list[Path], extensions: set[str], max_files: int | None) -> list[tuple[Path, Path]]:
+    files: list[tuple[Path, Path]] = []
+    for root in roots:
+        for path in sorted(root.rglob("*")):
+            if max_files is not None and len(files) >= max_files:
+                return files
+            if not path.is_file():
+                continue
+            try:
+                rel_parts = path.relative_to(root).parts
+            except ValueError:
+                continue
+            if any(part in SKIP_DIRS for part in rel_parts):
+                continue
+            if path.suffix.lower() not in extensions:
+                continue
+            files.append((root, path))
+    return files
+
+
+def source_fingerprint(store: Path, roots: list[Path], *, extensions: set[str], max_files: int | None) -> dict[str, Any]:
+    rows: list[str] = []
+    total_size = 0
+    for root, path in iter_fingerprint_files(roots, extensions, max_files):
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        rel = path.relative_to(root).as_posix()
+        total_size += int(stat.st_size)
+        rows.append(f"{root.resolve()}::{rel}::{int(stat.st_size)}::{int(stat.st_mtime_ns)}")
+    notes_blob = notes_path(store).read_text(encoding="utf-8") if notes_path(store).exists() else ""
+    payload = {
+        "schema_version": "ivy_context_memory.build_fingerprint.v0.1",
+        "source_roots": [str(path.resolve()) for path in roots],
+        "extensions": sorted(extensions),
+        "max_files": max_files,
+        "file_count": len(rows),
+        "total_size": total_size,
+        "notes_sha256": content_hash(notes_blob),
+        "fingerprint_sha256": content_hash("\n".join(rows) + "\nnotes:" + content_hash(notes_blob)),
+    }
+    return payload
+
+
+def load_build_cache(store: Path) -> dict[str, Any] | None:
+    path = build_cache_path(store)
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def save_build_cache(store: Path, fingerprint: dict[str, Any], payload: dict[str, Any]) -> None:
+    path = build_cache_path(store)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(
+        json.dumps(
+            {
+                "schema_version": "ivy_context_memory.build_cache.v0.1",
+                "updated_at": utc_now(),
+                "fingerprint": fingerprint,
+                "payload": payload,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    tmp.replace(path)
 
 
 def note_to_corpus_item(note: dict[str, Any]) -> dict[str, Any]:
@@ -381,13 +458,31 @@ def build_store(store: Path, *, max_files: int | None = None, extensions: set[st
     init_store(store)
     state = load_state(store)
     roots = [Path(path) for path in state.get("source_roots", []) if Path(path).exists()]
-    items = ingest(roots, max_chars=3600, max_files=max_files, extensions=extensions or DEFAULT_EXTENSIONS) if roots else []
+    active_extensions = extensions or DEFAULT_EXTENSIONS
+    fingerprint = source_fingerprint(store, roots, extensions=active_extensions, max_files=max_files)
+    cache = load_build_cache(store)
+    if (
+        cache
+        and cache.get("fingerprint", {}).get("fingerprint_sha256") == fingerprint["fingerprint_sha256"]
+        and (dataset_path(store) / "corpus" / "corpus_items.jsonl").exists()
+        and index_path(store).exists()
+    ):
+        cached_payload = dict(cache.get("payload", {}))
+        cached_payload["cache"] = {"status": "hit", "fingerprint_path": str(build_cache_path(store))}
+        state["last_build"] = {"at": utc_now(), **cached_payload}
+        save_state(store, state)
+        return {"ok": True, "store": str(store), **cached_payload}
+
+    items = ingest(roots, max_chars=3600, max_files=max_files, extensions=active_extensions) if roots else []
     note_items = [note_to_corpus_item(note) for note in read_notes(store)]
     items.extend(note_items)
     payload = write_dataset(store, items, source_roots=[str(path) for path in roots])
-    state["last_build"] = {"at": utc_now(), **payload, "notes": len(note_items)}
+    payload["notes"] = len(note_items)
+    payload["cache"] = {"status": "miss", "fingerprint_path": str(build_cache_path(store))}
+    save_build_cache(store, fingerprint, payload)
+    state["last_build"] = {"at": utc_now(), **payload}
     save_state(store, state)
-    return {"ok": True, "store": str(store), **payload, "notes": len(note_items)}
+    return {"ok": True, "store": str(store), **payload}
 
 
 def add_source(store: Path, source_root: Path, *, build: bool) -> dict[str, Any]:
