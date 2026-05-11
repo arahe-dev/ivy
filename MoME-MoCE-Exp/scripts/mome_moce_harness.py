@@ -714,7 +714,7 @@ def query_requests_unsupported_commercial_fact(query: str) -> bool:
     q = norm(query)
     return (
         any(term in q for term in ["price", "pricing", "cost", "charge", "release status", "production status", "ga status"])
-        and any(term in q for term in ["latest", "current", "production", "unreleased", "cloud", "saas", "release", "ga"])
+        and any(term in q for term in ["latest", "current", "today", "today's", "now", "live", "production", "unreleased", "cloud", "saas", "release", "ga"])
     )
 
 
@@ -1698,7 +1698,9 @@ class MoMEMoCERouter:
         )
         asks_price = any(term in q for term in ["price", "pricing", "cost", "charge"])
         asks_release = any(term in q for term in ["release status", "production status", "ga status", "public ga"])
-        for entity in ["recall cloud", "nebula cloud", "signal", "recall board", "recall"]:
+        if item.source_family == "source_code":
+            return False
+        for entity in ["recall cloud", "nebula cloud", "signal", "recall board", "recall", "bitcoin", "btc", "ethereum", "stock"]:
             if entity in q and entity not in blob:
                 return False
         if item.authority not in {"high", "medium"} or item.staleness != "current":

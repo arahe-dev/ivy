@@ -37,8 +37,8 @@ def measure(label: str, fn) -> dict[str, Any]:
     return {"label": label, "wall_ms": elapsed_ms, "payload": payload}
 
 
-def case(query: str, *, expect_any: list[str]) -> dict[str, Any]:
-    return {"query": query, "expect_any": expect_any}
+def case(query: str, *, expect_any: list[str] | None = None, should_select: bool = True) -> dict[str, Any]:
+    return {"query": query, "expect_any": expect_any or [], "should_select": should_select}
 
 
 def run_benchmark(store: Path, *, source_root: Path, reset: bool) -> dict[str, Any]:
@@ -106,6 +106,7 @@ def run_benchmark(store: Path, *, source_root: Path, reset: bool) -> dict[str, A
         case("What MCP tools does ivy-context-memory expose?", expect_any=["note_", "cp33", "mcp"]),
         case("What did CP29 change about generated output ingestion?", expect_any=["generated junk", "generated output", "prefilter"]),
         case("How does CP32 make repeated plugin builds faster?", expect_any=["fingerprint", "cache", "unchanged build"]),
+        case("What is today's Bitcoin price?", should_select=False),
     ]
 
     query_results = []
@@ -121,7 +122,11 @@ def run_benchmark(store: Path, *, source_root: Path, reset: bool) -> dict[str, A
                 payload.get("packet_text", ""),
             ]
         ).lower()
-        measured["passed_expectation"] = any(term.lower() in haystack for term in query_case["expect_any"])
+        selected_ids = payload.get("selected_ids", [])
+        if query_case["should_select"]:
+            measured["passed_expectation"] = bool(selected_ids) and any(term.lower() in haystack for term in query_case["expect_any"])
+        else:
+            measured["passed_expectation"] = not selected_ids
         measured["summary"] = {
             "selected_ids": payload.get("selected_ids", []),
             "variant": payload.get("variant"),
