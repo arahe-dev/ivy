@@ -32,6 +32,12 @@ def add_external_gate(gate: dict, *, passed: bool = True) -> dict:
             "negative_control_p95_latency_ms": 0.7,
             "source_removal_p95_latency_ms": 0.8,
             "semantic_source_removal_p95_latency_ms": 0.9,
+            "checks": {
+                "all_cases_pass": passed,
+                "negative_control_all_cases_pass": passed,
+                "source_removal_all_cases_pass": passed,
+                "semantic_source_removal_all_cases_pass": passed,
+            },
         },
         "no_exact_anchor_ablation": {
             "cases": 9,
@@ -125,11 +131,20 @@ def test_gate_status_includes_external_generalization_when_present() -> None:
 
     assert status["passed"] is True
     assert status["checks"]["external_generalization_all_pass"] is True
+    assert status["checks"]["external_negative_control_all_cases_pass"] is True
+    assert status["checks"]["external_source_removal_all_cases_pass"] is True
 
     gate["external_generalization"]["summary"]["evidence_metrics"]["forbidden_hits"] = 1
     status = gate_status(gate, max_router_ms=5.0, max_plugin_router_ms=15.0, max_wall_ms=35.0, max_plugin_wall_ms=25.0)
     assert status["passed"] is False
     assert status["checks"]["external_generalization_no_forbidden_hits"] is False
+
+    gate = add_external_gate(sample_gate())
+    gate["plugin_benchmark"]["summary"]["avg_query_wall_ms"] = 18.0
+    gate["external_generalization"]["status"]["checks"]["source_removal_all_cases_pass"] = False
+    status = gate_status(gate, max_router_ms=5.0, max_plugin_router_ms=15.0, max_wall_ms=35.0, max_plugin_wall_ms=25.0)
+    assert status["passed"] is False
+    assert status["checks"]["external_source_removal_all_cases_pass"] is False
 
 
 def test_gate_status_tracks_wall_time_budget() -> None:

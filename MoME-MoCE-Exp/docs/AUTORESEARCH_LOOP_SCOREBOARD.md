@@ -61,3 +61,4 @@ Last updated: `2026-05-11T20:07:37Z`
 - CP79 added near-miss external negative controls; unsupported current/product facts abstain `5/5`.
 - CP80 added source-removal sensitivity; removing required external evidence now abstains `8/8`.
 - CP81 added semantic source-removal sensitivity; paraphrased missing-source cases abstain `8/8`.
+- CP82 exposed every external sub-gate check in the combined regression gate status.

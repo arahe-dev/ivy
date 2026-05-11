@@ -307,6 +307,15 @@ Fix:
 - keep the support requirement tied to nodes, edges, groups, annotations, or unresolved relationships
 - latest combined gate: semantic source-removal `8/8`, avg selected `0.0`, p95 `0.623 ms`
 
+### External Gate Diagnostic Risk
+
+The combined regression gate should expose which external sub-surface failed, not only that the external gate failed.
+
+Fix:
+
+- import all detailed external gate checks into the combined gate status with an `external_` prefix
+- assert in tests that a failing external source-removal subcheck fails the combined gate
+
 ## Architecture Snapshot
 
 ```mermaid
@@ -359,6 +368,7 @@ flowchart LR
 - The external guard now includes near-miss negative controls that must abstain.
 - The external guard now verifies required-source causality by removing required evidence.
 - The external guard now verifies required-source causality under paraphrased wording.
+- The combined regression gate now exposes detailed external subchecks directly.
 - Repeatable benchmark catches both positive retrieval and negative over-retrieval.
 - Build refresh can reuse unchanged file chunks after source edits.
 - Plugin-authored notes can participate in stale/current conflict routing.

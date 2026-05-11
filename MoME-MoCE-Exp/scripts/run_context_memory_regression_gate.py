@@ -68,6 +68,8 @@ def gate_status(
                 "external_generalization_no_forbidden_hits": int(external_metrics["forbidden_hits"]) == 0,
             }
         )
+        for name, passed in external.get("status", {}).get("checks", {}).items():
+            checks[f"external_{name}"] = bool(passed)
     return {
         "passed": all(checks.values()),
         "checks": checks,
