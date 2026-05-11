@@ -92,6 +92,7 @@ ANCHOR_TERMS = {
     "code evidence",
     "context stress",
     "contextneedspec",
+    "deepseek",
     "acca",
     "agent loop",
     "corpus_items",
@@ -125,6 +126,7 @@ ANCHOR_TERMS = {
     "model zeta",
     "mome",
     "moce",
+    "nebula",
     "old_eval_runner",
     "policy authority",
     "policy gates",
@@ -679,6 +681,11 @@ def query_requests_stale_or_comparison(query: str) -> bool:
         any(term in q for term in ["stale", "superseded", "april", "2026-04-20", "current versus old", "old_eval_runner", "resolve"])
         or re.search(r"\bold\b", q) is not None
     )
+
+
+def query_requests_conflict_surface(query: str) -> bool:
+    q = norm(query)
+    return any(term in q for term in ["ambiguous", "contradict", "contradiction", "conflicting evidence", "disagree", "disagrees"])
 
 
 def query_requests_latest(query: str) -> bool:
@@ -1474,7 +1481,7 @@ class MoMEMoCERouter:
         q = norm(query)
         if "nonexistent" in q and "classify_context_need_spec" in q:
             return 1
-        if decoy_requested or stale_requested:
+        if decoy_requested or stale_requested or query_requests_conflict_surface(query):
             return min(self.top_k, 2)
         if latest_requested and any(term in q for term in ["ctx=512", "ctx=8192", "ctx 512", "ctx 8192", "higher authority", "versus", "compare"]):
             return min(self.top_k, 2)
@@ -1491,6 +1498,7 @@ class MoMEMoCERouter:
     ) -> list[CorpusItem]:
         decoy_requested = query_requests_decoy(query)
         stale_requested = query_requests_stale_or_comparison(query)
+        conflict_surface_requested = query_requests_conflict_surface(query)
         preferred_family = self._preferred_source_family(query, requested_families(query))
 
         selected: list[CorpusItem] = []
@@ -1528,7 +1536,7 @@ class MoMEMoCERouter:
         def add_conflict_partners(item: CorpusItem) -> None:
             if "conflict_graph_memory" in self.disabled_experts:
                 return
-            if not (decoy_requested or stale_requested):
+            if not (decoy_requested or stale_requested or conflict_surface_requested):
                 return
             partner_ids = list(item.conflicts_with) + inverse_conflicts.get(item.id, [])
             if decoy_requested and not stale_requested:
@@ -1594,7 +1602,7 @@ class MoMEMoCERouter:
                 break
 
         # Add any remaining conflict partners visible in the candidate pool for compare/reject-decoy questions.
-        if (stale_requested or decoy_requested) and "conflict_graph_memory" not in self.disabled_experts:
+        if (stale_requested or decoy_requested or conflict_surface_requested) and "conflict_graph_memory" not in self.disabled_experts:
             by_id = {item.id: item for item, _, _ in candidates}
             for item in list(selected):
                 for conflict_id in item.conflicts_with:
@@ -1669,6 +1677,12 @@ class MoMEMoCERouter:
             ids.append("litter_tailscale_ssh_connection")
         if "signal" in q and ("401" in q or "unauthorized" in q or "pings" in q):
             ids.append("signal_ping_token_runtime_note")
+        if "ivy-real v3" in q and "latency" in q:
+            ids.append("cp22_current_v3_latency_gate")
+        if "deepseek" in q and ("router" in q or "advisory" in q):
+            ids.append("cp22_deepseek_advisory_role")
+        if "nebula" in q and ("retention" in q or "conflicting evidence" in q or "disagree" in q):
+            ids.append("cp22_nebula_keep_30_days")
         return ids
 
     def _generic_no_context_question(self, query: str) -> bool:
