@@ -31,38 +31,82 @@ def summary_latency(summary: dict[str, Any], name: str) -> float:
     return float(summary.get(f"{name}_latency_ms", 0.0) or 0.0)
 
 
-def gate_status(summary: dict[str, Any], *, max_mean_latency_ms: float, max_p95_latency_ms: float) -> dict[str, Any]:
+def latency_p95(summary: dict[str, Any]) -> float:
     latencies = [float(result.get("latency_ms", 0.0)) for result in summary.get("results", [])]
-    p95 = max(latencies) if len(latencies) < 2 else statistics.quantiles(latencies, n=20, method="inclusive")[18]
+    return max(latencies) if len(latencies) < 2 else statistics.quantiles(latencies, n=20, method="inclusive")[18]
+
+
+def summary_checks(summary: dict[str, Any], *, max_mean_latency_ms: float, max_p95_latency_ms: float, prefix: str = "") -> dict[str, bool]:
+    p95 = latency_p95(summary)
     metrics = summary.get("evidence_metrics", {})
-    checks = {
-        "all_cases_pass": int(summary.get("passed", 0)) == int(summary.get("cases", 0)),
-        "required_recall_perfect": float(metrics.get("required_recall", 0.0)) == 1.0,
-        "required_only_precision_perfect": float(metrics.get("required_only_precision", 0.0)) == 1.0,
-        "no_forbidden_hits": int(metrics.get("forbidden_hits", 0)) == 0,
-        "mean_latency_under_budget": summary_latency(summary, "mean") <= max_mean_latency_ms,
-        "p95_latency_under_budget": float(p95) <= max_p95_latency_ms,
+    return {
+        f"{prefix}all_cases_pass": int(summary.get("passed", 0)) == int(summary.get("cases", 0)),
+        f"{prefix}required_recall_perfect": float(metrics.get("required_recall", 0.0)) == 1.0,
+        f"{prefix}required_only_precision_perfect": float(metrics.get("required_only_precision", 0.0)) == 1.0,
+        f"{prefix}no_forbidden_hits": int(metrics.get("forbidden_hits", 0)) == 0,
+        f"{prefix}mean_latency_under_budget": summary_latency(summary, "mean") <= max_mean_latency_ms,
+        f"{prefix}p95_latency_under_budget": float(p95) <= max_p95_latency_ms,
     }
+
+
+def gate_status(
+    summary: dict[str, Any],
+    *,
+    max_mean_latency_ms: float,
+    max_p95_latency_ms: float,
+    no_exact_anchor_ablation: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    p95 = latency_p95(summary)
+    checks = summary_checks(summary, max_mean_latency_ms=max_mean_latency_ms, max_p95_latency_ms=max_p95_latency_ms)
+    ablation_p95 = None
+    if no_exact_anchor_ablation is not None:
+        ablation_p95 = latency_p95(no_exact_anchor_ablation)
+        checks.update(
+            summary_checks(
+                no_exact_anchor_ablation,
+                max_mean_latency_ms=max_mean_latency_ms,
+                max_p95_latency_ms=max_p95_latency_ms,
+                prefix="no_exact_anchor_",
+            )
+        )
     return {
         "passed": all(checks.values()),
         "checks": checks,
         "max_mean_latency_ms": max_mean_latency_ms,
         "max_p95_latency_ms": max_p95_latency_ms,
         "p95_latency_ms": round(float(p95), 3),
+        "no_exact_anchor_p95_latency_ms": None if ablation_p95 is None else round(float(ablation_p95), 3),
     }
 
 
-def run_gate(dataset: Path, *, max_mean_latency_ms: float, max_p95_latency_ms: float) -> dict[str, Any]:
+def run_summary(dataset: Path, *, disabled_experts: set[str] | None = None) -> dict[str, Any]:
+    router = MoMEMoCERouter(load_corpus(dataset), candidate_backend="indexed", dataset_path=dataset, disabled_experts=disabled_experts)
+    return benchmark(router, load_cases(dataset), validate_artifacts=False)
+
+
+def run_gate(
+    dataset: Path,
+    *,
+    max_mean_latency_ms: float,
+    max_p95_latency_ms: float,
+    include_no_exact_anchor_ablation: bool = True,
+) -> dict[str, Any]:
     manifest = write_dataset(dataset)
-    router = MoMEMoCERouter(load_corpus(dataset), candidate_backend="indexed", dataset_path=dataset)
-    summary = benchmark(router, load_cases(dataset), validate_artifacts=False)
-    status = gate_status(summary, max_mean_latency_ms=max_mean_latency_ms, max_p95_latency_ms=max_p95_latency_ms)
+    summary = run_summary(dataset)
+    no_exact_anchor_ablation = run_summary(dataset, disabled_experts={"exact_anchor_memory"}) if include_no_exact_anchor_ablation else None
+    status = gate_status(
+        summary,
+        max_mean_latency_ms=max_mean_latency_ms,
+        max_p95_latency_ms=max_p95_latency_ms,
+        no_exact_anchor_ablation=no_exact_anchor_ablation,
+    )
     return {
         "schema_version": "mome_moce.external_generalization_gate.v0.1",
         "created_at": utc_now(),
         "dataset": str(dataset),
         "dataset_manifest": manifest,
         "summary": summary,
+        "no_exact_anchor_ablation": no_exact_anchor_ablation,
         "status": status,
     }
 
@@ -108,6 +152,27 @@ def write_report(gate: dict[str, Any], out: Path) -> None:
     ]
     for name, passed in status["checks"].items():
         lines.append(f"| `{name}` | `{passed}` |")
+    if gate.get("no_exact_anchor_ablation") is not None:
+        ablation = gate["no_exact_anchor_ablation"]
+        ablation_metrics = ablation.get("evidence_metrics", {})
+        lines.extend(
+            [
+                "",
+                "## No Exact Anchor Ablation",
+                "",
+                "This reruns the same external cases with `exact_anchor_memory` disabled. Passing it means the gate is not solely dependent on the exact-anchor expert.",
+                "",
+                "| Metric | Value |",
+                "|---|---:|",
+                f"| Passed | `{ablation['passed']} / {ablation['cases']}` |",
+                f"| Quality | `{ablation['quality']:.4f}` |",
+                f"| Required recall | `{ablation_metrics.get('required_recall', 0.0):.4f}` |",
+                f"| Required-only precision | `{ablation_metrics.get('required_only_precision', 0.0):.4f}` |",
+                f"| Forbidden hits | `{ablation_metrics.get('forbidden_hits', 0)}` |",
+                f"| Mean latency | `{summary_latency(ablation, 'mean'):.3f} ms` |",
+                f"| P95 latency | `{status['no_exact_anchor_p95_latency_ms']:.3f} ms` |",
+            ]
+        )
     lines.extend(
         [
             "",
@@ -133,10 +198,16 @@ def main() -> int:
     parser.add_argument("--json-out", type=Path, default=None)
     parser.add_argument("--max-mean-latency-ms", type=float, default=2.0)
     parser.add_argument("--max-p95-latency-ms", type=float, default=5.0)
+    parser.add_argument("--skip-no-exact-anchor-ablation", action="store_true")
     args = parser.parse_args()
 
     dataset = args.dataset.resolve()
-    gate = run_gate(dataset, max_mean_latency_ms=args.max_mean_latency_ms, max_p95_latency_ms=args.max_p95_latency_ms)
+    gate = run_gate(
+        dataset,
+        max_mean_latency_ms=args.max_mean_latency_ms,
+        max_p95_latency_ms=args.max_p95_latency_ms,
+        include_no_exact_anchor_ablation=not args.skip_no_exact_anchor_ablation,
+    )
     write_report(gate, args.out.resolve())
     if args.json_out is not None:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
@@ -154,6 +225,10 @@ def main() -> int:
                     "quality": gate["summary"]["quality"],
                     "mean_latency_ms": summary_latency(gate["summary"], "mean"),
                     "p95_latency_ms": gate["status"]["p95_latency_ms"],
+                    "no_exact_anchor_passed": None
+                    if gate.get("no_exact_anchor_ablation") is None
+                    else gate["no_exact_anchor_ablation"]["passed"],
+                    "no_exact_anchor_p95_latency_ms": gate["status"]["no_exact_anchor_p95_latency_ms"],
                 },
             },
             indent=2,

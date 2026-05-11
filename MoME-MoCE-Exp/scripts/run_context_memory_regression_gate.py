@@ -169,6 +169,16 @@ def write_gate_report(gate: dict[str, Any], out: Path) -> None:
                 f"| External p95 latency | `{external['status']['p95_latency_ms']} ms` |",
             ]
         )
+        if external.get("no_exact_anchor_ablation") is not None:
+            ablation = external["no_exact_anchor_ablation"]
+            ablation_latency = ablation.get("latency_ms", {})
+            lines.extend(
+                [
+                    f"| External no-exact-anchor pass | `{ablation['passed']} / {ablation['cases']}` |",
+                    f"| External no-exact-anchor mean latency | `{ablation_latency.get('mean')} ms` |",
+                    f"| External no-exact-anchor p95 latency | `{external['status']['no_exact_anchor_p95_latency_ms']} ms` |",
+                ]
+            )
     lines.extend(["", "## Checks", "", "| Check | Pass |", "|---|---:|"])
     for name, passed in status["checks"].items():
         lines.append(f"| `{name}` | `{passed}` |")
@@ -183,6 +193,11 @@ def write_gate_report(gate: dict[str, Any], out: Path) -> None:
         for result in gate["external_generalization"]["summary"]["results"]:
             selected = ", ".join(result.get("selected_ids", []))
             lines.append(f"| `{result['case_id']}` | `{result['passed']}` | `{selected}` | `{result.get('latency_ms', 0.0)}` |")
+        if gate["external_generalization"].get("no_exact_anchor_ablation") is not None:
+            lines.extend(["", "## External No-Exact-Anchor Ablation", "", "| Case | Pass | Selected | Latency ms |", "|---|---:|---|---:|"])
+            for result in gate["external_generalization"]["no_exact_anchor_ablation"]["results"]:
+                selected = ", ".join(result.get("selected_ids", []))
+                lines.append(f"| `{result['case_id']}` | `{result['passed']}` | `{selected}` | `{result.get('latency_ms', 0.0)}` |")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
 

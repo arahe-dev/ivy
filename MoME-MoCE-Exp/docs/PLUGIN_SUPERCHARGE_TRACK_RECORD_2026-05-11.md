@@ -232,6 +232,16 @@ Fix:
 - make it default-on with `--skip-external-generalization` only for narrow debugging
 - latest combined gate: external `9/9`, required precision `1.0`, forbidden hits `0`, mean `0.442 ms`, p95 `0.708 ms`
 
+### Exact Anchor Triviality Risk
+
+The external gate could still be too easy if it only succeeds through `exact_anchor_memory`.
+
+Fix:
+
+- rerun the external Signal/Recall pack with `exact_anchor_memory` disabled
+- make the no-exact-anchor ablation default-on in the external gate
+- latest combined gate: no-exact-anchor `9/9`, mean `0.383 ms`, p95 `0.501 ms`
+
 ## Architecture Snapshot
 
 ```mermaid
@@ -278,6 +288,7 @@ flowchart LR
 - Windows bootstrap exists for starting, warming, and inspecting the daemon.
 - External Signal/Recall generalization is now a repeatable gate, not just a one-off CP23 note.
 - The combined regression gate now fails if the external guard fails.
+- The external guard now also tests that exact-anchor memory is not the sole success path.
 - Repeatable benchmark catches both positive retrieval and negative over-retrieval.
 - Build refresh can reuse unchanged file chunks after source edits.
 - Plugin-authored notes can participate in stale/current conflict routing.

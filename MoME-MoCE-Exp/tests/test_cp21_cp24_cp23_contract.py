@@ -65,8 +65,12 @@ def test_cp74_external_generalization_gate(tmp_path: Path) -> None:
     dataset = tmp_path / "context_stress_external_signal_recall"
     gate = run_external_generalization_gate(dataset, max_mean_latency_ms=2.0, max_p95_latency_ms=5.0)
     summary = gate["summary"]
+    ablation = gate["no_exact_anchor_ablation"]
     assert gate["status"]["passed"]
     assert summary["passed"] == summary["cases"] == 9
     assert summary["evidence_metrics"]["required_recall"] == 1.0
     assert summary["evidence_metrics"]["required_only_precision"] == 1.0
     assert summary["evidence_metrics"]["forbidden_hits"] == 0
+    assert ablation["passed"] == ablation["cases"] == 9
+    assert ablation["evidence_metrics"]["required_only_precision"] == 1.0
+    assert gate["status"]["checks"]["no_exact_anchor_all_cases_pass"]
