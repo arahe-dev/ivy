@@ -86,6 +86,16 @@ def to_eval_cases(mined: list[dict[str, Any]]) -> dict[str, Any]:
     cases = []
     for idx, row in enumerate(mined, start=1):
         fastest_ids = list(row["fastest_policy"].get("selected_ids", []))
+        expected_terms = []
+        q = row["query"].lower()
+        if "cp28" in q:
+            expected_terms = ["cp28", "final-answer"]
+        elif "mcp tools" in q:
+            expected_terms = ["mcp", "ivy_memory_query"]
+        elif "cp42" in q:
+            expected_terms = ["cp42", "stale"]
+        elif "real conversations" in q:
+            expected_terms = ["memory", "context"]
         cases.append(
             {
                 "id": f"autoresearch_mined_{idx:03d}",
@@ -95,7 +105,7 @@ def to_eval_cases(mined: list[dict[str, Any]]) -> dict[str, Any]:
                 "retrieval_ratio_target": [0.0, 0.05],
                 "required_source_ids": fastest_ids[:2],
                 "forbidden_source_ids": [],
-                "expected_terms": [],
+                "expected_terms": expected_terms,
                 "forbidden_terms": [],
                 "must_abstain": not bool(fastest_ids),
                 "requires_conflict_resolution": row["fastest_policy"].get("packet_mode") == "contradiction_aware",
