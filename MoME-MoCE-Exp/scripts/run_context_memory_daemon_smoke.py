@@ -58,7 +58,26 @@ def wait_health(base_url: str, *, timeout_s: float = 10.0) -> dict[str, Any]:
     raise RuntimeError(f"daemon did not become healthy: {last_error}")
 
 
-def run_daemon_smoke(store: Path, *, source_root: Path, port: int | None = None) -> dict[str, Any]:
+def daemon_checks(result: dict[str, Any], *, max_query_wall_ms: float, max_router_ms: float) -> dict[str, Any]:
+    warm = result.get("warm_summary", {})
+    caches = result.get("status_process_caches", {})
+    query = result.get("query_summary", {})
+    ingest = result.get("ingest_summary", {})
+    checks = {
+        "health_ok": bool(result.get("health", {}).get("ok")),
+        "ingest_has_corpus": int(ingest.get("corpus_items", 0) or 0) >= 1,
+        "warm_ok": int(warm.get("warmed_queries", 0) or 0) >= 1,
+        "query_index_cache_warm": int(caches.get("query_index_cache_entries", 0) or 0) >= 1,
+        "item_feature_cache_warm": int(caches.get("item_feature_cache_entries", 0) or 0) >= 1,
+        "corpus_item_cache_warm": int(caches.get("corpus_item_cache_entries", 0) or 0) >= 1,
+        "query_selected_evidence": bool(query.get("selected_ids")),
+        "query_wall_under_budget": float(query.get("wall_ms") or 0.0) <= max_query_wall_ms,
+        "router_under_budget": float(query.get("latency_ms") or 0.0) <= max_router_ms,
+    }
+    return {"passed": all(checks.values()), "checks": checks, "max_query_wall_ms": max_query_wall_ms, "max_router_ms": max_router_ms}
+
+
+def run_daemon_smoke(store: Path, *, source_root: Path, port: int | None = None, max_query_wall_ms: float = 15.0, max_router_ms: float = 5.0) -> dict[str, Any]:
     started = time.perf_counter()
     chosen_port = port or free_port()
     base_url = f"http://127.0.0.1:{chosen_port}"
@@ -86,19 +105,9 @@ def run_daemon_smoke(store: Path, *, source_root: Path, port: int | None = None)
         status = request_json(f"{base_url}/status", timeout=10.0)
         query = request_json(f"{base_url}/query", payload={"query": "What did CP28 show about final answer packet formats?"}, timeout=20.0)
         caches = status.get("process_caches", {})
-        passed = (
-            bool(health.get("ok"))
-            and bool(ingest.get("ok"))
-            and bool(warm.get("ok"))
-            and int(caches.get("query_index_cache_entries", 0)) >= 1
-            and int(caches.get("item_feature_cache_entries", 0)) >= 1
-            and int(caches.get("corpus_item_cache_entries", 0)) >= 1
-            and bool(query.get("selected_ids"))
-        )
-        return {
+        result = {
             "schema_version": "ivy_context_memory.daemon_smoke.v0.1",
             "created_at": utc_now(),
-            "passed": passed,
             "base_url": base_url,
             "store": str(store),
             "source_root": str(source_root),
@@ -122,6 +131,9 @@ def run_daemon_smoke(store: Path, *, source_root: Path, port: int | None = None)
                 "timings_ms": query.get("timings_ms", {}),
             },
         }
+        result["status"] = daemon_checks(result, max_query_wall_ms=max_query_wall_ms, max_router_ms=max_router_ms)
+        result["passed"] = result["status"]["passed"]
+        return result
     finally:
         proc.terminate()
         try:
@@ -141,7 +153,19 @@ def write_report(result: dict[str, Any], out: Path) -> None:
         f"Passed: `{result['passed']}`",
         f"Base URL: `{result['base_url']}`",
         f"Total wall: `{result['wall_ms']} ms`",
+        f"Query wall budget: `{result['status']['max_query_wall_ms']} ms`",
+        f"Router budget: `{result['status']['max_router_ms']} ms`",
         "",
+        "## Checks",
+        "",
+        "| Check | Pass |",
+        "|---|---:|",
+    ]
+    for name, passed in result["status"]["checks"].items():
+        lines.append(f"| `{name}` | `{passed}` |")
+    lines.extend(
+        [
+            "",
         "## Warmup",
         "",
         "| Metric | Value |",
@@ -166,7 +190,8 @@ def write_report(result: dict[str, Any], out: Path) -> None:
         "",
         "| Stage | ms |",
         "|---|---:|",
-    ]
+        ]
+    )
     for name, value in query.get("timings_ms", {}).items():
         lines.append(f"| `{name}` | `{value}` |")
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -179,9 +204,17 @@ def main() -> int:
     parser.add_argument("--source-root", type=Path, default=DEFAULT_SOURCE_ROOT)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--port", type=int, default=None)
+    parser.add_argument("--max-query-wall-ms", type=float, default=15.0)
+    parser.add_argument("--max-router-ms", type=float, default=5.0)
     args = parser.parse_args()
 
-    result = run_daemon_smoke(args.store.resolve(), source_root=args.source_root.resolve(), port=args.port)
+    result = run_daemon_smoke(
+        args.store.resolve(),
+        source_root=args.source_root.resolve(),
+        port=args.port,
+        max_query_wall_ms=args.max_query_wall_ms,
+        max_router_ms=args.max_router_ms,
+    )
     write_report(result, args.out.resolve())
     print(json.dumps({"ok": True, "passed": result["passed"], "report": str(args.out), "summary": result}, indent=2))
     return 0 if result["passed"] else 1
