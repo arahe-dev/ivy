@@ -74,6 +74,11 @@ It also exposes MCP resources:
 - `ivy-memory://latest-packet`
 - `ivy-memory://track-record`
 
+And MCP prompts:
+
+- `query_ivy_memory_before_task`
+- `remember_verified_milestone`
+
 ## Design
 
 - Uses the existing MoME/MoCE ACCA router.
@@ -87,7 +92,7 @@ It also exposes MCP resources:
 
 ## Current Limitations
 
-- The MCP server exposes tools and a small resource surface, but no prompts yet.
+- The MCP server exposes tools, resources, and workflow prompts.
 - Build caching is whole-build fingerprint caching, not per-file incremental chunk reuse yet.
 - Large ingested corpora are correct but still need more ranking/latency optimization.
 - The note write barrier is intentionally conservative and rejects obvious secret-like text.

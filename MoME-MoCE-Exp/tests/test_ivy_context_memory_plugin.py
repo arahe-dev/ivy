@@ -241,3 +241,39 @@ def test_mcp_stdio_lists_and_reads_resources(tmp_path: Path) -> None:
     assert "ivy-memory://latest-packet" in resource_uris
     assert json.loads(status_text)["ok"] is True
     assert "Commit Ledger" in track_record_text
+
+
+def test_mcp_stdio_lists_and_gets_prompts(tmp_path: Path) -> None:
+    store = tmp_path / "store"
+    payload = b"".join(
+        [
+            framed({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+            framed({"jsonrpc": "2.0", "id": 2, "method": "prompts/list", "params": {}}),
+            framed(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 3,
+                    "method": "prompts/get",
+                    "params": {
+                        "name": "query_ivy_memory_before_task",
+                        "arguments": {"task": "build the next context memory checkpoint"},
+                    },
+                }
+            ),
+        ]
+    )
+
+    proc = subprocess.run(
+        [sys.executable, str(PLUGIN_SCRIPT), "--store", str(store), "mcp"],
+        input=payload,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+    )
+    messages = parse_framed_messages(proc.stdout)
+    prompt_names = {prompt["name"] for prompt in messages[1]["result"]["prompts"]}
+    prompt_text = messages[2]["result"]["messages"][0]["content"]["text"]
+
+    assert "query_ivy_memory_before_task" in prompt_names
+    assert "ivy_memory_query" in prompt_text
+    assert "build the next context memory checkpoint" in prompt_text

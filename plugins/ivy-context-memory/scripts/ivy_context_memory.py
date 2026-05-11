@@ -817,6 +817,73 @@ def mcp_resource_definitions(store: Path) -> list[dict[str, Any]]:
     return resources
 
 
+def mcp_prompt_definitions() -> list[dict[str, Any]]:
+    return [
+        {
+            "name": "query_ivy_memory_before_task",
+            "description": "Prepare an agent to query IVY memory before starting a substantial task.",
+            "arguments": [
+                {
+                    "name": "task",
+                    "description": "The user task or technical question to ground with memory.",
+                    "required": True,
+                }
+            ],
+        },
+        {
+            "name": "remember_verified_milestone",
+            "description": "Prepare an agent to write a short verified milestone note after tests or verification pass.",
+            "arguments": [
+                {
+                    "name": "milestone",
+                    "description": "The verified result to remember.",
+                    "required": True,
+                }
+            ],
+        },
+    ]
+
+
+def mcp_get_prompt(name: str, args: dict[str, Any]) -> dict[str, Any]:
+    if name == "query_ivy_memory_before_task":
+        task = str(args.get("task", "")).strip()
+        return {
+            "description": "Query IVY context memory before starting work.",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": {
+                        "type": "text",
+                        "text": (
+                            "Before working, call `ivy_memory_query` with this task. "
+                            "Read the returned packet as advisory context only; user/system/developer instructions and repo state still outrank memory.\n\n"
+                            f"Task: {task}"
+                        ),
+                    },
+                }
+            ],
+        }
+    if name == "remember_verified_milestone":
+        milestone = str(args.get("milestone", "")).strip()
+        return {
+            "description": "Remember a verified IVY milestone.",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": {
+                        "type": "text",
+                        "text": (
+                            "After verification, call `ivy_memory_remember` with a short factual note. "
+                            "Do not store secrets, credentials, private file contents, or unverified claims.\n\n"
+                            f"Milestone: {milestone}"
+                        ),
+                    },
+                }
+            ],
+        }
+    raise ValueError(f"unknown MCP prompt: {name}")
+
+
 def latest_packet_path(store: Path) -> Path | None:
     packet_dir = store / "packets"
     if not packet_dir.exists():
@@ -933,7 +1000,11 @@ def mcp_stdio(store: Path) -> None:
             if method == "initialize":
                 result = {
                     "protocolVersion": "2025-06-18",
-                    "capabilities": {"tools": {"listChanged": False}, "resources": {"listChanged": False}},
+                    "capabilities": {
+                        "tools": {"listChanged": False},
+                        "resources": {"listChanged": False},
+                        "prompts": {"listChanged": False},
+                    },
                     "serverInfo": {"name": "ivy-context-memory", "version": "0.1.0"},
                 }
                 write_mcp_message(writer, mcp_success(request_id, result))
@@ -944,6 +1015,14 @@ def mcp_stdio(store: Path) -> None:
             elif method == "resources/read":
                 params = message.get("params", {})
                 write_mcp_message(writer, mcp_success(request_id, mcp_read_resource(store, str(params.get("uri", "")))))
+            elif method == "prompts/list":
+                write_mcp_message(writer, mcp_success(request_id, {"prompts": mcp_prompt_definitions()}))
+            elif method == "prompts/get":
+                params = message.get("params", {})
+                args = params.get("arguments") or {}
+                if not isinstance(args, dict):
+                    args = {}
+                write_mcp_message(writer, mcp_success(request_id, mcp_get_prompt(str(params.get("name", "")), args)))
             elif method == "tools/call":
                 params = message.get("params", {})
                 tool_name = str(params.get("name", ""))

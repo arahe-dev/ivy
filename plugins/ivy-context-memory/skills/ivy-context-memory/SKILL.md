@@ -69,6 +69,11 @@ Available resources:
 - `ivy-memory://latest-packet`
 - `ivy-memory://track-record`
 
+Available prompts:
+
+- `query_ivy_memory_before_task`
+- `remember_verified_milestone`
+
 ## Agent Use
 
 Before a deep task:
