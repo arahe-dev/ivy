@@ -99,6 +99,34 @@ def run_benchmark(store: Path, *, source_root: Path, reset: bool) -> dict[str, A
             ),
         )
     )
+    stale_cp42 = measure(
+        "remember_cp42_stale",
+        lambda: plugin.remember(
+            store,
+            text="CP42 stale policy said any source edit requires a full plugin rebuild.",
+            source_path="root/notes/cp42-stale.md",
+            tags=["cp42", "stale-policy"],
+            authority="low",
+            staleness="stale",
+        ),
+    )
+    setup.append(stale_cp42)
+    stale_cp42_id = stale_cp42["payload"]["note"]["id"]
+    setup.append(
+        measure(
+            "remember_cp42_current",
+            lambda: plugin.remember(
+                store,
+                text="CP42 current policy says changed-source rebuilds should reuse unchanged file chunks and reprocess only changed files.",
+                source_path="root/notes/cp42-current.md",
+                tags=["cp42", "current-policy", "chunk-cache"],
+                authority="medium",
+                staleness="current",
+                supersedes=[stale_cp42_id],
+                conflicts_with=[stale_cp42_id],
+            ),
+        )
+    )
     setup.append(measure("build_cache_probe", lambda: plugin.build_store(store)))
 
     queries = [
@@ -106,6 +134,7 @@ def run_benchmark(store: Path, *, source_root: Path, reset: bool) -> dict[str, A
         case("What MCP tools does ivy-context-memory expose?", expect_any=["note_", "cp33", "mcp"]),
         case("What did CP29 change about generated output ingestion?", expect_any=["generated junk", "generated output", "prefilter"]),
         case("How does CP32 make repeated plugin builds faster?", expect_any=["fingerprint", "cache", "unchanged build"]),
+        case("What is the latest CP42 rebuild policy versus stale memory?", expect_any=["unchanged file chunks", "stale policy", "changed files"]),
         case("What is today's Bitcoin price?", should_select=False),
     ]
 
