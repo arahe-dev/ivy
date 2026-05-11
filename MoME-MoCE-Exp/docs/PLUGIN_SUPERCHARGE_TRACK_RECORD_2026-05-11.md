@@ -222,6 +222,16 @@ Fix:
 - require `9/9` pass, perfect required recall, perfect required-only precision, zero forbidden hits, and latency budgets
 - latest CP74 run: mean `0.406 ms`, p95 `0.648 ms`, max `0.740 ms`
 
+### External Guard Drift Risk
+
+A side report can go stale if the default regression gate does not run it.
+
+Fix:
+
+- wire the CP74 external gate into `scripts/run_context_memory_regression_gate.py`
+- make it default-on with `--skip-external-generalization` only for narrow debugging
+- latest combined gate: external `9/9`, required precision `1.0`, forbidden hits `0`, mean `0.442 ms`, p95 `0.708 ms`
+
 ## Architecture Snapshot
 
 ```mermaid
@@ -267,6 +277,7 @@ flowchart LR
 - HTTP daemon path is now smoke-tested with cache and latency gates.
 - Windows bootstrap exists for starting, warming, and inspecting the daemon.
 - External Signal/Recall generalization is now a repeatable gate, not just a one-off CP23 note.
+- The combined regression gate now fails if the external guard fails.
 - Repeatable benchmark catches both positive retrieval and negative over-retrieval.
 - Build refresh can reuse unchanged file chunks after source edits.
 - Plugin-authored notes can participate in stale/current conflict routing.

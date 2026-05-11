@@ -1,6 +1,6 @@
 # IVY Autoresearch Loop Scoreboard
 
-Last updated: `2026-05-11T18:40:49Z`
+Last updated: `2026-05-11T18:44:30Z`
 
 | Metric | Value |
 |---|---:|
@@ -13,9 +13,9 @@ Last updated: `2026-05-11T18:40:49Z`
 | Capacity rated | `True` |
 | Mined hard-case eval | `5 / 5` |
 | Regression gate | `passed` |
-| Regression gate feature router | `2.05 ms` |
-| Regression gate plugin router | `2.433 ms` |
-| Regression gate plugin wall | `16.544 ms` |
+| Regression gate feature router | `2.163 ms` |
+| Regression gate plugin router | `2.681 ms` |
+| Regression gate plugin wall | `18.108 ms` |
 | Hot repeated plugin wall | `~7.5-7.7 ms` |
 | MCP warmup contract | `verified` |
 | Process cache status | `visible` |
@@ -23,10 +23,10 @@ Last updated: `2026-05-11T18:40:49Z`
 | Post-warm daemon query wall | `10.487 ms` |
 | Post-warm daemon router | `3.236 ms` |
 | Daemon bootstrap | `documented + tested` |
-| External generalization gate | `9 / 9` |
-| External gate mean latency | `0.406 ms` |
-| External gate p95 latency | `0.648 ms` |
-| Focused test suite | `33 passed` |
+| External generalization gate | `9 / 9 in combined gate` |
+| External gate mean latency | `0.442 ms` |
+| External gate p95 latency | `0.708 ms` |
+| Focused test suite | `37 passed` |
 
 ## Notes
 
@@ -39,3 +39,4 @@ Last updated: `2026-05-11T18:40:49Z`
 - CP66-CP68 added a persistent HTTP daemon smoke/latency gate and removed repeated file reads during ingest line-offset calculation.
 - CP70-CP72 added a PowerShell daemon bootstrap, plugin/skill docs for the daemon-first workflow, and a bootstrap script contract test.
 - CP74 made the external Signal/Recall pack a repeatable gate with perfect precision/recall, zero forbidden hits, and sub-millisecond indexed routing.
+- CP75 wired that external guard into the combined regression gate by default.

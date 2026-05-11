@@ -7,10 +7,12 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from run_external_generalization_gate import run_gate as run_external_generalization_gate
     from run_context_memory_plugin_benchmark import run_benchmark
     from run_mined_case_policy_eval import evaluate, load_cases
     from run_reranker_feature_eval import baseline_result, promote_winner_policy, run_feature_eval
 except ModuleNotFoundError:
+    from scripts.run_external_generalization_gate import run_gate as run_external_generalization_gate
     from scripts.run_context_memory_plugin_benchmark import run_benchmark
     from scripts.run_mined_case_policy_eval import evaluate, load_cases
     from scripts.run_reranker_feature_eval import baseline_result, promote_winner_policy, run_feature_eval
@@ -21,6 +23,7 @@ DEFAULT_STORE = ROOT / "out" / "autoresearch_loop" / "memory_store"
 DEFAULT_PLUGIN_STORE = ROOT / "out" / "regression_gate_plugin_store"
 DEFAULT_CASES = ROOT / "docs" / "AUTORESEARCH_MINED_EVAL_CASES.json"
 DEFAULT_OUT = ROOT / "docs" / "AUTORESEARCH_REGRESSION_GATE.md"
+DEFAULT_EXTERNAL_DATASET = ROOT / "out" / "context_stress_external_signal_recall"
 
 
 def utc_now() -> str:
@@ -53,6 +56,18 @@ def gate_status(
         "feature_wall_under_budget": float(feature["avg_wall_ms"]) <= max_wall_ms,
         "plugin_wall_under_budget": float(plugin["avg_query_wall_ms"]) <= max_plugin_wall_ms,
     }
+    if "external_generalization" in gate:
+        external = gate["external_generalization"]
+        external_summary = external["summary"]
+        external_metrics = external_summary["evidence_metrics"]
+        checks.update(
+            {
+                "external_generalization_all_pass": external["status"]["passed"],
+                "external_generalization_required_recall": float(external_metrics["required_recall"]) == 1.0,
+                "external_generalization_required_precision": float(external_metrics["required_only_precision"]) == 1.0,
+                "external_generalization_no_forbidden_hits": int(external_metrics["forbidden_hits"]) == 0,
+            }
+        )
     return {
         "passed": all(checks.values()),
         "checks": checks,
@@ -75,6 +90,8 @@ def run_gate(
     max_wall_ms: float,
     max_plugin_wall_ms: float,
     promote: bool,
+    include_external_generalization: bool = True,
+    external_dataset: Path = DEFAULT_EXTERNAL_DATASET,
 ) -> dict[str, Any]:
     cases = load_cases(cases_path)
     mined_results = [evaluate(store, cases, max_prefilter_items=value) for value in candidates]
@@ -91,6 +108,12 @@ def run_gate(
         "feature_eval": {"results": feature_ranked, "winner": feature_winner, "promotion": promotion},
         "plugin_benchmark": plugin_result,
     }
+    if include_external_generalization:
+        gate["external_generalization"] = run_external_generalization_gate(
+            external_dataset,
+            max_mean_latency_ms=2.0,
+            max_p95_latency_ms=5.0,
+        )
     gate["status"] = gate_status(
         gate,
         max_router_ms=max_router_ms,
@@ -131,12 +154,22 @@ def write_gate_report(gate: dict[str, Any], out: Path) -> None:
         f"| Plugin avg query wall | `{plugin['avg_query_wall_ms']} ms` |",
         f"| Plugin avg router | `{plugin['avg_router_latency_ms']} ms` |",
         f"| Promotion | `{gate['feature_eval']['promotion'].get('promoted')}` |",
-        "",
-        "## Checks",
-        "",
-        "| Check | Pass |",
-        "|---|---:|",
     ]
+    if "external_generalization" in gate:
+        external = gate["external_generalization"]
+        external_summary = external["summary"]
+        external_metrics = external_summary["evidence_metrics"]
+        external_latency = external_summary.get("latency_ms", {})
+        lines.extend(
+            [
+                f"| External generalization pass | `{external_summary['passed']} / {external_summary['cases']}` |",
+                f"| External required precision | `{external_metrics['required_only_precision']}` |",
+                f"| External forbidden hits | `{external_metrics['forbidden_hits']}` |",
+                f"| External mean latency | `{external_latency.get('mean')} ms` |",
+                f"| External p95 latency | `{external['status']['p95_latency_ms']} ms` |",
+            ]
+        )
+    lines.extend(["", "## Checks", "", "| Check | Pass |", "|---|---:|"])
     for name, passed in status["checks"].items():
         lines.append(f"| `{name}` | `{passed}` |")
     lines.extend(["", "## Feature Profiles", "", "| Profile | Passed | Avg wall ms | Avg router ms |", "|---|---:|---:|---:|"])
@@ -145,6 +178,11 @@ def write_gate_report(gate: dict[str, Any], out: Path) -> None:
     lines.extend(["", "## Mined Policy Candidates", "", "| max_prefilter_items | Passed | Avg wall ms | Avg router ms |", "|---:|---:|---:|---:|"])
     for row in gate["mined_policy"]["results"]:
         lines.append(f"| {row['max_prefilter_items']} | {row['passed']} / {row['total']} | {row['avg_wall_ms']} | {row['avg_router_latency_ms']} |")
+    if "external_generalization" in gate:
+        lines.extend(["", "## External Generalization", "", "| Case | Pass | Selected | Latency ms |", "|---|---:|---|---:|"])
+        for result in gate["external_generalization"]["summary"]["results"]:
+            selected = ", ".join(result.get("selected_ids", []))
+            lines.append(f"| `{result['case_id']}` | `{result['passed']}` | `{selected}` | `{result.get('latency_ms', 0.0)}` |")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -162,6 +200,8 @@ def main() -> int:
     parser.add_argument("--max-wall-ms", type=float, default=35.0)
     parser.add_argument("--max-plugin-wall-ms", type=float, default=25.0)
     parser.add_argument("--promote", action="store_true")
+    parser.add_argument("--skip-external-generalization", action="store_true")
+    parser.add_argument("--external-dataset", type=Path, default=DEFAULT_EXTERNAL_DATASET)
     args = parser.parse_args()
 
     gate = run_gate(
@@ -175,6 +215,8 @@ def main() -> int:
         max_wall_ms=args.max_wall_ms,
         max_plugin_wall_ms=args.max_plugin_wall_ms,
         promote=args.promote,
+        include_external_generalization=not args.skip_external_generalization,
+        external_dataset=args.external_dataset.resolve(),
     )
     write_gate_report(gate, args.out.resolve())
     print(json.dumps({"ok": True, "passed": gate["status"]["passed"], "report": str(args.out), "status": gate["status"]}, indent=2))
