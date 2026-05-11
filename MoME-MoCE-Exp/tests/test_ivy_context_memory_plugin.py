@@ -82,6 +82,24 @@ def test_plugin_rejects_secret_like_note(tmp_path: Path) -> None:
         assert "secret" in str(exc).lower()
 
 
+def test_plugin_remember_preserves_staleness_and_conflicts(tmp_path: Path) -> None:
+    plugin = load_plugin_module()
+    store = tmp_path / "store"
+    remembered = plugin.remember(
+        store,
+        text="CP41 old result said plugin builds always require a full rebuild.",
+        source_path="root/notes/cp41-old.md",
+        tags=["cp41"],
+        authority="low",
+        staleness="stale",
+        conflicts_with=["note_current_cp41"],
+    )
+
+    item = plugin.note_to_corpus_item(remembered["note"])
+    assert item["staleness"] == "stale"
+    assert item["conflicts_with"] == ["note_current_cp41"]
+
+
 def test_plugin_ingest_skips_generated_outputs(tmp_path: Path) -> None:
     plugin = load_plugin_module()
     source = tmp_path / "source"

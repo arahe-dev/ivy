@@ -552,7 +552,17 @@ def add_source(store: Path, source_root: Path, *, build: bool) -> dict[str, Any]
     return payload
 
 
-def remember(store: Path, *, text: str, source_path: str, tags: list[str], authority: str = "medium") -> dict[str, Any]:
+def remember(
+    store: Path,
+    *,
+    text: str,
+    source_path: str,
+    tags: list[str],
+    authority: str = "medium",
+    staleness: str = "current",
+    supersedes: list[str] | None = None,
+    conflicts_with: list[str] | None = None,
+) -> dict[str, Any]:
     init_store(store)
     if not text.strip():
         raise ValueError("memory text is empty")
@@ -565,7 +575,9 @@ def remember(store: Path, *, text: str, source_path: str, tags: list[str], autho
         "tags": tags,
         "authority": authority,
         "source_family": "doc_memory",
-        "staleness": "current",
+        "staleness": staleness,
+        "supersedes": supersedes or [],
+        "conflicts_with": conflicts_with or [],
         "safety_label": "normal",
         "taint_labels": ["normal"],
         "exposure_policy": "frontier_ok",
@@ -757,6 +769,9 @@ class ApiHandler(BaseHTTPRequestHandler):
                         source_path=str(payload.get("source_path", "root/ivy_context_memory/api_note")),
                         tags=[str(tag) for tag in payload.get("tags", [])],
                         authority=str(payload.get("authority", "medium")),
+                        staleness=str(payload.get("staleness", "current")),
+                        supersedes=[str(item) for item in payload.get("supersedes", [])],
+                        conflicts_with=[str(item) for item in payload.get("conflicts_with", [])],
                     ),
                 )
             elif self.path == "/ingest":
@@ -813,6 +828,9 @@ def mcp_tool_definitions() -> list[dict[str, Any]]:
                     "source_path": {"type": "string"},
                     "tags": {"type": "array", "items": {"type": "string"}},
                     "authority": {"type": "string", "enum": ["high", "medium", "low"]},
+                    "staleness": {"type": "string", "enum": ["current", "stale"]},
+                    "supersedes": {"type": "array", "items": {"type": "string"}},
+                    "conflicts_with": {"type": "array", "items": {"type": "string"}},
                 },
             },
         },
@@ -985,6 +1003,9 @@ def mcp_call_tool(store: Path, name: str, args: dict[str, Any]) -> dict[str, Any
             source_path=str(args.get("source_path", "root/ivy_context_memory/mcp_note")),
             tags=[str(tag) for tag in tags],
             authority=str(args.get("authority", "medium")),
+            staleness=str(args.get("staleness", "current")),
+            supersedes=[str(item) for item in args.get("supersedes", [])] if isinstance(args.get("supersedes", []), list) else [],
+            conflicts_with=[str(item) for item in args.get("conflicts_with", [])] if isinstance(args.get("conflicts_with", []), list) else [],
         )
     if name == "ivy_memory_ingest":
         return add_source(store, Path(str(args["source_root"])), build=bool(args.get("build", True)))
@@ -1121,6 +1142,9 @@ def main(argv: list[str] | None = None) -> int:
     remember_parser.add_argument("--source-path", default="root/ivy_context_memory/manual_note")
     remember_parser.add_argument("--tag", action="append", default=[])
     remember_parser.add_argument("--authority", choices=["high", "medium", "low"], default="medium")
+    remember_parser.add_argument("--staleness", choices=["current", "stale"], default="current")
+    remember_parser.add_argument("--supersedes", action="append", default=[])
+    remember_parser.add_argument("--conflicts-with", action="append", default=[])
 
     query_parser = sub.add_parser("query")
     query_parser.add_argument("--query", required=True)
@@ -1148,7 +1172,18 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "build":
             print_payload(build_store(store, max_files=args.max_files))
         elif args.command == "remember":
-            print_payload(remember(store, text=args.text, source_path=args.source_path, tags=args.tag, authority=args.authority))
+            print_payload(
+                remember(
+                    store,
+                    text=args.text,
+                    source_path=args.source_path,
+                    tags=args.tag,
+                    authority=args.authority,
+                    staleness=args.staleness,
+                    supersedes=args.supersedes,
+                    conflicts_with=args.conflicts_with,
+                )
+            )
         elif args.command == "query":
             print_payload(
                 query_store(

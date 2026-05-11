@@ -30,6 +30,8 @@ python .\plugins\ivy-context-memory\scripts\ivy_context_memory.py remember `
   --tag final-answer
 ```
 
+For stale or conflicting memory, add `--staleness stale`, `--supersedes <id>`, or `--conflicts-with <id>` as needed.
+
 ## HTTP API
 
 Start the local API:

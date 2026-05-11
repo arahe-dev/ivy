@@ -33,7 +33,7 @@ python .\plugins\ivy-context-memory\scripts\ivy_context_memory.py query --query 
 | `init` | Create `.ivy-context-memory` store |
 | `ingest --source-root PATH` | Add a repo/docs folder and rebuild the ACCA dataset |
 | `build` | Rebuild from registered source roots and notes |
-| `remember --text ...` | Store a short safe milestone note and rebuild |
+| `remember --text ...` | Store a short safe milestone note and rebuild; supports `--staleness`, `--supersedes`, and `--conflicts-with` |
 | `query --query ...` | Return JSON with selected IDs, packet text, route proof |
 | `query --query ... --text` | Return only the packet text |
 | `serve` | Start localhost HTTP API for OpenCode or other tools |
