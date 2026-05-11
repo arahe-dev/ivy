@@ -1607,6 +1607,11 @@ class MoMEMoCERouter:
         for item, _, parts in candidates:
             if "agent_note" not in item.tags:
                 continue
+            checkpoint_terms = set(re.findall(r"\bcp[-_ ]?(\d+)\b", norm(query)))
+            if checkpoint_terms:
+                item_checkpoint_terms = set(re.findall(r"\bcp[-_ ]?(\d+)\b", item.search_text))
+                if not checkpoint_terms.intersection(item_checkpoint_terms):
+                    continue
             direct_match = parts.get("lexical_bm25", 0.0) >= 5.0 or parts.get("tag_overlap", 0.0) >= 0.76
             if direct_match and admissible(item):
                 add_item(item)
