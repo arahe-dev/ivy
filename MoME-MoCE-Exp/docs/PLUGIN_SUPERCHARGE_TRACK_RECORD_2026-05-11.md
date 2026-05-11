@@ -45,6 +45,10 @@ The important shift:
 | `40f355d` | CP58 | Tightened default wall budgets. | Gate passed with `35 ms` mined/feature and `25 ms` plugin wall budgets. |
 | `33633a3` | CP59 | Refreshed committed plugin benchmark scoreboard. | Scoreboard 6/6, avg query wall `15.535 ms`. |
 | `0bccc3c` | CP60 | Added hot repeated-query benchmark. | 21 focused tests; repeated hot wall around `7.5-7.7 ms`. |
+| `d59cf2e` | CP61 | Updated hot-path track records. | Documentation checkpoint. |
+| `d816b81` | CP62 | Added CLI/HTTP/MCP cache warmup command. | 22 focused tests; warmup loaded index/features/items. |
+| `15c2947` | CP63 | Added MCP stdio warmup contract test. | 23 focused tests. |
+| `561ba88` | CP64 | Exposed process-local cache counts in status. | 23 focused tests; MCP warm status verifies cache counts. |
 
 ## Latest Benchmark
 
@@ -62,6 +66,8 @@ Latest result:
 - Avg router latency: `2.478 ms` in CP59 scoreboard
 - Combined regression gate plugin wall: `16.544 ms`
 - Hot repeated plugin wall: `~7.5-7.7 ms`
+- Warmup surfaces: CLI `warm`, HTTP `POST /warm`, MCP `ivy_memory_warm`
+- Cache visibility: `status.process_caches`
 
 | Query Type | Expected Behavior | Result |
 |---|---|---|
@@ -158,6 +164,16 @@ Fix:
 - tighten regression wall budgets after the new latency profile is stable
 - add a hot repeated-query benchmark that captures long-running sidecar behavior
 
+### Invisible Warm State
+
+CP62 added warmup, but a client also needs to know whether the persistent process is actually warmed.
+
+Fix:
+
+- expose `ivy_memory_warm` through MCP
+- test warmup through MCP stdio subprocess
+- include process-local cache counts in `status`
+
 ## Architecture Snapshot
 
 ```mermaid
@@ -169,6 +185,7 @@ flowchart LR
   MCP --> Query["ivy_memory_query"]
   MCP --> Remember["ivy_memory_remember"]
   MCP --> Build["ivy_memory_build"]
+  MCP --> Warm["ivy_memory_warm"]
   MCP --> Status["ivy_memory_status"]
   MCP --> Resources["status / latest-packet / track-record resources"]
   MCP --> Prompts["query / remember workflow prompts"]
@@ -178,6 +195,7 @@ flowchart LR
   Build --> Corpus["ACCA corpus dataset"]
   Corpus --> Index["CP29 persisted query index"]
   Index --> HotCache["CP52 index cache + CP53/CP57 item caches"]
+  Warm --> HotCache
   Query --> Index
   HotCache --> Router["MoME/MoCE router"]
   Router --> Packet["CP30 packet_mode + ACCA packet"]
@@ -194,6 +212,7 @@ flowchart LR
 - Regression gate keeps mined/feature router latency under `5 ms`.
 - Full plugin benchmark router latency is now around `2.5 ms` with a `32` prefilter budget.
 - Repeated plugin query wall time is down to roughly `7.5-7.7 ms` in the hot-query benchmark.
+- MCP clients can explicitly warm the process before a task and inspect cache counts through status.
 - Repeatable benchmark catches both positive retrieval and negative over-retrieval.
 - Build refresh can reuse unchanged file chunks after source edits.
 - Plugin-authored notes can participate in stale/current conflict routing.
@@ -206,12 +225,12 @@ flowchart LR
 - MCP server is useful but still minimal compared with a full production MCP package.
 - Ranking is still mostly sparse/token-based with policy gates; no learned reranker.
 - Benchmark set is useful but small.
-- First-pass query wall time can still hit tens of milliseconds while caches warm.
+- Warmup is process-local; one-shot CLI warmup proves behavior but does not help later processes.
 - Signal pings failed this session because the local Signal daemon needs a real VAPID subject configured.
 
 ## Next High-Leverage Work
 
-1. Add a daemon/MCP warmup command so the sidecar can preheat index, feature, and item caches before a task.
+1. Add a persistent daemon smoke test that starts HTTP, warms, queries, and verifies status cache counts.
 2. Add section-level chunk cache for large Markdown files.
 3. Add optional watcher mode for near-real-time memory freshness.
 4. Expand mined hard cases beyond IVY docs with external project corpora.
