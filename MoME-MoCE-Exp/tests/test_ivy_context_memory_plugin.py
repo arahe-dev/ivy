@@ -272,6 +272,57 @@ def test_mcp_stdio_remember_then_query(tmp_path: Path) -> None:
     assert "CP35 proves MCP clients" in queried["packet_text"]
 
 
+def test_mcp_stdio_warm_primes_caches(tmp_path: Path) -> None:
+    store = tmp_path / "store"
+    payload = b"".join(
+        [
+            framed({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+            framed(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "ivy_memory_remember",
+                        "arguments": {
+                            "text": "CP62 exposes ivy_memory_warm so MCP clients can preheat IVY memory caches.",
+                            "source_path": "root/notes/cp62.md",
+                            "tags": ["cp62", "warm", "mcp"],
+                        },
+                    },
+                }
+            ),
+            framed(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 3,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "ivy_memory_warm",
+                        "arguments": {"queries": ["What does CP62 expose for MCP clients?"]},
+                    },
+                }
+            ),
+        ]
+    )
+
+    proc = subprocess.run(
+        [sys.executable, str(PLUGIN_SCRIPT), "--store", str(store), "mcp"],
+        input=payload,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+    )
+    messages = parse_framed_messages(proc.stdout)
+    warmed = messages[2]["result"]["structuredContent"]
+
+    assert warmed["ok"] is True
+    assert warmed["warmed_queries"] == 1
+    assert warmed["query_index_cache_entries"] >= 1
+    assert warmed["item_feature_cache_entries"] >= 1
+    assert warmed["corpus_item_cache_entries"] >= 1
+
+
 def test_mcp_stdio_lists_and_reads_resources(tmp_path: Path) -> None:
     store = tmp_path / "store"
     payload = b"".join(
