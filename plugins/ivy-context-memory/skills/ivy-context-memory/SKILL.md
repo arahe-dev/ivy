@@ -47,6 +47,22 @@ Endpoints:
 - `POST /query` with `{ "query": "...", "variant": "auto" }`
 - `POST /build`
 
+## MCP
+
+When a client supports local MCP plugin tools, use the bundled `.mcp.json` server:
+
+```powershell
+python C:\ivy\plugins\ivy-context-memory\scripts\ivy_context_memory.py mcp
+```
+
+Available tools:
+
+- `ivy_memory_query`
+- `ivy_memory_remember`
+- `ivy_memory_ingest`
+- `ivy_memory_build`
+- `ivy_memory_status`
+
 ## Agent Use
 
 Before a deep task:

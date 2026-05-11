@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import subprocess
+import sys
 from pathlib import Path
 
 
@@ -13,6 +16,28 @@ def load_plugin_module():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def framed(payload: dict) -> bytes:
+    body = json.dumps(payload).encode("utf-8")
+    return f"Content-Length: {len(body)}\r\n\r\n".encode("ascii") + body
+
+
+def parse_framed_messages(blob: bytes) -> list[dict]:
+    messages = []
+    offset = 0
+    while offset < len(blob):
+        header_end = blob.index(b"\r\n\r\n", offset)
+        headers = blob[offset:header_end].decode("ascii")
+        length = 0
+        for line in headers.splitlines():
+            if line.lower().startswith("content-length:"):
+                length = int(line.split(":", 1)[1].strip())
+        body_start = header_end + 4
+        body_end = body_start + length
+        messages.append(json.loads(blob[body_start:body_end].decode("utf-8")))
+        offset = body_end
+    return messages
 
 
 def test_plugin_remember_build_query_roundtrip(tmp_path: Path) -> None:
@@ -108,3 +133,28 @@ def test_repeated_build_uses_fingerprint_cache(tmp_path: Path) -> None:
     assert first["build"]["cache"]["status"] == "miss"
     assert second["cache"]["status"] == "hit"
     assert second["corpus_items"] == first["build"]["corpus_items"]
+
+
+def test_mcp_stdio_lists_and_calls_status(tmp_path: Path) -> None:
+    store = tmp_path / "store"
+    payload = b"".join(
+        [
+            framed({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+            framed({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}),
+            framed({"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "ivy_memory_status", "arguments": {}}}),
+        ]
+    )
+
+    proc = subprocess.run(
+        [sys.executable, str(PLUGIN_SCRIPT), "--store", str(store), "mcp"],
+        input=payload,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+    )
+    messages = parse_framed_messages(proc.stdout)
+
+    assert messages[0]["result"]["serverInfo"]["name"] == "ivy-context-memory"
+    tool_names = {tool["name"] for tool in messages[1]["result"]["tools"]}
+    assert {"ivy_memory_query", "ivy_memory_remember", "ivy_memory_status"} <= tool_names
+    assert messages[2]["result"]["structuredContent"]["ok"] is True

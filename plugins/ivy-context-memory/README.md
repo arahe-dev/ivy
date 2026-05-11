@@ -37,6 +37,7 @@ python .\plugins\ivy-context-memory\scripts\ivy_context_memory.py query --query 
 | `query --query ...` | Return JSON with selected IDs, packet text, route proof |
 | `query --query ... --text` | Return only the packet text |
 | `serve` | Start localhost HTTP API for OpenCode or other tools |
+| `mcp` | Start a local MCP stdio server |
 
 ## HTTP API
 
@@ -51,17 +52,36 @@ Invoke-RestMethod http://127.0.0.1:8768/status
 Invoke-RestMethod http://127.0.0.1:8768/query -Method Post -ContentType application/json -Body '{"query":"What matters for CP29?","variant":"auto"}'
 ```
 
+## MCP
+
+The plugin now exposes local MCP tools through `.mcp.json`:
+
+- `ivy_memory_query`
+- `ivy_memory_remember`
+- `ivy_memory_ingest`
+- `ivy_memory_build`
+- `ivy_memory_status`
+
+The stdio command is:
+
+```powershell
+python C:\ivy\plugins\ivy-context-memory\scripts\ivy_context_memory.py mcp
+```
+
 ## Design
 
 - Uses the existing MoME/MoCE ACCA router.
 - Uses CP26 external ingestion to turn arbitrary folders into evidence.
 - Uses adaptive packet rendering: compact for simple cases, proof/contradiction-aware for complex cases.
+- Uses CP29 persisted prefilter indexes for query routing.
+- Uses CP30 packet modes and direct note priority.
+- Uses CP32 build fingerprint caching for unchanged rebuilds.
 - Stores route packets under `.ivy-context-memory/packets/`.
 - Keeps memory advisory; it never outranks current user/system/developer instructions or repo state.
 
 ## Current Limitations
 
-- The MCP entry is not implemented yet; use CLI or HTTP API.
-- Rebuilds are full rebuilds, not incremental.
-- Large ingested corpora are correct but slower than curated corpora; CP29 should add a two-stage or persisted index.
+- The MCP server is intentionally minimal: tools only, no resources/prompts yet.
+- Build caching is whole-build fingerprint caching, not per-file incremental chunk reuse yet.
+- Large ingested corpora are correct but still need more ranking/latency optimization.
 - The note write barrier is intentionally conservative and rejects obvious secret-like text.

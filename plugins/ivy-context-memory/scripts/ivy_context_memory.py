@@ -11,6 +11,7 @@ import time
 from collections import Counter
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from io import BufferedReader, BufferedWriter
 from pathlib import Path
 from typing import Any
 
@@ -725,6 +726,181 @@ def print_payload(payload: dict[str, Any], *, text: bool = False) -> None:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
 
 
+def mcp_tool_definitions() -> list[dict[str, Any]]:
+    return [
+        {
+            "name": "ivy_memory_query",
+            "description": "Query IVY context memory and return an ACCA packet plus route proof.",
+            "inputSchema": {
+                "type": "object",
+                "required": ["query"],
+                "properties": {
+                    "query": {"type": "string", "minLength": 1},
+                    "variant": {"type": "string", "enum": ["auto", "compact_default", "proof_lite", "contradiction_aware"]},
+                    "top_k": {"type": "integer", "minimum": 1, "maximum": 20},
+                    "prefilter": {"type": "boolean"},
+                    "max_prefilter_items": {"type": "integer", "minimum": 1, "maximum": 2048},
+                },
+            },
+        },
+        {
+            "name": "ivy_memory_remember",
+            "description": "Store a short safe verified memory note and rebuild the live memory dataset.",
+            "inputSchema": {
+                "type": "object",
+                "required": ["text"],
+                "properties": {
+                    "text": {"type": "string", "minLength": 1},
+                    "source_path": {"type": "string"},
+                    "tags": {"type": "array", "items": {"type": "string"}},
+                    "authority": {"type": "string", "enum": ["high", "medium", "low"]},
+                },
+            },
+        },
+        {
+            "name": "ivy_memory_ingest",
+            "description": "Register a source root and optionally rebuild the live memory dataset.",
+            "inputSchema": {
+                "type": "object",
+                "required": ["source_root"],
+                "properties": {
+                    "source_root": {"type": "string", "minLength": 1},
+                    "build": {"type": "boolean"},
+                },
+            },
+        },
+        {
+            "name": "ivy_memory_build",
+            "description": "Rebuild, or cache-hit, the live memory dataset and query index.",
+            "inputSchema": {"type": "object", "properties": {"max_files": {"type": "integer", "minimum": 1}}},
+        },
+        {
+            "name": "ivy_memory_status",
+            "description": "Return store, dataset, index, source root, and cache status.",
+            "inputSchema": {"type": "object", "properties": {}},
+        },
+    ]
+
+
+def mcp_call_tool(store: Path, name: str, args: dict[str, Any]) -> dict[str, Any]:
+    if name == "ivy_memory_query":
+        return query_store(
+            store,
+            query=str(args["query"]),
+            variant=str(args.get("variant", "auto")),
+            top_k=int(args.get("top_k", 5)),
+            prefilter=bool(args.get("prefilter", True)),
+            max_prefilter_items=int(args.get("max_prefilter_items", 192)),
+        )
+    if name == "ivy_memory_remember":
+        tags = args.get("tags", [])
+        if not isinstance(tags, list):
+            tags = [str(tags)]
+        return remember(
+            store,
+            text=str(args["text"]),
+            source_path=str(args.get("source_path", "root/ivy_context_memory/mcp_note")),
+            tags=[str(tag) for tag in tags],
+            authority=str(args.get("authority", "medium")),
+        )
+    if name == "ivy_memory_ingest":
+        return add_source(store, Path(str(args["source_root"])), build=bool(args.get("build", True)))
+    if name == "ivy_memory_build":
+        max_files = args.get("max_files")
+        return build_store(store, max_files=int(max_files) if max_files is not None else None)
+    if name == "ivy_memory_status":
+        return status(store)
+    raise ValueError(f"unknown MCP tool: {name}")
+
+
+def mcp_success(request_id: Any, result: dict[str, Any]) -> dict[str, Any]:
+    return {"jsonrpc": "2.0", "id": request_id, "result": result}
+
+
+def mcp_error(request_id: Any, code: int, message: str) -> dict[str, Any]:
+    return {"jsonrpc": "2.0", "id": request_id, "error": {"code": code, "message": message}}
+
+
+def read_mcp_message(stream: BufferedReader) -> dict[str, Any] | None:
+    first = stream.readline()
+    if not first:
+        return None
+    if first.lstrip().startswith(b"{"):
+        return json.loads(first.decode("utf-8"))
+    headers: dict[str, str] = {}
+    line = first
+    while line not in {b"\r\n", b"\n", b""}:
+        raw = line.decode("ascii", errors="ignore")
+        if ":" in raw:
+            key, value = raw.split(":", 1)
+            headers[key.strip().lower()] = value.strip()
+        line = stream.readline()
+    length = int(headers.get("content-length", "0"))
+    if length <= 0:
+        return None
+    return json.loads(stream.read(length).decode("utf-8"))
+
+
+def write_mcp_message(stream: BufferedWriter, payload: dict[str, Any]) -> None:
+    body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    stream.write(f"Content-Length: {len(body)}\r\n\r\n".encode("ascii"))
+    stream.write(body)
+    stream.flush()
+
+
+def mcp_stdio(store: Path) -> None:
+    init_store(store)
+    reader = sys.stdin.buffer
+    writer = sys.stdout.buffer
+    while True:
+        try:
+            message = read_mcp_message(reader)
+        except Exception as exc:
+            write_mcp_message(writer, mcp_error(None, -32700, f"parse error: {exc}"))
+            continue
+        if message is None:
+            return
+        request_id = message.get("id")
+        method = message.get("method")
+        if request_id is None and str(method).startswith("notifications/"):
+            continue
+        try:
+            if method == "initialize":
+                result = {
+                    "protocolVersion": "2025-06-18",
+                    "capabilities": {"tools": {"listChanged": False}},
+                    "serverInfo": {"name": "ivy-context-memory", "version": "0.1.0"},
+                }
+                write_mcp_message(writer, mcp_success(request_id, result))
+            elif method == "tools/list":
+                write_mcp_message(writer, mcp_success(request_id, {"tools": mcp_tool_definitions()}))
+            elif method == "tools/call":
+                params = message.get("params", {})
+                tool_name = str(params.get("name", ""))
+                args = params.get("arguments") or {}
+                if not isinstance(args, dict):
+                    args = {}
+                try:
+                    payload = mcp_call_tool(store, tool_name, args)
+                    result = {
+                        "content": [{"type": "text", "text": json.dumps(payload, ensure_ascii=False, indent=2)}],
+                        "structuredContent": payload,
+                        "isError": False,
+                    }
+                except Exception as exc:
+                    error_payload = {"ok": False, "error": str(exc), "tool": tool_name}
+                    result = {
+                        "content": [{"type": "text", "text": json.dumps(error_payload, ensure_ascii=False, indent=2)}],
+                        "structuredContent": error_payload,
+                        "isError": True,
+                    }
+                write_mcp_message(writer, mcp_success(request_id, result))
+            else:
+                write_mcp_message(writer, mcp_error(request_id, -32601, f"method not found: {method}"))
+        except Exception as exc:
+            write_mcp_message(writer, mcp_error(request_id, -32603, str(exc)))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="IVY unlimited context/memory sidecar for Codex and OpenCode.")
     parser.add_argument("--store", type=Path, default=None)
@@ -758,6 +934,7 @@ def main(argv: list[str] | None = None) -> int:
     serve_parser.add_argument("--host", default="127.0.0.1")
     serve_parser.add_argument("--port", type=int, default=8768)
     serve_parser.add_argument("--stdio-mcp-placeholder", action="store_true", help=argparse.SUPPRESS)
+    sub.add_parser("mcp")
 
     args = parser.parse_args(argv)
     store = resolve_store(args.store)
@@ -789,6 +966,8 @@ def main(argv: list[str] | None = None) -> int:
                 print(json.dumps({"ok": False, "error": "MCP protocol server is not implemented yet; use HTTP serve or CLI commands."}))
                 return 2
             serve(store, host=args.host, port=args.port)
+        elif args.command == "mcp":
+            mcp_stdio(store)
         return 0
     except Exception as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False, indent=2), file=sys.stderr)
