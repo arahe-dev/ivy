@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -43,6 +44,10 @@ FEATURE_PROFILES: dict[str, dict[str, Any]] = {
         },
     },
 }
+
+
+def utc_now() -> str:
+    return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def load_plugin() -> Any:
@@ -98,7 +103,61 @@ def run_feature_eval(store: Path, cases_path: Path, *, max_prefilter_items: int)
     return ranked, winner
 
 
-def write_feature_report(results: list[dict[str, Any]], winner: dict[str, Any], out: Path) -> None:
+def baseline_result(results: list[dict[str, Any]]) -> dict[str, Any]:
+    for row in results:
+        if row.get("feature_profile") == "baseline":
+            return row
+    raise ValueError("baseline result missing")
+
+
+def promotion_decision(winner: dict[str, Any], baseline: dict[str, Any]) -> tuple[bool, str]:
+    if winner.get("feature_profile") == "baseline":
+        return False, "baseline already wins"
+    if int(winner.get("passed", 0)) < int(winner.get("total", 0)):
+        return False, "winner does not pass all cases"
+    if int(winner.get("passed", 0)) < int(baseline.get("passed", 0)):
+        return False, "winner regresses pass count versus baseline"
+    if float(winner.get("avg_router_latency_ms", 0.0)) > float(baseline.get("avg_router_latency_ms", 0.0)):
+        return False, "winner is slower than baseline on router latency"
+    return True, "winner preserves pass rate and improves router latency"
+
+
+def promote_winner_policy(store: Path, winner: dict[str, Any], baseline: dict[str, Any]) -> dict[str, Any]:
+    should_promote, reason = promotion_decision(winner, baseline)
+    if not should_promote:
+        return {"promoted": False, "reason": reason}
+    profile_name = str(winner["feature_profile"])
+    current = read_policy(policy_path(store)) or {}
+    next_policy = {
+        **current,
+        "schema_version": "ivy_context_memory.autoresearch_policy.v0.1",
+        "updated_at": utc_now(),
+        "iteration": int(current.get("iteration", 0)) + 1,
+        "max_prefilter_items": int(winner["max_prefilter_items"]),
+        "objective": "minimum latency with all benchmark expectations passing",
+        **FEATURE_PROFILES[profile_name],
+        "feature_eval_metrics": {
+            "baseline": {
+                "passed": baseline["passed"],
+                "total": baseline["total"],
+                "avg_wall_ms": baseline["avg_wall_ms"],
+                "avg_router_latency_ms": baseline["avg_router_latency_ms"],
+            },
+            "winner": {
+                "profile": profile_name,
+                "passed": winner["passed"],
+                "total": winner["total"],
+                "avg_wall_ms": winner["avg_wall_ms"],
+                "avg_router_latency_ms": winner["avg_router_latency_ms"],
+            },
+            "promotion_reason": reason,
+        },
+    }
+    write_policy(policy_path(store), next_policy)
+    return {"promoted": True, "reason": reason, "policy": str(policy_path(store)), "profile": profile_name}
+
+
+def write_feature_report(results: list[dict[str, Any]], winner: dict[str, Any], out: Path, promotion: dict[str, Any] | None = None) -> None:
     lines = [
         "# Autoresearch Reranker Feature Eval",
         "",
@@ -121,6 +180,17 @@ def write_feature_report(results: list[dict[str, Any]], winner: dict[str, Any], 
                 f"`{', '.join(item['selected_ids']) or 'none'}` | {item['router_latency_ms']} |"
             )
         lines.append("")
+    if promotion is not None:
+        lines.extend(
+            [
+                "## Promotion",
+                "",
+                f"- promoted: `{promotion.get('promoted')}`",
+                f"- reason: `{promotion.get('reason')}`",
+            ]
+        )
+        if promotion.get("policy"):
+            lines.append(f"- policy: `{promotion['policy']}`")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("\n".join(lines), encoding="utf-8")
 
@@ -131,11 +201,13 @@ def main() -> int:
     parser.add_argument("--cases", type=Path, default=DEFAULT_CASES)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--max-prefilter-items", type=int, default=32)
+    parser.add_argument("--promote", action="store_true", help="Write the winning profile to the runtime policy when it beats baseline safely.")
     args = parser.parse_args()
 
     results, winner = run_feature_eval(args.store.resolve(), args.cases.resolve(), max_prefilter_items=args.max_prefilter_items)
-    write_feature_report(results, winner, args.out.resolve())
-    print(json.dumps({"ok": True, "winner": winner, "report": str(args.out)}, indent=2))
+    promotion = promote_winner_policy(args.store.resolve(), winner, baseline_result(results)) if args.promote else None
+    write_feature_report(results, winner, args.out.resolve(), promotion=promotion)
+    print(json.dumps({"ok": True, "winner": winner, "promotion": promotion, "report": str(args.out)}, indent=2))
     return 0
 
 
