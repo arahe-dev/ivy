@@ -58,6 +58,7 @@ except ModuleNotFoundError:
 
 
 SECRET_RE = re.compile(r"\b(api[_ -]?key|password|private[_ -]?key|secret|token|bearer)\b", re.I)
+_QUERY_INDEX_CACHE: dict[str, tuple[int, int, dict[str, Any]]] = {}
 
 
 def utc_now() -> str:
@@ -347,6 +348,8 @@ def build_query_index(store: Path, items: list[dict[str, Any]]) -> dict[str, Any
     tmp = path.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True), encoding="utf-8")
     tmp.replace(path)
+    stat = path.stat()
+    _QUERY_INDEX_CACHE[str(path.resolve())] = (int(stat.st_mtime_ns), int(stat.st_size), payload)
     return {"path": str(path), "items": len(items), "tokens": len(postings)}
 
 
@@ -354,7 +357,16 @@ def load_query_index(store: Path) -> dict[str, Any] | None:
     path = index_path(store)
     if not path.exists():
         return None
-    return json.loads(path.read_text(encoding="utf-8"))
+    stat = path.stat()
+    cache_key = str(path.resolve())
+    cached = _QUERY_INDEX_CACHE.get(cache_key)
+    mtime_ns = int(stat.st_mtime_ns)
+    size = int(stat.st_size)
+    if cached and cached[0] == mtime_ns and cached[1] == size:
+        return cached[2]
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    _QUERY_INDEX_CACHE[cache_key] = (mtime_ns, size, payload)
+    return payload
 
 
 def raw_to_corpus_item(raw: dict[str, Any]) -> CorpusItem:

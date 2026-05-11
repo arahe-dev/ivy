@@ -1,6 +1,6 @@
 # Autoresearch Context Memory Regression Gate
 
-Created: `2026-05-11T17:43:47Z`
+Created: `2026-05-11T17:46:13Z`
 Gate passed: `True`
 Mined/feature router budget: `5.0 ms`
 Full plugin router budget: `15.0 ms`
@@ -11,11 +11,11 @@ Full plugin router budget: `15.0 ms`
 |---|---:|
 | Mined policy winner | `max_prefilter_items=32` |
 | Mined policy pass | `5 / 5` |
-| Feature profile winner | `baseline` |
+| Feature profile winner | `checkpoint_guard` |
 | Feature pass | `5 / 5` |
-| Feature avg router | `2.137 ms` |
+| Feature avg router | `2.149 ms` |
 | Plugin benchmark pass | `6 / 6` |
-| Plugin avg router | `2.515 ms` |
+| Plugin avg router | `2.411 ms` |
 | Promotion | `False` |
 
 ## Checks
@@ -32,15 +32,15 @@ Full plugin router budget: `15.0 ms`
 
 | Profile | Passed | Avg wall ms | Avg router ms |
 |---|---:|---:|---:|
-| baseline | 5 / 5 | 59.076 | 2.137 |
-| checkpoint_guard | 5 / 5 | 56.462 | 2.184 |
-| code_penalty | 5 / 5 | 56.926 | 2.268 |
+| checkpoint_guard | 5 / 5 | 29.995 | 2.149 |
+| baseline | 5 / 5 | 36.087 | 2.215 |
+| code_penalty | 5 / 5 | 29.867 | 2.257 |
 
 ## Mined Policy Candidates
 
 | max_prefilter_items | Passed | Avg wall ms | Avg router ms |
 |---:|---:|---:|---:|
-| 32 | 5 / 5 | 56.848 | 2.26 |
-| 16 | 4 / 5 | 51.912 | 1.24 |
-| 64 | 4 / 5 | 67.168 | 3.703 |
-| 128 | 4 / 5 | 95.614 | 7.643 |
+| 32 | 5 / 5 | 31.741 | 2.212 |
+| 16 | 4 / 5 | 25.342 | 1.212 |
+| 64 | 4 / 5 | 42.449 | 3.916 |
+| 128 | 4 / 5 | 60.73 | 6.735 |
