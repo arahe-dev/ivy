@@ -1,6 +1,6 @@
 # IVY Autoresearch Loop Scoreboard
 
-Last updated: `2026-05-11T18:24:08Z`
+Last updated: `2026-05-11T18:38:24Z`
 
 | Metric | Value |
 |---|---:|
@@ -22,6 +22,8 @@ Last updated: `2026-05-11T18:24:08Z`
 | Daemon latency gate | `passed` |
 | Post-warm daemon query wall | `10.487 ms` |
 | Post-warm daemon router | `3.236 ms` |
+| Daemon bootstrap | `documented + tested` |
+| Focused test suite | `29 passed` |
 
 ## Notes
 
@@ -32,3 +34,4 @@ Last updated: `2026-05-11T18:24:08Z`
 - CP55-CP60 added wall-time gate checks, timing breakdowns, prefilter feature caching, tighter default wall budgets, a refreshed plugin scoreboard, and a hot repeated-query benchmark.
 - CP62-CP64 added explicit cache warmup through CLI/HTTP/MCP and exposed process-local cache counts through status.
 - CP66-CP68 added a persistent HTTP daemon smoke/latency gate and removed repeated file reads during ingest line-offset calculation.
+- CP70-CP72 added a PowerShell daemon bootstrap, plugin/skill docs for the daemon-first workflow, and a bootstrap script contract test.

@@ -53,6 +53,10 @@ The important shift:
 | `d4b21ae` | CP66 | Added persistent HTTP daemon smoke test. | 25 focused tests; post-warm query wall `8.5 ms`. |
 | `90d3e32` | CP67 | Added daemon latency/cache checks. | 26 focused tests; daemon gate passed under `15 ms` wall and `5 ms` router budgets. |
 | `e054f87` | CP68 | Avoided repeated source-file reads during ingest line offsets. | 27 focused tests; daemon gate passed. |
+| `ffaeb6c` | CP69 | Updated daemon gate track records. | Documentation checkpoint. |
+| `5c726be` | CP70 | Added PowerShell context-memory daemon bootstrap. | Parser check; bootstrap started, warmed, reported cache counts, then stopped. |
+| `6e5fc7e` | CP71 | Documented daemon warm bootstrap in plugin README and skill. | 16 focused tests. |
+| `2c28e86` | CP72 | Added bootstrap script contract tests. | 29 focused tests. |
 
 ## Latest Benchmark
 
@@ -73,6 +77,7 @@ Latest result:
 - Warmup surfaces: CLI `warm`, HTTP `POST /warm`, MCP `ivy_memory_warm`
 - Cache visibility: `status.process_caches`
 - Daemon gate: post-warm query wall `10.487 ms`, router `3.236 ms`
+- Daemon bootstrap: `MoME-MoCE-Exp/scripts/start_context_memory_daemon.ps1`
 
 | Query Type | Expected Behavior | Result |
 |---|---|---|
@@ -197,6 +202,15 @@ Fix:
 - pass the already-read source text into `item_from_chunk(...)`
 - preserve line-number provenance while removing repeated file reads
 
+### Bootstrap Drift Risk
+
+The operational daemon path now depends on a PowerShell bootstrap script.
+
+Fix:
+
+- document the bootstrap in plugin README and skill instructions
+- add a parser/contract test that checks `/warm`, `-StopAfterWarm`, and `process_caches`
+
 ## Architecture Snapshot
 
 ```mermaid
@@ -204,6 +218,7 @@ flowchart LR
   Agent["Codex / OpenCode / MCP Client"] --> MCP["ivy-context-memory MCP"]
   Agent --> CLI["CLI fallback"]
   Agent --> HTTP["HTTP fallback"]
+  Agent --> Bootstrap["start_context_memory_daemon.ps1"]
 
   MCP --> Query["ivy_memory_query"]
   MCP --> Remember["ivy_memory_remember"]
@@ -224,6 +239,7 @@ flowchart LR
   Router --> Packet["CP30 packet_mode + ACCA packet"]
   Packet --> Agent
   HTTP --> DaemonGate["CP66/CP67 daemon smoke gate"]
+  Bootstrap --> HTTP
 ```
 
 ## Current Strengths
@@ -238,6 +254,7 @@ flowchart LR
 - Repeated plugin query wall time is down to roughly `7.5-7.7 ms` in the hot-query benchmark.
 - MCP clients can explicitly warm the process before a task and inspect cache counts through status.
 - HTTP daemon path is now smoke-tested with cache and latency gates.
+- Windows bootstrap exists for starting, warming, and inspecting the daemon.
 - Repeatable benchmark catches both positive retrieval and negative over-retrieval.
 - Build refresh can reuse unchanged file chunks after source edits.
 - Plugin-authored notes can participate in stale/current conflict routing.
@@ -251,7 +268,7 @@ flowchart LR
 - MCP server is useful but still minimal compared with a full production MCP package.
 - Ranking is still mostly sparse/token-based with policy gates; no learned reranker.
 - Benchmark set is useful but small.
-- Warmup is process-local; one-shot CLI warmup proves behavior but does not help later processes.
+- Section-level cache is still future work; current bootstrap makes the hot daemon path easy but does not change ingest granularity.
 - Signal pings failed this session because the local Signal daemon needs a real VAPID subject configured.
 
 ## Next High-Leverage Work
@@ -261,4 +278,4 @@ flowchart LR
 3. Expand mined hard cases beyond IVY docs with external project corpora.
 4. Add an optional learned/advisory reranker only behind the deterministic gate.
 5. Add end-to-end answer-quality A/B runs using the hot memory sidecar.
-6. Build a compact Codex/OpenCode bootstrap that starts daemon, warms it, and wires MCP.
+6. Add a small cross-project external hard-case corpus so the benchmark is less IVY-local.
