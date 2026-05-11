@@ -161,10 +161,20 @@ def run_benchmark(store: Path, *, source_root: Path, reset: bool) -> dict[str, A
             "variant": payload.get("variant"),
             "packet_mode": payload.get("packet_mode"),
             "router_latency_ms": payload.get("latency_ms"),
+            "plugin_wall_ms": payload.get("wall_ms"),
+            "timings_ms": payload.get("timings_ms", {}),
             "packet_words": payload.get("packet_words"),
             "prefilter": payload.get("prefilter", {}),
         }
         query_results.append(measured)
+    timing_names = ["prefilter", "corpus", "router_init", "route", "render", "packet_write", "total"]
+    avg_timings = {
+        name: round(
+            sum(float(row["summary"].get("timings_ms", {}).get(name, 0.0) or 0.0) for row in query_results) / max(1, len(query_results)),
+            3,
+        )
+        for name in timing_names
+    }
 
     return {
         "schema_version": "ivy_context_memory.plugin_benchmark.v0.1",
@@ -181,6 +191,11 @@ def run_benchmark(store: Path, *, source_root: Path, reset: bool) -> dict[str, A
                 sum(float(row["summary"]["router_latency_ms"] or 0.0) for row in query_results) / max(1, len(query_results)),
                 3,
             ),
+            "avg_plugin_reported_wall_ms": round(
+                sum(float(row["summary"].get("plugin_wall_ms") or 0.0) for row in query_results) / max(1, len(query_results)),
+                3,
+            ),
+            "avg_timings_ms": avg_timings,
         },
     }
 
@@ -200,6 +215,7 @@ def write_report(result: dict[str, Any], out_dir: Path) -> dict[str, str]:
         f"- Passed expectations: `{result['summary']['passed_expectations']} / {result['summary']['query_count']}`",
         f"- Avg query wall: `{result['summary']['avg_query_wall_ms']} ms`",
         f"- Avg router latency: `{result['summary']['avg_router_latency_ms']} ms`",
+        f"- Avg plugin-reported wall: `{result['summary']['avg_plugin_reported_wall_ms']} ms`",
         "",
         "| Query | Wall ms | Router ms | Mode | Selected | Pass |",
         "|---|---:|---:|---|---|---|",
@@ -210,6 +226,17 @@ def write_report(result: dict[str, Any], out_dir: Path) -> dict[str, str]:
             f"| {row['label']} | {row['wall_ms']} | {row['summary']['router_latency_ms']} | "
             f"{row['summary']['packet_mode']} | `{selected}` | {row['passed_expectation']} |"
         )
+    lines.extend(
+        [
+            "",
+            "## Timing Breakdown",
+            "",
+            "| Stage | Avg ms |",
+            "|---|---:|",
+        ]
+    )
+    for name, value in result["summary"].get("avg_timings_ms", {}).items():
+        lines.append(f"| `{name}` | {value} |")
     md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return {"json": str(json_path), "markdown": str(md_path)}
 
@@ -227,6 +254,7 @@ def write_scoreboard(result: dict[str, Any], path: Path) -> str:
         f"| Passed expectations | `{result['summary']['passed_expectations']} / {result['summary']['query_count']}` |",
         f"| Avg query wall | `{result['summary']['avg_query_wall_ms']} ms` |",
         f"| Avg router latency | `{result['summary']['avg_router_latency_ms']} ms` |",
+        f"| Avg plugin-reported wall | `{result['summary']['avg_plugin_reported_wall_ms']} ms` |",
         "",
         "| Query | Wall ms | Router ms | Mode | Selected | Pass |",
         "|---|---:|---:|---|---|---|",
@@ -237,6 +265,9 @@ def write_scoreboard(result: dict[str, Any], path: Path) -> str:
             f"| {row['label']} | {row['wall_ms']} | {row['summary']['router_latency_ms']} | "
             f"{row['summary']['packet_mode']} | `{selected}` | {row['passed_expectation']} |"
         )
+    lines.extend(["", "## Timing Breakdown", "", "| Stage | Avg ms |", "|---|---:|"])
+    for name, value in result["summary"].get("avg_timings_ms", {}).items():
+        lines.append(f"| `{name}` | {value} |")
     lines.extend(
         [
             "",

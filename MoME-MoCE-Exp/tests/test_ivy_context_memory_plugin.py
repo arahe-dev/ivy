@@ -64,6 +64,8 @@ def test_plugin_remember_build_query_roundtrip(tmp_path: Path) -> None:
     assert result["prefilter"]["candidate_count"] == 1
     assert "contradiction-aware" in result["packet_text"].lower()
     assert result["query"] == "What did CP28 show about final answer packet formats?"
+    assert result["wall_ms"] >= result["latency_ms"]
+    assert {"prefilter", "corpus", "router_init", "route", "render", "packet_write", "total"} <= set(result["timings_ms"])
 
 
 def test_plugin_rejects_secret_like_note(tmp_path: Path) -> None:

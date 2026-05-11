@@ -675,6 +675,7 @@ def query_store(
     prefilter: bool = True,
     max_prefilter_items: int | None = None,
 ) -> dict[str, Any]:
+    query_started = time.perf_counter()
     data = dataset_path(store)
     if not (data / "corpus" / "corpus_items.jsonl").exists():
         build_store(store)
@@ -683,15 +684,24 @@ def query_store(
         max_prefilter_items = int(runtime_policy.get("max_prefilter_items", 32))
     prefilter_meta: dict[str, Any] = {"enabled": False, "reason": "disabled"}
     route_dataset = data
+    prefilter_started = time.perf_counter()
     if prefilter:
         subset_items, prefilter_meta = select_prefilter_items(store, query, max_items=max_prefilter_items, policy=runtime_policy)
+        prefilter_ms = (time.perf_counter() - prefilter_started) * 1000
+        corpus_started = time.perf_counter()
         if subset_items:
             items = raw_items_to_corpus(subset_items)
         else:
             items = load_corpus(data)
+        corpus_ms = (time.perf_counter() - corpus_started) * 1000
     else:
+        prefilter_ms = (time.perf_counter() - prefilter_started) * 1000
+        corpus_started = time.perf_counter()
         items = load_corpus(data)
+        corpus_ms = (time.perf_counter() - corpus_started) * 1000
+    router_started = time.perf_counter()
     router = MoMEMoCERouter(items, candidate_backend="indexed", dataset_path=route_dataset, top_k=top_k)
+    router_init_ms = (time.perf_counter() - router_started) * 1000
     started = time.perf_counter()
     result = router.route(query)
     if not result.selected_ids and items:
@@ -712,8 +722,10 @@ def query_store(
         "requires_conflict_resolution": bool(result.route_proof.get("conflict_pairs")),
         "requires_safety_priority": bool(result.route_proof.get("exposure_summary", {}).get("masked_selected", 0)),
     }
+    render_started = time.perf_counter()
     chosen_variant = auto_variant(result) if variant == "auto" else variant
     packet_text = render_variant(chosen_variant, case=case, result=result)
+    render_ms = (time.perf_counter() - render_started) * 1000
     packet_record = {
         "created_at": utc_now(),
         "query": query,
@@ -725,8 +737,20 @@ def query_store(
     }
     packet_hash = content_hash(json.dumps(packet_record, sort_keys=True))[:16]
     packet_path = store / "packets" / f"{packet_hash}.json"
+    packet_write_started = time.perf_counter()
     packet_path.parent.mkdir(parents=True, exist_ok=True)
     packet_path.write_text(json.dumps(packet_record, ensure_ascii=False, indent=2), encoding="utf-8")
+    packet_write_ms = (time.perf_counter() - packet_write_started) * 1000
+    total_wall_ms = (time.perf_counter() - query_started) * 1000
+    timings_ms = {
+        "prefilter": round(prefilter_ms, 3),
+        "corpus": round(corpus_ms, 3),
+        "router_init": round(router_init_ms, 3),
+        "route": round(latency_ms, 3),
+        "render": round(render_ms, 3),
+        "packet_write": round(packet_write_ms, 3),
+        "total": round(total_wall_ms, 3),
+    }
     return {
         "ok": True,
         "store": str(store),
@@ -740,6 +764,8 @@ def query_store(
         "selected_ids": result.selected_ids,
         "selected_count": len(result.selected_ids),
         "latency_ms": round(latency_ms, 3),
+        "wall_ms": round(total_wall_ms, 3),
+        "timings_ms": timings_ms,
         "prefilter": prefilter_meta,
         "packet_words": rough_tokens(packet_text),
         "packet_text": packet_text,
