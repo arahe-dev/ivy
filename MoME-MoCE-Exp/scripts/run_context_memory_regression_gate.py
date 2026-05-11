@@ -36,8 +36,8 @@ def gate_status(
     *,
     max_router_ms: float,
     max_plugin_router_ms: float | None = None,
-    max_wall_ms: float = 50.0,
-    max_plugin_wall_ms: float = 40.0,
+    max_wall_ms: float = 35.0,
+    max_plugin_wall_ms: float = 25.0,
 ) -> dict[str, Any]:
     max_plugin_router_ms = max_router_ms if max_plugin_router_ms is None else max_plugin_router_ms
     mined = gate["mined_policy"]["winner"]
@@ -159,8 +159,8 @@ def main() -> int:
     parser.add_argument("--candidate", type=int, action="append", default=[16, 32, 64, 128])
     parser.add_argument("--max-router-ms", type=float, default=5.0)
     parser.add_argument("--max-plugin-router-ms", type=float, default=15.0)
-    parser.add_argument("--max-wall-ms", type=float, default=50.0)
-    parser.add_argument("--max-plugin-wall-ms", type=float, default=40.0)
+    parser.add_argument("--max-wall-ms", type=float, default=35.0)
+    parser.add_argument("--max-plugin-wall-ms", type=float, default=25.0)
     parser.add_argument("--promote", action="store_true")
     args = parser.parse_args()
 
