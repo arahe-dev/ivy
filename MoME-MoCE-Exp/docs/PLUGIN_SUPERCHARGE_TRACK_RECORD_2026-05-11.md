@@ -49,6 +49,10 @@ The important shift:
 | `d816b81` | CP62 | Added CLI/HTTP/MCP cache warmup command. | 22 focused tests; warmup loaded index/features/items. |
 | `15c2947` | CP63 | Added MCP stdio warmup contract test. | 23 focused tests. |
 | `561ba88` | CP64 | Exposed process-local cache counts in status. | 23 focused tests; MCP warm status verifies cache counts. |
+| `50b9957` | CP65 | Updated warmup track records. | Documentation checkpoint. |
+| `d4b21ae` | CP66 | Added persistent HTTP daemon smoke test. | 25 focused tests; post-warm query wall `8.5 ms`. |
+| `90d3e32` | CP67 | Added daemon latency/cache checks. | 26 focused tests; daemon gate passed under `15 ms` wall and `5 ms` router budgets. |
+| `e054f87` | CP68 | Avoided repeated source-file reads during ingest line offsets. | 27 focused tests; daemon gate passed. |
 
 ## Latest Benchmark
 
@@ -68,6 +72,7 @@ Latest result:
 - Hot repeated plugin wall: `~7.5-7.7 ms`
 - Warmup surfaces: CLI `warm`, HTTP `POST /warm`, MCP `ivy_memory_warm`
 - Cache visibility: `status.process_caches`
+- Daemon gate: post-warm query wall `10.487 ms`, router `3.236 ms`
 
 | Query Type | Expected Behavior | Result |
 |---|---|---|
@@ -174,6 +179,24 @@ Fix:
 - test warmup through MCP stdio subprocess
 - include process-local cache counts in `status`
 
+### Daemon Path Ungated
+
+The plugin could pass CLI and in-process tests while the actual persistent HTTP sidecar path remained untested.
+
+Fix:
+
+- add daemon smoke that starts `serve`, waits for `/health`, ingests, warms, checks status, queries, and terminates
+- add daemon latency gates for post-warm query wall and router latency
+
+### Repeated Ingest File Reads
+
+Line-offset provenance calculation reread source files per generated chunk.
+
+Fix:
+
+- pass the already-read source text into `item_from_chunk(...)`
+- preserve line-number provenance while removing repeated file reads
+
 ## Architecture Snapshot
 
 ```mermaid
@@ -200,6 +223,7 @@ flowchart LR
   HotCache --> Router["MoME/MoCE router"]
   Router --> Packet["CP30 packet_mode + ACCA packet"]
   Packet --> Agent
+  HTTP --> DaemonGate["CP66/CP67 daemon smoke gate"]
 ```
 
 ## Current Strengths
@@ -213,6 +237,7 @@ flowchart LR
 - Full plugin benchmark router latency is now around `2.5 ms` with a `32` prefilter budget.
 - Repeated plugin query wall time is down to roughly `7.5-7.7 ms` in the hot-query benchmark.
 - MCP clients can explicitly warm the process before a task and inspect cache counts through status.
+- HTTP daemon path is now smoke-tested with cache and latency gates.
 - Repeatable benchmark catches both positive retrieval and negative over-retrieval.
 - Build refresh can reuse unchanged file chunks after source edits.
 - Plugin-authored notes can participate in stale/current conflict routing.
@@ -222,6 +247,7 @@ flowchart LR
 ## Current Weaknesses
 
 - Chunk cache is file-level, not section-level or semantic-delta-level.
+- Section-level cache is still not implemented; CP68 only removed repeated line-offset file reads.
 - MCP server is useful but still minimal compared with a full production MCP package.
 - Ranking is still mostly sparse/token-based with policy gates; no learned reranker.
 - Benchmark set is useful but small.
@@ -230,9 +256,9 @@ flowchart LR
 
 ## Next High-Leverage Work
 
-1. Add a persistent daemon smoke test that starts HTTP, warms, queries, and verifies status cache counts.
-2. Add section-level chunk cache for large Markdown files.
-3. Add optional watcher mode for near-real-time memory freshness.
-4. Expand mined hard cases beyond IVY docs with external project corpora.
-5. Add an optional learned/advisory reranker only behind the deterministic gate.
-6. Add end-to-end answer-quality A/B runs using the hot memory sidecar.
+1. Add section-level chunk cache for large Markdown files.
+2. Add optional watcher mode for near-real-time memory freshness.
+3. Expand mined hard cases beyond IVY docs with external project corpora.
+4. Add an optional learned/advisory reranker only behind the deterministic gate.
+5. Add end-to-end answer-quality A/B runs using the hot memory sidecar.
+6. Build a compact Codex/OpenCode bootstrap that starts daemon, warms it, and wires MCP.

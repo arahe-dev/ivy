@@ -1,6 +1,6 @@
 # IVY Autoresearch Loop Scoreboard
 
-Last updated: `2026-05-11T18:08:13Z`
+Last updated: `2026-05-11T18:24:08Z`
 
 | Metric | Value |
 |---|---:|
@@ -19,6 +19,9 @@ Last updated: `2026-05-11T18:08:13Z`
 | Hot repeated plugin wall | `~7.5-7.7 ms` |
 | MCP warmup contract | `verified` |
 | Process cache status | `visible` |
+| Daemon latency gate | `passed` |
+| Post-warm daemon query wall | `10.487 ms` |
+| Post-warm daemon router | `3.236 ms` |
 
 ## Notes
 
@@ -28,3 +31,4 @@ Last updated: `2026-05-11T18:08:13Z`
 - CP48-CP53 added mined-case policy eval, deterministic reranker profile eval, guarded runtime policy promotion, a combined regression gate, a validated `32` default prefilter budget, query-index caching, and converted-item caching.
 - CP55-CP60 added wall-time gate checks, timing breakdowns, prefilter feature caching, tighter default wall budgets, a refreshed plugin scoreboard, and a hot repeated-query benchmark.
 - CP62-CP64 added explicit cache warmup through CLI/HTTP/MCP and exposed process-local cache counts through status.
+- CP66-CP68 added a persistent HTTP daemon smoke/latency gate and removed repeated file reads during ingest line-offset calculation.
