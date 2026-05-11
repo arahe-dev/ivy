@@ -712,9 +712,33 @@ def query_is_external_out_of_scope(query: str) -> bool:
 
 def query_requests_unsupported_commercial_fact(query: str) -> bool:
     q = norm(query)
+    fact_terms = [
+        "app store",
+        "certification",
+        "certified",
+        "customer sla",
+        "ga status",
+        "hosted uptime",
+        "ios app",
+        "launch date",
+        "play store",
+        "price",
+        "pricing",
+        "production app",
+        "production status",
+        "release status",
+        "release version",
+        "ship date",
+        "shipped",
+        "sla",
+        "soc 2",
+        "subscription",
+        "uptime sla",
+        "version",
+    ]
     return (
-        any(term in q for term in ["price", "pricing", "cost", "charge", "release status", "production status", "ga status"])
-        and any(term in q for term in ["latest", "current", "today", "today's", "now", "live", "production", "unreleased", "cloud", "saas", "release", "ga"])
+        any(term in q for term in fact_terms)
+        and any(term in q for term in ["latest", "current", "today", "today's", "now", "live", "production", "unreleased", "cloud", "saas", "release", "ga", "hosted", "customers", "ship", "shipped"])
     )
 
 
@@ -1696,8 +1720,11 @@ class MoMEMoCERouter:
                 ]
             )
         )
-        asks_price = any(term in q for term in ["price", "pricing", "cost", "charge"])
-        asks_release = any(term in q for term in ["release status", "production status", "ga status", "public ga"])
+        asks_price = any(term in q for term in ["price", "pricing", "cost", "charge", "subscription"])
+        asks_release = any(term in q for term in ["release status", "production status", "ga status", "public ga", "release version", "play store", "app store", "version"])
+        asks_sla = any(term in q for term in ["sla", "uptime", "hosted uptime"])
+        asks_certification = any(term in q for term in ["certification", "certified", "soc 2"])
+        asks_launch = any(term in q for term in ["ship", "shipped", "launch date", "production app", "ios app"])
         if item.source_family == "source_code":
             return False
         for entity in ["recall cloud", "nebula cloud", "signal", "recall board", "recall", "bitcoin", "btc", "ethereum", "stock"]:
@@ -1711,9 +1738,15 @@ class MoMEMoCERouter:
             return False
         if asks_price and not any(term in blob for term in ["price", "pricing", "cost", "charge", "usd", "$", "per month"]):
             return False
-        if asks_release and not any(term in blob for term in ["release status", "production status", "ga", "beta", "public release"]):
+        if asks_release and not any(term in blob for term in ["release status", "production status", "ga", "beta", "public release", "version", "play store", "app store"]):
             return False
-        return asks_price or asks_release
+        if asks_sla and not any(term in blob for term in ["sla", "uptime", "availability", "service level"]):
+            return False
+        if asks_certification and not any(term in blob for term in ["certification", "certified", "soc 2", "compliance"]):
+            return False
+        if asks_launch and not any(term in blob for term in ["ship", "shipped", "launch", "production app", "ios app", "app store"]):
+            return False
+        return asks_price or asks_release or asks_sla or asks_certification or asks_launch
 
     def _priority_candidate_ids(self, query: str) -> list[str]:
         q = norm(query)

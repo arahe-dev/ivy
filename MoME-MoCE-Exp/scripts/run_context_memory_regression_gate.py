@@ -199,6 +199,17 @@ def write_gate_report(gate: dict[str, Any], out: Path) -> None:
                     f"| External semantic+no-exact p95 latency | `{external['status']['semantic_no_exact_anchor_p95_latency_ms']} ms` |",
                 ]
             )
+        if external.get("negative_control_ablation") is not None:
+            negative = external["negative_control_ablation"]
+            negative_latency = negative.get("latency_ms", {})
+            lines.extend(
+                [
+                    f"| External negative-control pass | `{negative['passed']} / {negative['cases']}` |",
+                    f"| External negative-control avg selected | `{negative['evidence_metrics']['avg_selected']}` |",
+                    f"| External negative-control p95 latency | `{external['status']['negative_control_p95_latency_ms']} ms` |",
+                    f"| External negative-control mean latency | `{negative_latency.get('mean')} ms` |",
+                ]
+            )
     lines.extend(["", "## Checks", "", "| Check | Pass |", "|---|---:|"])
     for name, passed in status["checks"].items():
         lines.append(f"| `{name}` | `{passed}` |")
@@ -228,6 +239,11 @@ def write_gate_report(gate: dict[str, Any], out: Path) -> None:
             for result in gate["external_generalization"]["semantic_no_exact_anchor_ablation"]["results"]:
                 selected = ", ".join(result.get("selected_ids", []))
                 lines.append(f"| `{result['case_id']}` | `{result['passed']}` | `{selected}` | `{result.get('latency_ms', 0.0)}` |")
+        if gate["external_generalization"].get("negative_control_ablation") is not None:
+            lines.extend(["", "## External Negative Controls", "", "| Case | Pass | Decision | Selected | Latency ms |", "|---|---:|---|---|---:|"])
+            for result in gate["external_generalization"]["negative_control_ablation"]["results"]:
+                selected = ", ".join(result.get("selected_ids", []))
+                lines.append(f"| `{result['case_id']}` | `{result['passed']}` | `{result['decision']}` | `{selected}` | `{result.get('latency_ms', 0.0)}` |")
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
 

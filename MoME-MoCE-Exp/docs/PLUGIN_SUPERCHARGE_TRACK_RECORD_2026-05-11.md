@@ -262,6 +262,21 @@ Fix:
 - make it default-on in the external gate
 - latest combined gate: semantic+no-exact `9/9`, required precision `1.0`, forbidden hits `0`, mean `0.416 ms`, p95 `0.597 ms`
 
+### Adjacent Unsupported Fact Risk
+
+Related product evidence can tempt the router into answering current facts it does not actually know.
+
+Initial finding:
+
+- negative controls passed only `1/5`
+- Signal Android release version, Signal hosted SLA, Recall iOS ship date, and Recall SOC 2 certification over-retrieved adjacent identity notes
+
+Fix:
+
+- broaden unsupported-current/commercial-fact detection
+- require explicit authoritative evidence for release versions, app-store status, hosted SLAs, ship dates, and certifications
+- latest combined gate: negative controls `5/5`, avg selected `0.0`, p95 `0.674 ms`
+
 ## Architecture Snapshot
 
 ```mermaid
@@ -311,6 +326,7 @@ flowchart LR
 - The external guard now also tests that exact-anchor memory is not the sole success path.
 - The external guard now also tests hand-paraphrased query wording.
 - The external guard now combines those two pressures in one default ablation.
+- The external guard now includes near-miss negative controls that must abstain.
 - Repeatable benchmark catches both positive retrieval and negative over-retrieval.
 - Build refresh can reuse unchanged file chunks after source edits.
 - Plugin-authored notes can participate in stale/current conflict routing.

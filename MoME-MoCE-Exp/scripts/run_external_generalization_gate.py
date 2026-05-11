@@ -31,6 +31,14 @@ SEMANTIC_PARAPHRASES = {
     "cp23_recall_cloud_price_abstain": "What is the current subscription price for Recall Cloud?",
 }
 
+NEGATIVE_CONTROL_QUERIES = {
+    "neg_signal_android_play_store_release": "What is the latest Android Play Store release version for Signal bridge?",
+    "neg_signal_hosted_sla": "What hosted uptime SLA does Signal provide for customers?",
+    "neg_recall_cloud_price": "What is the current monthly subscription price for Recall Cloud?",
+    "neg_recall_mobile_app_release": "When did Recall Board ship its production iOS app?",
+    "neg_recall_soc2": "Does Recall Board have current SOC 2 certification?",
+}
+
 
 def utc_now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -69,6 +77,7 @@ def gate_status(
     no_exact_anchor_ablation: dict[str, Any] | None = None,
     semantic_paraphrase_ablation: dict[str, Any] | None = None,
     semantic_no_exact_anchor_ablation: dict[str, Any] | None = None,
+    negative_control_ablation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     p95 = latency_p95(summary)
     checks = summary_checks(summary, max_mean_latency_ms=max_mean_latency_ms, max_p95_latency_ms=max_p95_latency_ms)
@@ -105,6 +114,17 @@ def gate_status(
                 prefix="semantic_no_exact_anchor_",
             )
         )
+    negative_control_p95 = None
+    if negative_control_ablation is not None:
+        negative_control_p95 = latency_p95(negative_control_ablation)
+        checks.update(
+            summary_checks(
+                negative_control_ablation,
+                max_mean_latency_ms=max_mean_latency_ms,
+                max_p95_latency_ms=max_p95_latency_ms,
+                prefix="negative_control_",
+            )
+        )
     return {
         "passed": all(checks.values()),
         "checks": checks,
@@ -114,6 +134,7 @@ def gate_status(
         "no_exact_anchor_p95_latency_ms": None if ablation_p95 is None else round(float(ablation_p95), 3),
         "semantic_paraphrase_p95_latency_ms": None if paraphrase_p95 is None else round(float(paraphrase_p95), 3),
         "semantic_no_exact_anchor_p95_latency_ms": None if semantic_no_exact_p95 is None else round(float(semantic_no_exact_p95), 3),
+        "negative_control_p95_latency_ms": None if negative_control_p95 is None else round(float(negative_control_p95), 3),
     }
 
 
@@ -129,6 +150,32 @@ def paraphrased_cases(dataset: Path) -> list[dict[str, Any]]:
     return out
 
 
+def negative_control_cases() -> list[dict[str, Any]]:
+    cases: list[dict[str, Any]] = []
+    for case_id, query in NEGATIVE_CONTROL_QUERIES.items():
+        cases.append(
+            {
+                "id": case_id,
+                "category": "unanswerable",
+                "query": query,
+                "should_retrieve": False,
+                "retrieval_ratio_target": [0.0, 0.01],
+                "required_source_ids": [],
+                "forbidden_source_ids": [],
+                "expected_terms": [],
+                "forbidden_terms": [],
+                "must_abstain": True,
+                "requires_conflict_resolution": False,
+                "requires_safety_priority": False,
+                "provenance_required": False,
+                "max_evidence_items": 0,
+                "answer_contract": "abstain",
+                "notes": "External near-miss negative control: mentions known products but asks for unsupported current/product facts.",
+            }
+        )
+    return cases
+
+
 def run_summary(dataset: Path, *, disabled_experts: set[str] | None = None, cases: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     router = MoMEMoCERouter(load_corpus(dataset), candidate_backend="indexed", dataset_path=dataset, disabled_experts=disabled_experts)
     return benchmark(router, cases if cases is not None else load_cases(dataset), validate_artifacts=False)
@@ -142,6 +189,7 @@ def run_gate(
     include_no_exact_anchor_ablation: bool = True,
     include_semantic_paraphrase_ablation: bool = True,
     include_semantic_no_exact_anchor_ablation: bool = True,
+    include_negative_control_ablation: bool = True,
 ) -> dict[str, Any]:
     manifest = write_dataset(dataset)
     summary = run_summary(dataset)
@@ -153,6 +201,7 @@ def run_gate(
         if include_semantic_no_exact_anchor_ablation
         else None
     )
+    negative_control_ablation = run_summary(dataset, cases=negative_control_cases()) if include_negative_control_ablation else None
     status = gate_status(
         summary,
         max_mean_latency_ms=max_mean_latency_ms,
@@ -160,6 +209,7 @@ def run_gate(
         no_exact_anchor_ablation=no_exact_anchor_ablation,
         semantic_paraphrase_ablation=semantic_paraphrase_ablation,
         semantic_no_exact_anchor_ablation=semantic_no_exact_anchor_ablation,
+        negative_control_ablation=negative_control_ablation,
     )
     return {
         "schema_version": "mome_moce.external_generalization_gate.v0.1",
@@ -170,6 +220,7 @@ def run_gate(
         "no_exact_anchor_ablation": no_exact_anchor_ablation,
         "semantic_paraphrase_ablation": semantic_paraphrase_ablation,
         "semantic_no_exact_anchor_ablation": semantic_no_exact_anchor_ablation,
+        "negative_control_ablation": negative_control_ablation,
         "status": status,
     }
 
@@ -278,6 +329,28 @@ def write_report(gate: dict[str, Any], out: Path) -> None:
                 f"| P95 latency | `{status['semantic_no_exact_anchor_p95_latency_ms']:.3f} ms` |",
             ]
         )
+    if gate.get("negative_control_ablation") is not None:
+        negative = gate["negative_control_ablation"]
+        negative_metrics = negative.get("evidence_metrics", {})
+        lines.extend(
+            [
+                "",
+                "## Negative Control Abstention",
+                "",
+                "This runs near-miss external questions that mention known products but ask for unsupported current facts such as app releases, SLAs, pricing, and certifications. Passing it means the router abstains instead of over-retrieving related identity notes.",
+                "",
+                "| Metric | Value |",
+                "|---|---:|",
+                f"| Passed | `{negative['passed']} / {negative['cases']}` |",
+                f"| Quality | `{negative['quality']:.4f}` |",
+                f"| Required recall | `{negative_metrics.get('required_recall', 0.0):.4f}` |",
+                f"| Required-only precision | `{negative_metrics.get('required_only_precision', 0.0):.4f}` |",
+                f"| Forbidden hits | `{negative_metrics.get('forbidden_hits', 0)}` |",
+                f"| Avg selected | `{negative_metrics.get('avg_selected', 0.0):.4f}` |",
+                f"| Mean latency | `{summary_latency(negative, 'mean'):.3f} ms` |",
+                f"| P95 latency | `{status['negative_control_p95_latency_ms']:.3f} ms` |",
+            ]
+        )
     lines.extend(
         [
             "",
@@ -306,6 +379,7 @@ def main() -> int:
     parser.add_argument("--skip-no-exact-anchor-ablation", action="store_true")
     parser.add_argument("--skip-semantic-paraphrase-ablation", action="store_true")
     parser.add_argument("--skip-semantic-no-exact-anchor-ablation", action="store_true")
+    parser.add_argument("--skip-negative-control-ablation", action="store_true")
     args = parser.parse_args()
 
     dataset = args.dataset.resolve()
@@ -316,6 +390,7 @@ def main() -> int:
         include_no_exact_anchor_ablation=not args.skip_no_exact_anchor_ablation,
         include_semantic_paraphrase_ablation=not args.skip_semantic_paraphrase_ablation,
         include_semantic_no_exact_anchor_ablation=not args.skip_semantic_no_exact_anchor_ablation,
+        include_negative_control_ablation=not args.skip_negative_control_ablation,
     )
     write_report(gate, args.out.resolve())
     if args.json_out is not None:
@@ -346,6 +421,10 @@ def main() -> int:
                     if gate.get("semantic_no_exact_anchor_ablation") is None
                     else gate["semantic_no_exact_anchor_ablation"]["passed"],
                     "semantic_no_exact_anchor_p95_latency_ms": gate["status"]["semantic_no_exact_anchor_p95_latency_ms"],
+                    "negative_control_passed": None
+                    if gate.get("negative_control_ablation") is None
+                    else gate["negative_control_ablation"]["passed"],
+                    "negative_control_p95_latency_ms": gate["status"]["negative_control_p95_latency_ms"],
                 },
             },
             indent=2,
