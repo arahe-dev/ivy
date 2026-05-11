@@ -211,6 +211,17 @@ Fix:
 - document the bootstrap in plugin README and skill instructions
 - add a parser/contract test that checks `/warm`, `-StopAfterWarm`, and `process_caches`
 
+### IVY-Only Benchmark Risk
+
+The router needed a repeatable guard showing that strong results were not only internal IVY-doc overfit.
+
+Fix:
+
+- add CP74 `scripts/run_external_generalization_gate.py`
+- regenerate and evaluate the external Signal/Recall corpus on demand
+- require `9/9` pass, perfect required recall, perfect required-only precision, zero forbidden hits, and latency budgets
+- latest CP74 run: mean `0.406 ms`, p95 `0.648 ms`, max `0.740 ms`
+
 ## Architecture Snapshot
 
 ```mermaid
@@ -255,6 +266,7 @@ flowchart LR
 - MCP clients can explicitly warm the process before a task and inspect cache counts through status.
 - HTTP daemon path is now smoke-tested with cache and latency gates.
 - Windows bootstrap exists for starting, warming, and inspecting the daemon.
+- External Signal/Recall generalization is now a repeatable gate, not just a one-off CP23 note.
 - Repeatable benchmark catches both positive retrieval and negative over-retrieval.
 - Build refresh can reuse unchanged file chunks after source edits.
 - Plugin-authored notes can participate in stale/current conflict routing.
@@ -267,7 +279,7 @@ flowchart LR
 - Section-level cache is still not implemented; CP68 only removed repeated line-offset file reads.
 - MCP server is useful but still minimal compared with a full production MCP package.
 - Ranking is still mostly sparse/token-based with policy gates; no learned reranker.
-- Benchmark set is useful but small.
+- Benchmark set is useful but small; CP74 helps with non-IVY coverage but is still only one external product pair.
 - Section-level cache is still future work; current bootstrap makes the hot daemon path easy but does not change ingest granularity.
 - Signal pings failed this session because the local Signal daemon needs a real VAPID subject configured.
 
@@ -278,4 +290,4 @@ flowchart LR
 3. Expand mined hard cases beyond IVY docs with external project corpora.
 4. Add an optional learned/advisory reranker only behind the deterministic gate.
 5. Add end-to-end answer-quality A/B runs using the hot memory sidecar.
-6. Add a small cross-project external hard-case corpus so the benchmark is less IVY-local.
+6. Expand CP74 into multiple external hard-case corpora instead of one Signal/Recall pair.

@@ -1,6 +1,6 @@
 # IVY Autoresearch Loop Scoreboard
 
-Last updated: `2026-05-11T18:38:24Z`
+Last updated: `2026-05-11T18:40:49Z`
 
 | Metric | Value |
 |---|---:|
@@ -23,7 +23,10 @@ Last updated: `2026-05-11T18:38:24Z`
 | Post-warm daemon query wall | `10.487 ms` |
 | Post-warm daemon router | `3.236 ms` |
 | Daemon bootstrap | `documented + tested` |
-| Focused test suite | `29 passed` |
+| External generalization gate | `9 / 9` |
+| External gate mean latency | `0.406 ms` |
+| External gate p95 latency | `0.648 ms` |
+| Focused test suite | `33 passed` |
 
 ## Notes
 
@@ -35,3 +38,4 @@ Last updated: `2026-05-11T18:38:24Z`
 - CP62-CP64 added explicit cache warmup through CLI/HTTP/MCP and exposed process-local cache counts through status.
 - CP66-CP68 added a persistent HTTP daemon smoke/latency gate and removed repeated file reads during ingest line-offset calculation.
 - CP70-CP72 added a PowerShell daemon bootstrap, plugin/skill docs for the daemon-first workflow, and a bootstrap script contract test.
+- CP74 made the external Signal/Recall pack a repeatable gate with perfect precision/recall, zero forbidden hits, and sub-millisecond indexed routing.
