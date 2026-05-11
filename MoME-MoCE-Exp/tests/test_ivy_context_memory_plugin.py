@@ -140,6 +140,26 @@ def test_direct_agent_note_can_beat_generic_source_doc(tmp_path: Path) -> None:
     assert result["variant"] == result["packet_mode"]
 
 
+def test_warm_store_primes_query_caches(tmp_path: Path) -> None:
+    plugin = load_plugin_module()
+    store = tmp_path / "store"
+    plugin.remember(
+        store,
+        text="CP28 showed contradiction-aware packets won final-answer A/B on conflict cases.",
+        source_path="root/notes/cp28.md",
+        tags=["cp28", "final-answer"],
+        authority="medium",
+    )
+
+    warmed = plugin.warm_store(store, queries=["What did CP28 show about final answer packet formats?"])
+
+    assert warmed["ok"] is True
+    assert warmed["warmed_queries"] == 1
+    assert warmed["query_index_cache_entries"] >= 1
+    assert warmed["item_feature_cache_entries"] >= 1
+    assert warmed["corpus_item_cache_entries"] >= 1
+
+
 def test_repeated_build_uses_fingerprint_cache(tmp_path: Path) -> None:
     plugin = load_plugin_module()
     source = tmp_path / "source"
@@ -197,7 +217,7 @@ def test_mcp_stdio_lists_and_calls_status(tmp_path: Path) -> None:
 
     assert messages[0]["result"]["serverInfo"]["name"] == "ivy-context-memory"
     tool_names = {tool["name"] for tool in messages[1]["result"]["tools"]}
-    assert {"ivy_memory_query", "ivy_memory_remember", "ivy_memory_status"} <= tool_names
+    assert {"ivy_memory_query", "ivy_memory_remember", "ivy_memory_warm", "ivy_memory_status"} <= tool_names
     assert messages[2]["result"]["structuredContent"]["ok"] is True
 
 

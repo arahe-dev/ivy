@@ -21,6 +21,12 @@ REPO_ROOT = PLUGIN_ROOT.parents[1]
 MOME_ROOT = REPO_ROOT / "MoME-MoCE-Exp"
 DEFAULT_STORE = REPO_ROOT / ".ivy-context-memory"
 DEFAULT_DATASET = "context_memory_live"
+DEFAULT_WARM_QUERIES = [
+    "What did CP28 show about final answer packet formats?",
+    "What MCP tools does ivy-context-memory expose?",
+    "What is the latest CP42 rebuild policy versus stale memory?",
+    "What is today's Bitcoin price?",
+]
 
 if str(MOME_ROOT) not in sys.path:
     sys.path.insert(0, str(MOME_ROOT))
@@ -621,6 +627,45 @@ def build_store(store: Path, *, max_files: int | None = None, extensions: set[st
     return {"ok": True, "store": str(store), **payload}
 
 
+def warm_store(store: Path, *, queries: list[str] | None = None, max_prefilter_items: int | None = None) -> dict[str, Any]:
+    started = time.perf_counter()
+    data = dataset_path(store)
+    if not (data / "corpus" / "corpus_items.jsonl").exists() or not index_path(store).exists():
+        build_store(store)
+    runtime_policy = load_runtime_policy(store)
+    if max_prefilter_items is None:
+        max_prefilter_items = int(runtime_policy.get("max_prefilter_items", 32))
+    index = load_query_index(store)
+    warm_queries = [query for query in (queries or DEFAULT_WARM_QUERIES) if query.strip()]
+    rows = []
+    for query in warm_queries:
+        query_started = time.perf_counter()
+        subset_items, prefilter_meta = select_prefilter_items(store, query, max_items=max_prefilter_items, policy=runtime_policy)
+        items = raw_items_to_corpus(subset_items) if subset_items else []
+        rows.append(
+            {
+                "query": query,
+                "candidate_count": len(subset_items),
+                "corpus_items_warmed": len(items),
+                "prefilter": prefilter_meta,
+                "wall_ms": round((time.perf_counter() - query_started) * 1000, 3),
+            }
+        )
+    return {
+        "ok": True,
+        "store": str(store),
+        "index_loaded": bool(index),
+        "index_items": int(index.get("items", 0)) if index else 0,
+        "max_prefilter_items": max_prefilter_items,
+        "warmed_queries": len(rows),
+        "query_index_cache_entries": len(_QUERY_INDEX_CACHE),
+        "item_feature_cache_entries": len(_ITEM_FEATURE_CACHE),
+        "corpus_item_cache_entries": len(_CORPUS_ITEM_CACHE),
+        "wall_ms": round((time.perf_counter() - started) * 1000, 3),
+        "rows": rows,
+    }
+
+
 def add_source(store: Path, source_root: Path, *, build: bool) -> dict[str, Any]:
     init_store(store)
     source_root = source_root.resolve()
@@ -896,6 +941,18 @@ class ApiHandler(BaseHTTPRequestHandler):
                 self._send(200, add_source(self.store, Path(str(payload["source_root"])), build=bool(payload.get("build", True))))
             elif self.path == "/build":
                 self._send(200, build_store(self.store))
+            elif self.path == "/warm":
+                queries = payload.get("queries")
+                if queries is not None and not isinstance(queries, list):
+                    queries = [str(queries)]
+                self._send(
+                    200,
+                    warm_store(
+                        self.store,
+                        queries=[str(query) for query in queries] if isinstance(queries, list) else None,
+                        max_prefilter_items=int(payload["max_prefilter_items"]) if "max_prefilter_items" in payload else None,
+                    ),
+                )
             else:
                 self._send(404, {"ok": False, "error": "not_found"})
         except Exception as exc:
@@ -968,6 +1025,17 @@ def mcp_tool_definitions() -> list[dict[str, Any]]:
             "name": "ivy_memory_build",
             "description": "Rebuild, or cache-hit, the live memory dataset and query index.",
             "inputSchema": {"type": "object", "properties": {"max_files": {"type": "integer", "minimum": 1}}},
+        },
+        {
+            "name": "ivy_memory_warm",
+            "description": "Preload the query index and warm prefilter feature/item caches before a task.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "queries": {"type": "array", "items": {"type": "string"}},
+                    "max_prefilter_items": {"type": "integer", "minimum": 1, "maximum": 2048},
+                },
+            },
         },
         {
             "name": "ivy_memory_status",
@@ -1130,6 +1198,15 @@ def mcp_call_tool(store: Path, name: str, args: dict[str, Any]) -> dict[str, Any
     if name == "ivy_memory_build":
         max_files = args.get("max_files")
         return build_store(store, max_files=int(max_files) if max_files is not None else None)
+    if name == "ivy_memory_warm":
+        queries = args.get("queries")
+        if queries is not None and not isinstance(queries, list):
+            queries = [str(queries)]
+        return warm_store(
+            store,
+            queries=[str(query) for query in queries] if isinstance(queries, list) else None,
+            max_prefilter_items=int(args["max_prefilter_items"]) if "max_prefilter_items" in args else None,
+        )
     if name == "ivy_memory_status":
         return status(store)
     raise ValueError(f"unknown MCP tool: {name}")
@@ -1255,6 +1332,10 @@ def main(argv: list[str] | None = None) -> int:
     build_parser = sub.add_parser("build")
     build_parser.add_argument("--max-files", type=int, default=None)
 
+    warm_parser = sub.add_parser("warm")
+    warm_parser.add_argument("--query", action="append", default=[])
+    warm_parser.add_argument("--max-prefilter-items", type=int, default=None)
+
     remember_parser = sub.add_parser("remember")
     remember_parser.add_argument("--text", required=True)
     remember_parser.add_argument("--source-path", default="root/ivy_context_memory/manual_note")
@@ -1289,6 +1370,8 @@ def main(argv: list[str] | None = None) -> int:
             print_payload(add_source(store, args.source_root, build=not args.no_build))
         elif args.command == "build":
             print_payload(build_store(store, max_files=args.max_files))
+        elif args.command == "warm":
+            print_payload(warm_store(store, queries=args.query or None, max_prefilter_items=args.max_prefilter_items))
         elif args.command == "remember":
             print_payload(
                 remember(
