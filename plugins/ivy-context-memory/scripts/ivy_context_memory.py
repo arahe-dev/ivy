@@ -59,6 +59,7 @@ except ModuleNotFoundError:
 
 SECRET_RE = re.compile(r"\b(api[_ -]?key|password|private[_ -]?key|secret|token|bearer)\b", re.I)
 _QUERY_INDEX_CACHE: dict[str, tuple[int, int, dict[str, Any]]] = {}
+_CORPUS_ITEM_CACHE: dict[tuple[str, str, int], CorpusItem] = {}
 
 
 def utc_now() -> str:
@@ -406,7 +407,16 @@ def raw_to_corpus_item(raw: dict[str, Any]) -> CorpusItem:
 
 
 def raw_items_to_corpus(items: list[dict[str, Any]]) -> list[CorpusItem]:
-    return [raw_to_corpus_item(item) for item in items]
+    converted: list[CorpusItem] = []
+    for item in items:
+        provenance = item.get("provenance", {})
+        cache_key = (str(item.get("id", "")), str(provenance.get("source_hash", "")), len(str(item.get("text", ""))))
+        cached = _CORPUS_ITEM_CACHE.get(cache_key)
+        if cached is None:
+            cached = raw_to_corpus_item(item)
+            _CORPUS_ITEM_CACHE[cache_key] = cached
+        converted.append(cached)
+    return converted
 
 
 def checkpoint_numbers(text: str) -> set[str]:
