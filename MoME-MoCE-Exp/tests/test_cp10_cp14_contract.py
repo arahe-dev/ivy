@@ -6,7 +6,7 @@ from pathlib import Path
 from scripts.run_answer_level_eval import run_eval
 from scripts.generate_ivy_real_v3_dataset import write_dataset
 from scripts.run_latency_gate import run_latency_gate
-from scripts.mome_moce_harness import MoMEMoCERouter, benchmark, load_cases, load_corpus
+from scripts.mome_moce_harness import OpenCodeGoFinder, MoMEMoCERouter, benchmark, load_cases, load_corpus
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,3 +40,8 @@ def test_cp12_latency_gate_passes_sub_5ms_p50(tmp_path: Path) -> None:
     assert payload["passed"]
     assert payload["summary"]["latency_ms"]["p50"] <= 5.0
     assert payload["summary"]["evidence_metrics"]["forbidden_hits"] == 0
+
+
+def test_cp13_opencode_go_finder_is_optional_without_proxy_token(tmp_path: Path) -> None:
+    finder = OpenCodeGoFinder(proxy_token_file=tmp_path / "missing.token")
+    assert finder.available is False

@@ -9,6 +9,9 @@ import statistics
 import subprocess
 import sys
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -798,6 +801,114 @@ class LocalQwenFinder:
         ids = parse_json_ids(text)
         candidate_ids = {item.id for item, _ in candidates[:12]}
         return [item_id for item_id in ids if item_id in candidate_ids][:max_keep]
+
+
+class OpenCodeGoFinder:
+    """Remote advisory finder through the local codexgo/OpenCode Go proxy.
+
+    Like LocalQwenFinder, this class can only choose from deterministic
+    candidates. Its output is never policy authority.
+    """
+
+    def __init__(
+        self,
+        *,
+        model: str = "deepseek-v4-flash",
+        proxy_url: str = "http://127.0.0.1:14531/v1",
+        proxy_token_file: Path = Path(r"C:\Users\arahe\.codex\tmp\opencode-go-proxy.token"),
+        max_output_tokens: int = 384,
+        retries: int = 1,
+        timeout_sec: int = 90,
+    ) -> None:
+        self.model = model
+        self.proxy_url = proxy_url.rstrip("/")
+        self.proxy_token_file = proxy_token_file
+        self.max_output_tokens = max_output_tokens
+        self.retries = retries
+        self.timeout_sec = timeout_sec
+
+    @property
+    def available(self) -> bool:
+        return self.proxy_token_file.exists() and self._health_ok()
+
+    def _health_ok(self) -> bool:
+        parsed = urllib.parse.urlparse(self.proxy_url)
+        url = urllib.parse.urlunparse((parsed.scheme, parsed.netloc, "/health", "", "", ""))
+        try:
+            with urllib.request.urlopen(url, timeout=2) as resp:
+                payload = json.loads(resp.read().decode("utf-8"))
+                return bool(payload.get("ok")) and payload.get("provider") in {"codexgo", "opencode-go"}
+        except Exception:
+            return False
+
+    def _token(self) -> str:
+        return self.proxy_token_file.read_text(encoding="ascii").strip()
+
+    def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            self.proxy_url + "/responses",
+            data=data,
+            headers={"Content-Type": "application/json", "Authorization": f"Bearer {self._token()}"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=self.timeout_sec) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+
+    @staticmethod
+    def _response_text(response: dict[str, Any]) -> str:
+        chunks: list[str] = []
+        for item in response.get("output") or []:
+            if item.get("type") != "message":
+                continue
+            for part in item.get("content") or []:
+                if isinstance(part, dict) and part.get("type") == "output_text":
+                    chunks.append(str(part.get("text") or ""))
+        return "\n".join(chunks).strip()
+
+    def rerank(self, query: str, candidates: list[tuple[CorpusItem, float]], *, max_keep: int) -> list[str]:
+        compact = []
+        for idx, (item, score) in enumerate(candidates[:12], start=1):
+            text = item.text.replace("\n", " ")
+            if len(text) > 420:
+                text = text[:420] + "..."
+            compact.append(
+                {
+                    "slot": idx,
+                    "id": item.id,
+                    "family": item.source_family,
+                    "authority": item.authority,
+                    "staleness": item.staleness,
+                    "score": round(score, 3),
+                    "text": text,
+                }
+            )
+        prompt = (
+            "Return exactly one JSON object and no prose.\n"
+            'Shape: {"ids":["candidate_id"]}\n'
+            "You are an evidence finder, not an answer writer. Select only candidate IDs that directly help answer the query. "
+            "Prefer authoritative/current records. Include stale or decoy records only when the query explicitly asks about stale, false, unsupported, or decoy claims. "
+            f"Return at most {max_keep} IDs and only IDs present in the candidates.\n\n"
+            f"Query: {query}\n"
+            f"Candidates:\n{json.dumps(compact, ensure_ascii=False, indent=2)}"
+        )
+        payload = {
+            "model": self.model,
+            "input": [{"role": "user", "content": [{"type": "input_text", "text": prompt}]}],
+            "temperature": 0,
+            "top_p": 1,
+            "max_output_tokens": self.max_output_tokens,
+            "store": False,
+            "stream": False,
+        }
+        candidate_ids = {item.id for item, _ in candidates[:12]}
+        for _attempt in range(self.retries + 1):
+            response = self._post(payload)
+            ids = parse_json_ids(self._response_text(response))
+            filtered = [item_id for item_id in ids if item_id in candidate_ids][:max_keep]
+            if filtered:
+                return filtered
+        return []
 
 
 def parse_json_ids(text: str) -> list[str]:
@@ -2211,6 +2322,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dataset", type=Path, default=ROOT / "out" / "context_stress_smoke")
     parser.add_argument("--mode", choices=["deterministic", "hybrid", "probe-model"], default="deterministic")
     parser.add_argument("--model", type=Path, default=DEFAULT_MODEL)
+    parser.add_argument("--finder-backend", choices=["local-qwen", "opencode-go"], default="local-qwen")
+    parser.add_argument("--opencode-go-model", default="deepseek-v4-flash")
+    parser.add_argument("--opencode-go-proxy-url", default="http://127.0.0.1:14531/v1")
+    parser.add_argument("--opencode-go-token-file", type=Path, default=Path(r"C:\Users\arahe\.codex\tmp\opencode-go-proxy.token"))
+    parser.add_argument("--opencode-go-max-output-tokens", type=int, default=384)
+    parser.add_argument("--opencode-go-retries", type=int, default=1)
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--candidate-k", type=int, default=32)
     parser.add_argument("--candidate-backend", choices=["scan", "indexed", "rust"], default="scan")
@@ -2248,9 +2365,18 @@ def main(argv: list[str] | None = None) -> int:
 
     local_finder = None
     if args.mode in {"hybrid", "probe-model"}:
-        local_finder = LocalQwenFinder(args.model, n_ctx=args.n_ctx, n_threads=args.n_threads, n_gpu_layers=args.n_gpu_layers)
+        if args.finder_backend == "opencode-go":
+            local_finder = OpenCodeGoFinder(
+                model=args.opencode_go_model,
+                proxy_url=args.opencode_go_proxy_url,
+                proxy_token_file=args.opencode_go_token_file,
+                max_output_tokens=args.opencode_go_max_output_tokens,
+                retries=args.opencode_go_retries,
+            )
+        else:
+            local_finder = LocalQwenFinder(args.model, n_ctx=args.n_ctx, n_threads=args.n_threads, n_gpu_layers=args.n_gpu_layers)
         if not local_finder.available:
-            print(f"ERROR: local GGUF model not found: {args.model}", file=sys.stderr)
+            print(f"ERROR: finder backend is not available: {args.finder_backend}", file=sys.stderr)
             return 2
 
     if args.mode == "probe-model":
