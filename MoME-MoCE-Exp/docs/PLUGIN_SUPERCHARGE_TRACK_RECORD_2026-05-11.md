@@ -22,6 +22,9 @@ The important shift:
 | `84ca7d3` | CP35 | Added MCP remember-then-query roundtrip test. | 19 focused tests. |
 | `f61060a` | CP36 | Added build-cache status observability and OpenCode MCP docs. | 19 focused tests. |
 | `dca18cc` | CP37 | Added negative no-context benchmark and fixed volatile market-price over-retrieval. | Benchmark 5/5; 19 focused tests. |
+| `fe0c754` | CP38 | Added MCP resources for status, latest packet, and track record. | 20 focused tests. |
+| `3459bc2` | CP39 | Added MCP workflow prompts for query-before-task and remember-after-verification. | 21 focused tests. |
+| `3ccf1ba` | CP40 | Added file-level chunk cache and stricter current-price evidence gate. | Benchmark 5/5; 22 focused tests. |
 
 ## Latest Benchmark
 
@@ -35,8 +38,8 @@ Latest result:
 
 - Query count: `5`
 - Passed expectations: `5 / 5`
-- Avg query wall: `92.131 ms`
-- Avg router latency: `10.728 ms`
+- Avg query wall: `96.344 ms`
+- Avg router latency: `11.235 ms`
 
 | Query Type | Expected Behavior | Result |
 |---|---|---|
@@ -80,12 +83,23 @@ Fix:
 
 - mark today/current/live market-price questions as volatile
 - reject `source_code` evidence as support for current commercial facts
+- require `valid_from` evidence for current price claims so docs that merely discuss the bug do not become market-price evidence
+
+### All-Or-Nothing Rebuild Cost
+
+CP32 avoided repeated unchanged rebuilds, but any source edit still forced full re-ingestion.
+
+Fix:
+
+- expose `ingest_file(...)`
+- cache file chunks under `store/cache/chunks`
+- on changed-source rebuilds, reuse unchanged file chunks and reprocess only changed files
 
 ## Architecture Snapshot
 
 ```mermaid
 flowchart LR
-  Agent["Codex / OpenCode / MCP Client"] --> MCP["ivy-context-memory MCP tools"]
+  Agent["Codex / OpenCode / MCP Client"] --> MCP["ivy-context-memory MCP"]
   Agent --> CLI["CLI fallback"]
   Agent --> HTTP["HTTP fallback"]
 
@@ -93,6 +107,8 @@ flowchart LR
   MCP --> Remember["ivy_memory_remember"]
   MCP --> Build["ivy_memory_build"]
   MCP --> Status["ivy_memory_status"]
+  MCP --> Resources["status / latest-packet / track-record resources"]
+  MCP --> Prompts["query / remember workflow prompts"]
 
   Remember --> Notes["Safe notes.jsonl"]
   Build --> Cache["CP32 build fingerprint cache"]
@@ -108,24 +124,26 @@ flowchart LR
 
 - Local-first memory store.
 - Native MCP tools now exist.
+- MCP resources and prompts now exist.
 - Direct memories are retrievable through the same interface that stores them.
 - Query hot path is now low tens of milliseconds inside the router.
 - Repeatable benchmark catches both positive retrieval and negative over-retrieval.
+- Build refresh can reuse unchanged file chunks after source edits.
 - Safety still rejects obvious secret-like remembered notes.
 
 ## Current Weaknesses
 
-- Build cache is whole-build fingerprinting, not per-file chunk reuse.
-- MCP server exposes tools only, not resources/prompts.
+- Chunk cache is file-level, not section-level or semantic-delta-level.
+- MCP server is useful but still minimal compared with a full production MCP package.
 - Ranking is still mostly sparse/token-based with policy gates; no learned reranker.
 - Benchmark set is useful but small.
 - Signal pings failed this session because the local Signal daemon needs a real VAPID subject configured.
 
 ## Next High-Leverage Work
 
-1. Add MCP resources for latest packet, status, and docs.
-2. Add file-level chunk cache to avoid reprocessing unchanged files.
-3. Add a small contradiction/stale benchmark lane to the plugin benchmark.
-4. Add persistent benchmark scoreboard in `docs/`.
-5. Add OpenCode/Codex bootstrap docs that show MCP configuration end to end.
-6. Add optional rerank stage that can consume prefilter score, note priority, authority, and volatility features.
+1. Add a small contradiction/stale benchmark lane to the plugin benchmark.
+2. Add persistent benchmark scoreboard in `docs/`.
+3. Add OpenCode/Codex bootstrap docs that show MCP configuration end to end.
+4. Add optional rerank stage that can consume prefilter score, note priority, authority, and volatility features.
+5. Add section-level chunk cache for large Markdown files.
+6. Add optional watcher mode for near-real-time memory freshness.
