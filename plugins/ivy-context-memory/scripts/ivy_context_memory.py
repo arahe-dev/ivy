@@ -397,7 +397,30 @@ def raw_items_to_corpus(items: list[dict[str, Any]]) -> list[CorpusItem]:
     return [raw_to_corpus_item(item) for item in items]
 
 
-def select_prefilter_items(store: Path, query: str, *, max_items: int = 192) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+def checkpoint_numbers(text: str) -> set[str]:
+    return set(re.findall(r"\bcp[-_ ]?(\d+)\b", text.lower()))
+
+
+def prefilter_feature_bonus(item: dict[str, Any], query: str, policy: dict[str, Any]) -> float:
+    weights = policy.get("prefilter_feature_weights", {}) if isinstance(policy, dict) else {}
+    tags = set(str(tag).lower() for tag in item.get("tags", []))
+    item_text = item_search_text(item).lower()
+    query_checkpoints = checkpoint_numbers(query)
+    bonus = 0.0
+    if "agent_note" in tags:
+        bonus += float(weights.get("agent_note_boost", 500.0))
+    if query_checkpoints:
+        item_checkpoints = checkpoint_numbers(item_text)
+        if query_checkpoints & item_checkpoints:
+            bonus += float(weights.get("checkpoint_match_boost", 0.0))
+        elif "agent_note" in tags:
+            bonus += float(weights.get("agent_note_checkpoint_mismatch_penalty", 0.0))
+    if item.get("source_family") == "source_code" and not any(token in query.lower() for token in ["code", "function", "script", "schema", "module"]):
+        bonus += float(weights.get("source_code_non_code_penalty", 0.0))
+    return bonus
+
+
+def select_prefilter_items(store: Path, query: str, *, max_items: int = 192, policy: dict[str, Any] | None = None) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     index = load_query_index(store)
     if not index:
         return [], {"enabled": False, "reason": "missing_index"}
@@ -418,10 +441,15 @@ def select_prefilter_items(store: Path, query: str, *, max_items: int = 192) -> 
             matches.setdefault(item_id, []).append(token)
     if not scores:
         return [], {"enabled": True, "reason": "no_token_hits", "candidate_count": 0, "total_items": total_items}
+    policy = policy or {}
+    feature_adjustments: dict[str, float] = {}
     for item_id, item in docs.items():
-        tags = set(str(tag) for tag in item.get("tags", []))
-        if "agent_note" in tags and item_id in scores:
-            scores[item_id] += 500.0
+        if item_id not in scores:
+            continue
+        adjustment = prefilter_feature_bonus(item, query, policy)
+        if adjustment:
+            scores[item_id] += adjustment
+            feature_adjustments[item_id] = round(adjustment, 3)
     ranked = sorted(
         scores,
         key=lambda item_id: (
@@ -441,6 +469,8 @@ def select_prefilter_items(store: Path, query: str, *, max_items: int = 192) -> 
         "total_items": total_items,
         "max_items": max_items,
         "top_ids": selected_ids[:10],
+        "feature_profile": policy.get("prefilter_feature_profile", "default") if isinstance(policy, dict) else "default",
+        "top_feature_adjustments": {item_id: feature_adjustments[item_id] for item_id in selected_ids[:10] if item_id in feature_adjustments},
     }
 
 
@@ -626,12 +656,13 @@ def query_store(
     data = dataset_path(store)
     if not (data / "corpus" / "corpus_items.jsonl").exists():
         build_store(store)
+    runtime_policy = load_runtime_policy(store)
     if max_prefilter_items is None:
-        max_prefilter_items = int(load_runtime_policy(store).get("max_prefilter_items", 192))
+        max_prefilter_items = int(runtime_policy.get("max_prefilter_items", 192))
     prefilter_meta: dict[str, Any] = {"enabled": False, "reason": "disabled"}
     route_dataset = data
     if prefilter:
-        subset_items, prefilter_meta = select_prefilter_items(store, query, max_items=max_prefilter_items)
+        subset_items, prefilter_meta = select_prefilter_items(store, query, max_items=max_prefilter_items, policy=runtime_policy)
         if subset_items:
             items = raw_items_to_corpus(subset_items)
         else:
