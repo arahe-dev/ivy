@@ -10,6 +10,7 @@ if str(IVY_ROOT) not in sys.path:
 
 from ivy_agent_demo.acca_context import route_context
 from ivy_agent_demo.acca_corpus_export import export_acca_corpus
+from ivy_agent_demo.acca_milestone_ingest import build_milestone_record
 from ivy_agent_demo.agent_loop import _prepare_acca_context
 from ivy_agent_demo.memory_store import MemoryStore
 from scripts.run_answer_level_eval import run_eval
@@ -153,6 +154,20 @@ def test_cp18_agent_loop_can_preview_or_inject_acca_context(tmp_path: Path) -> N
     assert inject_meta and inject_meta["selected_ids"] == ["safety_memory_advisory_only"]
     assert injected_task.startswith("ACCA CONTEXT PACKET")
     assert "CURRENT TASK:" in injected_task
+
+
+def test_cp19_milestone_record_passes_write_barrier() -> None:
+    record = build_milestone_record(
+        commit="HEAD",
+        note="CP19 validates milestone memories through the write barrier.",
+        tests={"pytest": "11 passed"},
+        source_path="docs/CP10_CP14_STATUS_2026-05-11.md",
+        repo=IVY_ROOT,
+    )
+    normalized = validate_memory_record(record)
+    assert normalized["source_family"] == "workflow_trace"
+    assert normalized["authority"] == "high"
+    assert "CP19 validates milestone memories" in normalized["text"]
 
 
 def test_cp13_opencode_go_finder_is_optional_without_proxy_token(tmp_path: Path) -> None:
