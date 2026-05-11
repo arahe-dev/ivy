@@ -23,12 +23,18 @@ def sample_gate() -> dict:
 
 def add_external_gate(gate: dict, *, passed: bool = True) -> dict:
     gate["external_generalization"] = {
-        "status": {"passed": passed, "p95_latency_ms": 0.8, "no_exact_anchor_p95_latency_ms": 0.9},
+        "status": {"passed": passed, "p95_latency_ms": 0.8, "no_exact_anchor_p95_latency_ms": 0.9, "semantic_paraphrase_p95_latency_ms": 1.0},
         "no_exact_anchor_ablation": {
             "cases": 9,
             "passed": 9 if passed else 8,
             "latency_ms": {"mean": 0.5},
             "results": [{"case_id": "cp23_signal_iphone_without_vps", "passed": passed, "selected_ids": ["external_signal_tailscale_webpush"], "latency_ms": 0.8}],
+        },
+        "semantic_paraphrase_ablation": {
+            "cases": 9,
+            "passed": 9 if passed else 8,
+            "latency_ms": {"mean": 0.7},
+            "results": [{"case_id": "cp23_signal_iphone_without_vps_semantic_paraphrase", "passed": passed, "selected_ids": ["external_signal_tailscale_webpush"], "latency_ms": 0.9}],
         },
         "summary": {
             "cases": 9,
@@ -94,4 +100,5 @@ def test_write_gate_report_contains_core_sections(tmp_path: Path) -> None:
     assert "Mined Policy Candidates" in text
     assert "External Generalization" in text
     assert "External No-Exact-Anchor Ablation" in text
+    assert "External Semantic Paraphrase Ablation" in text
     assert "external_signal_tailscale_webpush" in text

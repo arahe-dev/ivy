@@ -19,6 +19,18 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DATASET = ROOT / "out" / "context_stress_external_signal_recall"
 DEFAULT_OUT = ROOT / "docs" / "EXTERNAL_GENERALIZATION_GATE.md"
 
+SEMANTIC_PARAPHRASES = {
+    "cp23_signal_iphone_without_vps": "For the Signal phone bridge, what private delivery path reaches iOS without renting a public server?",
+    "cp23_signal_not_codex_cloud": "Is the Signal phone bridge a hosted cloud broker tied only to Codex?",
+    "cp23_signal_durable_coordination_primitive": "For Signal, what durable local record is treated as the coordination source of truth?",
+    "cp23_signal_daemon_shell_boundary": "In Signal, should the notification daemon itself run arbitrary shell work from a phone response?",
+    "cp23_recall_screenshot_free_context": "In Recall Board, what machine-readable export lets an AI inspect a board without screenshots?",
+    "cp23_recall_text_graph_contents": "What compact graph representation does Recall Board produce from visible board structure?",
+    "cp23_recall_graph_ir_role": "In Recall Board, what role does Graph IR play between AI semantics and the editable canvas?",
+    "cp23_recall_second_brain_features": "Which Recall Board capabilities make it function more like a personal knowledge workspace than a plain drawing board?",
+    "cp23_recall_cloud_price_abstain": "What is the current subscription price for Recall Cloud?",
+}
+
 
 def utc_now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -55,6 +67,7 @@ def gate_status(
     max_mean_latency_ms: float,
     max_p95_latency_ms: float,
     no_exact_anchor_ablation: dict[str, Any] | None = None,
+    semantic_paraphrase_ablation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     p95 = latency_p95(summary)
     checks = summary_checks(summary, max_mean_latency_ms=max_mean_latency_ms, max_p95_latency_ms=max_p95_latency_ms)
@@ -69,6 +82,17 @@ def gate_status(
                 prefix="no_exact_anchor_",
             )
         )
+    paraphrase_p95 = None
+    if semantic_paraphrase_ablation is not None:
+        paraphrase_p95 = latency_p95(semantic_paraphrase_ablation)
+        checks.update(
+            summary_checks(
+                semantic_paraphrase_ablation,
+                max_mean_latency_ms=max_mean_latency_ms,
+                max_p95_latency_ms=max_p95_latency_ms,
+                prefix="semantic_paraphrase_",
+            )
+        )
     return {
         "passed": all(checks.values()),
         "checks": checks,
@@ -76,12 +100,25 @@ def gate_status(
         "max_p95_latency_ms": max_p95_latency_ms,
         "p95_latency_ms": round(float(p95), 3),
         "no_exact_anchor_p95_latency_ms": None if ablation_p95 is None else round(float(ablation_p95), 3),
+        "semantic_paraphrase_p95_latency_ms": None if paraphrase_p95 is None else round(float(paraphrase_p95), 3),
     }
 
 
-def run_summary(dataset: Path, *, disabled_experts: set[str] | None = None) -> dict[str, Any]:
+def paraphrased_cases(dataset: Path) -> list[dict[str, Any]]:
+    cases = load_cases(dataset)
+    out: list[dict[str, Any]] = []
+    for case in cases:
+        updated = dict(case)
+        updated["query"] = SEMANTIC_PARAPHRASES[case["id"]]
+        updated["id"] = f"{case['id']}_semantic_paraphrase"
+        updated["notes"] = f"Semantic paraphrase of {case['id']}: {case.get('notes', '')}"
+        out.append(updated)
+    return out
+
+
+def run_summary(dataset: Path, *, disabled_experts: set[str] | None = None, cases: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     router = MoMEMoCERouter(load_corpus(dataset), candidate_backend="indexed", dataset_path=dataset, disabled_experts=disabled_experts)
-    return benchmark(router, load_cases(dataset), validate_artifacts=False)
+    return benchmark(router, cases if cases is not None else load_cases(dataset), validate_artifacts=False)
 
 
 def run_gate(
@@ -90,15 +127,18 @@ def run_gate(
     max_mean_latency_ms: float,
     max_p95_latency_ms: float,
     include_no_exact_anchor_ablation: bool = True,
+    include_semantic_paraphrase_ablation: bool = True,
 ) -> dict[str, Any]:
     manifest = write_dataset(dataset)
     summary = run_summary(dataset)
     no_exact_anchor_ablation = run_summary(dataset, disabled_experts={"exact_anchor_memory"}) if include_no_exact_anchor_ablation else None
+    semantic_paraphrase_ablation = run_summary(dataset, cases=paraphrased_cases(dataset)) if include_semantic_paraphrase_ablation else None
     status = gate_status(
         summary,
         max_mean_latency_ms=max_mean_latency_ms,
         max_p95_latency_ms=max_p95_latency_ms,
         no_exact_anchor_ablation=no_exact_anchor_ablation,
+        semantic_paraphrase_ablation=semantic_paraphrase_ablation,
     )
     return {
         "schema_version": "mome_moce.external_generalization_gate.v0.1",
@@ -107,6 +147,7 @@ def run_gate(
         "dataset_manifest": manifest,
         "summary": summary,
         "no_exact_anchor_ablation": no_exact_anchor_ablation,
+        "semantic_paraphrase_ablation": semantic_paraphrase_ablation,
         "status": status,
     }
 
@@ -173,6 +214,27 @@ def write_report(gate: dict[str, Any], out: Path) -> None:
                 f"| P95 latency | `{status['no_exact_anchor_p95_latency_ms']:.3f} ms` |",
             ]
         )
+    if gate.get("semantic_paraphrase_ablation") is not None:
+        paraphrase = gate["semantic_paraphrase_ablation"]
+        paraphrase_metrics = paraphrase.get("evidence_metrics", {})
+        lines.extend(
+            [
+                "",
+                "## Semantic Paraphrase Ablation",
+                "",
+                "This reruns the external cases with hand-paraphrased queries that avoid copying the original question wording. Passing it means the gate is less dependent on exact query phrasing.",
+                "",
+                "| Metric | Value |",
+                "|---|---:|",
+                f"| Passed | `{paraphrase['passed']} / {paraphrase['cases']}` |",
+                f"| Quality | `{paraphrase['quality']:.4f}` |",
+                f"| Required recall | `{paraphrase_metrics.get('required_recall', 0.0):.4f}` |",
+                f"| Required-only precision | `{paraphrase_metrics.get('required_only_precision', 0.0):.4f}` |",
+                f"| Forbidden hits | `{paraphrase_metrics.get('forbidden_hits', 0)}` |",
+                f"| Mean latency | `{summary_latency(paraphrase, 'mean'):.3f} ms` |",
+                f"| P95 latency | `{status['semantic_paraphrase_p95_latency_ms']:.3f} ms` |",
+            ]
+        )
     lines.extend(
         [
             "",
@@ -199,6 +261,7 @@ def main() -> int:
     parser.add_argument("--max-mean-latency-ms", type=float, default=2.0)
     parser.add_argument("--max-p95-latency-ms", type=float, default=5.0)
     parser.add_argument("--skip-no-exact-anchor-ablation", action="store_true")
+    parser.add_argument("--skip-semantic-paraphrase-ablation", action="store_true")
     args = parser.parse_args()
 
     dataset = args.dataset.resolve()
@@ -207,6 +270,7 @@ def main() -> int:
         max_mean_latency_ms=args.max_mean_latency_ms,
         max_p95_latency_ms=args.max_p95_latency_ms,
         include_no_exact_anchor_ablation=not args.skip_no_exact_anchor_ablation,
+        include_semantic_paraphrase_ablation=not args.skip_semantic_paraphrase_ablation,
     )
     write_report(gate, args.out.resolve())
     if args.json_out is not None:
@@ -229,6 +293,10 @@ def main() -> int:
                     if gate.get("no_exact_anchor_ablation") is None
                     else gate["no_exact_anchor_ablation"]["passed"],
                     "no_exact_anchor_p95_latency_ms": gate["status"]["no_exact_anchor_p95_latency_ms"],
+                    "semantic_paraphrase_passed": None
+                    if gate.get("semantic_paraphrase_ablation") is None
+                    else gate["semantic_paraphrase_ablation"]["passed"],
+                    "semantic_paraphrase_p95_latency_ms": gate["status"]["semantic_paraphrase_p95_latency_ms"],
                 },
             },
             indent=2,

@@ -242,6 +242,16 @@ Fix:
 - make the no-exact-anchor ablation default-on in the external gate
 - latest combined gate: no-exact-anchor `9/9`, mean `0.383 ms`, p95 `0.501 ms`
 
+### Query Wording Overfit Risk
+
+Even without exact-anchor memory, copied query wording can make a benchmark too comfortable.
+
+Fix:
+
+- add a semantic-paraphrase ablation to the external gate
+- preserve required/forbidden labels while changing query wording
+- latest combined gate: paraphrase `9/9`, required precision `1.0`, forbidden hits `0`, mean `0.497 ms`, p95 `0.813 ms`
+
 ## Architecture Snapshot
 
 ```mermaid
@@ -289,6 +299,7 @@ flowchart LR
 - External Signal/Recall generalization is now a repeatable gate, not just a one-off CP23 note.
 - The combined regression gate now fails if the external guard fails.
 - The external guard now also tests that exact-anchor memory is not the sole success path.
+- The external guard now also tests hand-paraphrased query wording.
 - Repeatable benchmark catches both positive retrieval and negative over-retrieval.
 - Build refresh can reuse unchanged file chunks after source edits.
 - Plugin-authored notes can participate in stale/current conflict routing.
