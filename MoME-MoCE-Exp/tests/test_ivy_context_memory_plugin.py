@@ -158,3 +158,54 @@ def test_mcp_stdio_lists_and_calls_status(tmp_path: Path) -> None:
     tool_names = {tool["name"] for tool in messages[1]["result"]["tools"]}
     assert {"ivy_memory_query", "ivy_memory_remember", "ivy_memory_status"} <= tool_names
     assert messages[2]["result"]["structuredContent"]["ok"] is True
+
+
+def test_mcp_stdio_remember_then_query(tmp_path: Path) -> None:
+    store = tmp_path / "store"
+    payload = b"".join(
+        [
+            framed({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+            framed(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "ivy_memory_remember",
+                        "arguments": {
+                            "text": "CP35 proves MCP clients can remember and query IVY memory in one session.",
+                            "source_path": "root/notes/cp35.md",
+                            "tags": ["cp35", "mcp"],
+                        },
+                    },
+                }
+            ),
+            framed(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 3,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "ivy_memory_query",
+                        "arguments": {"query": "What does CP35 prove about MCP clients?"},
+                    },
+                }
+            ),
+        ]
+    )
+
+    proc = subprocess.run(
+        [sys.executable, str(PLUGIN_SCRIPT), "--store", str(store), "mcp"],
+        input=payload,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+    )
+    messages = parse_framed_messages(proc.stdout)
+    remembered = messages[1]["result"]["structuredContent"]
+    queried = messages[2]["result"]["structuredContent"]
+
+    assert remembered["ok"] is True
+    assert queried["ok"] is True
+    assert queried["selected_ids"][0].startswith("note_")
+    assert "CP35 proves MCP clients" in queried["packet_text"]
