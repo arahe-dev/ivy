@@ -31,7 +31,14 @@ def rank_policy_results(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(results, key=lambda row: (row["passed"], -row["avg_router_latency_ms"], -row["avg_wall_ms"]), reverse=True)
 
 
-def gate_status(gate: dict[str, Any], *, max_router_ms: float, max_plugin_router_ms: float | None = None) -> dict[str, Any]:
+def gate_status(
+    gate: dict[str, Any],
+    *,
+    max_router_ms: float,
+    max_plugin_router_ms: float | None = None,
+    max_wall_ms: float = 50.0,
+    max_plugin_wall_ms: float = 40.0,
+) -> dict[str, Any]:
     max_plugin_router_ms = max_router_ms if max_plugin_router_ms is None else max_plugin_router_ms
     mined = gate["mined_policy"]["winner"]
     feature = gate["feature_eval"]["winner"]
@@ -42,8 +49,18 @@ def gate_status(gate: dict[str, Any], *, max_router_ms: float, max_plugin_router
         "plugin_benchmark_all_pass": plugin["passed_expectations"] == plugin["query_count"],
         "feature_router_under_budget": float(feature["avg_router_latency_ms"]) <= max_router_ms,
         "plugin_router_under_budget": float(plugin["avg_router_latency_ms"]) <= max_plugin_router_ms,
+        "mined_policy_wall_under_budget": float(mined["avg_wall_ms"]) <= max_wall_ms,
+        "feature_wall_under_budget": float(feature["avg_wall_ms"]) <= max_wall_ms,
+        "plugin_wall_under_budget": float(plugin["avg_query_wall_ms"]) <= max_plugin_wall_ms,
     }
-    return {"passed": all(checks.values()), "checks": checks, "max_router_ms": max_router_ms, "max_plugin_router_ms": max_plugin_router_ms}
+    return {
+        "passed": all(checks.values()),
+        "checks": checks,
+        "max_router_ms": max_router_ms,
+        "max_plugin_router_ms": max_plugin_router_ms,
+        "max_wall_ms": max_wall_ms,
+        "max_plugin_wall_ms": max_plugin_wall_ms,
+    }
 
 
 def run_gate(
@@ -55,6 +72,8 @@ def run_gate(
     candidates: list[int],
     max_router_ms: float,
     max_plugin_router_ms: float,
+    max_wall_ms: float,
+    max_plugin_wall_ms: float,
     promote: bool,
 ) -> dict[str, Any]:
     cases = load_cases(cases_path)
@@ -72,7 +91,13 @@ def run_gate(
         "feature_eval": {"results": feature_ranked, "winner": feature_winner, "promotion": promotion},
         "plugin_benchmark": plugin_result,
     }
-    gate["status"] = gate_status(gate, max_router_ms=max_router_ms, max_plugin_router_ms=max_plugin_router_ms)
+    gate["status"] = gate_status(
+        gate,
+        max_router_ms=max_router_ms,
+        max_plugin_router_ms=max_plugin_router_ms,
+        max_wall_ms=max_wall_ms,
+        max_plugin_wall_ms=max_plugin_wall_ms,
+    )
     return gate
 
 
@@ -88,6 +113,8 @@ def write_gate_report(gate: dict[str, Any], out: Path) -> None:
         f"Gate passed: `{status['passed']}`",
         f"Mined/feature router budget: `{status['max_router_ms']} ms`",
         f"Full plugin router budget: `{status['max_plugin_router_ms']} ms`",
+        f"Mined/feature wall budget: `{status['max_wall_ms']} ms`",
+        f"Full plugin wall budget: `{status['max_plugin_wall_ms']} ms`",
         "",
         "## Summary",
         "",
@@ -95,10 +122,13 @@ def write_gate_report(gate: dict[str, Any], out: Path) -> None:
         "|---|---:|",
         f"| Mined policy winner | `max_prefilter_items={mined['max_prefilter_items']}` |",
         f"| Mined policy pass | `{mined['passed']} / {mined['total']}` |",
+        f"| Mined policy avg wall | `{mined['avg_wall_ms']} ms` |",
         f"| Feature profile winner | `{feature['feature_profile']}` |",
         f"| Feature pass | `{feature['passed']} / {feature['total']}` |",
+        f"| Feature avg wall | `{feature['avg_wall_ms']} ms` |",
         f"| Feature avg router | `{feature['avg_router_latency_ms']} ms` |",
         f"| Plugin benchmark pass | `{plugin['passed_expectations']} / {plugin['query_count']}` |",
+        f"| Plugin avg query wall | `{plugin['avg_query_wall_ms']} ms` |",
         f"| Plugin avg router | `{plugin['avg_router_latency_ms']} ms` |",
         f"| Promotion | `{gate['feature_eval']['promotion'].get('promoted')}` |",
         "",
@@ -129,6 +159,8 @@ def main() -> int:
     parser.add_argument("--candidate", type=int, action="append", default=[16, 32, 64, 128])
     parser.add_argument("--max-router-ms", type=float, default=5.0)
     parser.add_argument("--max-plugin-router-ms", type=float, default=15.0)
+    parser.add_argument("--max-wall-ms", type=float, default=50.0)
+    parser.add_argument("--max-plugin-wall-ms", type=float, default=40.0)
     parser.add_argument("--promote", action="store_true")
     args = parser.parse_args()
 
@@ -140,6 +172,8 @@ def main() -> int:
         candidates=args.candidate,
         max_router_ms=args.max_router_ms,
         max_plugin_router_ms=args.max_plugin_router_ms,
+        max_wall_ms=args.max_wall_ms,
+        max_plugin_wall_ms=args.max_plugin_wall_ms,
         promote=args.promote,
     )
     write_gate_report(gate, args.out.resolve())
