@@ -31,6 +31,7 @@ def add_external_gate(gate: dict, *, passed: bool = True) -> dict:
             "semantic_no_exact_anchor_p95_latency_ms": 1.1,
             "negative_control_p95_latency_ms": 0.7,
             "source_removal_p95_latency_ms": 0.8,
+            "semantic_source_removal_p95_latency_ms": 0.9,
         },
         "no_exact_anchor_ablation": {
             "cases": 9,
@@ -70,6 +71,22 @@ def add_external_gate(gate: dict, *, passed: bool = True) -> dict:
                     "decision": "searched_no_authoritative_evidence",
                     "selected_ids": [],
                     "latency_ms": 0.7,
+                }
+            ],
+        },
+        "semantic_source_removal_ablation": {
+            "cases": 8,
+            "passed": 8 if passed else 7,
+            "evidence_metrics": {"avg_selected": 0.0},
+            "latency_ms": {"mean": 0.8},
+            "results": [
+                {
+                    "case_id": "cp23_signal_iphone_without_vps_semantic_paraphrase",
+                    "passed": passed,
+                    "removed_source_ids": ["external_signal_tailscale_webpush"],
+                    "decision": "searched_no_authoritative_evidence",
+                    "selected_ids": [],
+                    "latency_ms": 0.8,
                 }
             ],
         },
@@ -141,4 +158,5 @@ def test_write_gate_report_contains_core_sections(tmp_path: Path) -> None:
     assert "External Semantic Plus No-Exact Ablation" in text
     assert "External Negative Controls" in text
     assert "External Source-Removal Sensitivity" in text
+    assert "External Semantic Source-Removal Sensitivity" in text
     assert "external_signal_tailscale_webpush" in text

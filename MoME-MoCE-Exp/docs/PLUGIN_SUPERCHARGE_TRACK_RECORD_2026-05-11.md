@@ -292,6 +292,21 @@ Fix:
 - require exact subclaim evidence for iOS delivery, cloud/Codex identity, event-log source-of-truth, daemon shell boundaries, screenshot-free structured context, text graph, Graph IR, and second-brain features
 - latest combined gate: source-removal `8/8`, avg selected `0.0`, p95 `0.539 ms`
 
+### Paraphrased Required-Source Causality Risk
+
+Source-removal should also hold when the query wording changes.
+
+Initial finding:
+
+- semantic source-removal initially passed `7/8`
+- the text-graph paraphrase selected Graph IR when the text-graph source was removed
+
+Fix:
+
+- broaden text-graph specificity to cover compact graph representation and visible board structure wording
+- keep the support requirement tied to nodes, edges, groups, annotations, or unresolved relationships
+- latest combined gate: semantic source-removal `8/8`, avg selected `0.0`, p95 `0.623 ms`
+
 ## Architecture Snapshot
 
 ```mermaid
@@ -343,6 +358,7 @@ flowchart LR
 - The external guard now combines those two pressures in one default ablation.
 - The external guard now includes near-miss negative controls that must abstain.
 - The external guard now verifies required-source causality by removing required evidence.
+- The external guard now verifies required-source causality under paraphrased wording.
 - Repeatable benchmark catches both positive retrieval and negative over-retrieval.
 - Build refresh can reuse unchanged file chunks after source edits.
 - Plugin-authored notes can participate in stale/current conflict routing.

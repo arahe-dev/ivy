@@ -1,6 +1,6 @@
 # External Generalization Gate
 
-Created: `2026-05-11T19:55:13Z`
+Created: `2026-05-11T20:07:19Z`
 Gate passed: `True`
 Dataset: `context_stress_external_signal_recall`
 Corpus items: `14`
@@ -21,10 +21,10 @@ It uses the external Signal and Recall Board pack, including decoys and an unsup
 | Required-only precision | `1.0000` |
 | Forbidden hits | `0` |
 | Avg selected | `0.8889` |
-| Mean latency | `0.505 ms` |
-| P50 latency | `0.436 ms` |
-| P95 latency | `0.855 ms` |
-| Max latency | `1.011 ms` |
+| Mean latency | `0.586 ms` |
+| P50 latency | `0.501 ms` |
+| P95 latency | `1.061 ms` |
+| Max latency | `1.226 ms` |
 
 ## Checks
 
@@ -66,6 +66,12 @@ It uses the external Signal and Recall Board pack, including decoys and an unsup
 | `source_removal_no_forbidden_hits` | `True` |
 | `source_removal_mean_latency_under_budget` | `True` |
 | `source_removal_p95_latency_under_budget` | `True` |
+| `semantic_source_removal_all_cases_pass` | `True` |
+| `semantic_source_removal_required_recall_perfect` | `True` |
+| `semantic_source_removal_required_only_precision_perfect` | `True` |
+| `semantic_source_removal_no_forbidden_hits` | `True` |
+| `semantic_source_removal_mean_latency_under_budget` | `True` |
+| `semantic_source_removal_p95_latency_under_budget` | `True` |
 
 ## No Exact Anchor Ablation
 
@@ -78,8 +84,8 @@ This reruns the same external cases with `exact_anchor_memory` disabled. Passing
 | Required recall | `1.0000` |
 | Required-only precision | `1.0000` |
 | Forbidden hits | `0` |
-| Mean latency | `0.486 ms` |
-| P95 latency | `0.653 ms` |
+| Mean latency | `0.469 ms` |
+| P95 latency | `0.628 ms` |
 
 ## Semantic Paraphrase Ablation
 
@@ -92,8 +98,8 @@ This reruns the external cases with hand-paraphrased queries that avoid copying 
 | Required recall | `1.0000` |
 | Required-only precision | `1.0000` |
 | Forbidden hits | `0` |
-| Mean latency | `0.469 ms` |
-| P95 latency | `0.638 ms` |
+| Mean latency | `0.485 ms` |
+| P95 latency | `0.651 ms` |
 
 ## Semantic Paraphrase Without Exact Anchor
 
@@ -106,8 +112,8 @@ This reruns the hand-paraphrased external cases with `exact_anchor_memory` disab
 | Required recall | `1.0000` |
 | Required-only precision | `1.0000` |
 | Forbidden hits | `0` |
-| Mean latency | `0.551 ms` |
-| P95 latency | `0.822 ms` |
+| Mean latency | `0.471 ms` |
+| P95 latency | `0.624 ms` |
 
 ## Negative Control Abstention
 
@@ -121,8 +127,8 @@ This runs near-miss external questions that mention known products but ask for u
 | Required-only precision | `1.0000` |
 | Forbidden hits | `0` |
 | Avg selected | `0.0000` |
-| Mean latency | `0.484 ms` |
-| P95 latency | `0.645 ms` |
+| Mean latency | `0.486 ms` |
+| P95 latency | `0.684 ms` |
 
 ## Source-Removal Sensitivity
 
@@ -134,19 +140,32 @@ This removes each required external source and reruns that case. Passing it mean
 | Quality | `1.0000` |
 | Required-only precision | `1.0000` |
 | Avg selected | `0.0000` |
-| Mean latency | `0.407 ms` |
-| P95 latency | `0.518 ms` |
+| Mean latency | `0.377 ms` |
+| P95 latency | `0.544 ms` |
+
+## Semantic Source-Removal Sensitivity
+
+This removes each required external source and reruns the hand-paraphrased query. Passing it means required-source causality holds even when the original query wording changes.
+
+| Metric | Value |
+|---|---:|
+| Passed | `8 / 8` |
+| Quality | `1.0000` |
+| Required-only precision | `1.0000` |
+| Avg selected | `0.0000` |
+| Mean latency | `0.373 ms` |
+| P95 latency | `0.550 ms` |
 
 ## Case Results
 
 | Case | Pass | Decision | Selected | Latency ms |
 |---|---:|---|---|---:|
-| `cp23_signal_iphone_without_vps` | `True` | `context_packet_ready` | `external_signal_tailscale_webpush` | `1.011` |
-| `cp23_signal_not_codex_cloud` | `True` | `context_packet_ready` | `external_signal_not_cloud_service` | `0.490` |
-| `cp23_signal_durable_coordination_primitive` | `True` | `context_packet_ready` | `external_signal_event_log` | `0.620` |
-| `cp23_signal_daemon_shell_boundary` | `True` | `context_packet_ready` | `external_signal_worker_boundary` | `0.424` |
-| `cp23_recall_screenshot_free_context` | `True` | `context_packet_ready` | `external_recall_ai_context` | `0.507` |
-| `cp23_recall_text_graph_contents` | `True` | `context_packet_ready` | `external_recall_text_graph` | `0.406` |
-| `cp23_recall_graph_ir_role` | `True` | `context_packet_ready` | `external_recall_graph_ir` | `0.416` |
-| `cp23_recall_second_brain_features` | `True` | `context_packet_ready` | `external_recall_search_backlinks` | `0.236` |
-| `cp23_recall_cloud_price_abstain` | `True` | `searched_no_authoritative_evidence` | `` | `0.436` |
+| `cp23_signal_iphone_without_vps` | `True` | `context_packet_ready` | `external_signal_tailscale_webpush` | `1.226` |
+| `cp23_signal_not_codex_cloud` | `True` | `context_packet_ready` | `external_signal_not_cloud_service` | `0.471` |
+| `cp23_signal_durable_coordination_primitive` | `True` | `context_packet_ready` | `external_signal_event_log` | `0.813` |
+| `cp23_signal_daemon_shell_boundary` | `True` | `context_packet_ready` | `external_signal_worker_boundary` | `0.532` |
+| `cp23_recall_screenshot_free_context` | `True` | `context_packet_ready` | `external_recall_ai_context` | `0.576` |
+| `cp23_recall_text_graph_contents` | `True` | `context_packet_ready` | `external_recall_text_graph` | `0.501` |
+| `cp23_recall_graph_ir_role` | `True` | `context_packet_ready` | `external_recall_graph_ir` | `0.460` |
+| `cp23_recall_second_brain_features` | `True` | `context_packet_ready` | `external_recall_search_backlinks` | `0.254` |
+| `cp23_recall_cloud_price_abstain` | `True` | `searched_no_authoritative_evidence` | `` | `0.443` |

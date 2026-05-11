@@ -1789,8 +1789,14 @@ class MoMEMoCERouter:
                 ["daemon"],
             ),
             (
-                "recall" in q and "text graph" in q,
-                ["text graph", "nodes", "edges", "groups", "annotations"],
+                "recall" in q
+                and (
+                    "text graph" in q
+                    or "compact graph representation" in q
+                    or "visible board structure" in q
+                    or "board structure" in q
+                ),
+                ["nodes", "edges", "groups", "annotations", "unresolved relationships"],
             ),
             (
                 "recall" in q and "graph ir" in q,

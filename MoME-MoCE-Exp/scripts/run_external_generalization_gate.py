@@ -79,6 +79,7 @@ def gate_status(
     semantic_no_exact_anchor_ablation: dict[str, Any] | None = None,
     negative_control_ablation: dict[str, Any] | None = None,
     source_removal_ablation: dict[str, Any] | None = None,
+    semantic_source_removal_ablation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     p95 = latency_p95(summary)
     checks = summary_checks(summary, max_mean_latency_ms=max_mean_latency_ms, max_p95_latency_ms=max_p95_latency_ms)
@@ -137,6 +138,17 @@ def gate_status(
                 prefix="source_removal_",
             )
         )
+    semantic_source_removal_p95 = None
+    if semantic_source_removal_ablation is not None:
+        semantic_source_removal_p95 = latency_p95(semantic_source_removal_ablation)
+        checks.update(
+            summary_checks(
+                semantic_source_removal_ablation,
+                max_mean_latency_ms=max_mean_latency_ms,
+                max_p95_latency_ms=max_p95_latency_ms,
+                prefix="semantic_source_removal_",
+            )
+        )
     return {
         "passed": all(checks.values()),
         "checks": checks,
@@ -148,6 +160,7 @@ def gate_status(
         "semantic_no_exact_anchor_p95_latency_ms": None if semantic_no_exact_p95 is None else round(float(semantic_no_exact_p95), 3),
         "negative_control_p95_latency_ms": None if negative_control_p95 is None else round(float(negative_control_p95), 3),
         "source_removal_p95_latency_ms": None if source_removal_p95 is None else round(float(source_removal_p95), 3),
+        "semantic_source_removal_p95_latency_ms": None if semantic_source_removal_p95 is None else round(float(semantic_source_removal_p95), 3),
     }
 
 
@@ -194,10 +207,10 @@ def run_summary(dataset: Path, *, disabled_experts: set[str] | None = None, case
     return benchmark(router, cases if cases is not None else load_cases(dataset), validate_artifacts=False)
 
 
-def source_removal_sensitivity(dataset: Path) -> dict[str, Any]:
+def source_removal_sensitivity(dataset: Path, *, semantic: bool = False) -> dict[str, Any]:
     started = datetime.now(UTC)
     items = load_corpus(dataset)
-    cases = [case for case in load_cases(dataset) if case.get("required_source_ids")]
+    cases = [case for case in (paraphrased_cases(dataset) if semantic else load_cases(dataset)) if case.get("required_source_ids")]
     results: list[dict[str, Any]] = []
     latencies: list[float] = []
     selected_counts: list[int] = []
@@ -226,6 +239,7 @@ def source_removal_sensitivity(dataset: Path) -> dict[str, Any]:
     return {
         "schema_version": "mome_moce.source_removal_sensitivity.v0.1",
         "created_at": started.isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "semantic_queries": semantic,
         "cases": len(results),
         "passed": passed_count,
         "failed": len(results) - passed_count,
@@ -252,6 +266,7 @@ def run_gate(
     include_semantic_no_exact_anchor_ablation: bool = True,
     include_negative_control_ablation: bool = True,
     include_source_removal_ablation: bool = True,
+    include_semantic_source_removal_ablation: bool = True,
 ) -> dict[str, Any]:
     manifest = write_dataset(dataset)
     summary = run_summary(dataset)
@@ -265,6 +280,7 @@ def run_gate(
     )
     negative_control_ablation = run_summary(dataset, cases=negative_control_cases()) if include_negative_control_ablation else None
     source_removal_ablation = source_removal_sensitivity(dataset) if include_source_removal_ablation else None
+    semantic_source_removal_ablation = source_removal_sensitivity(dataset, semantic=True) if include_semantic_source_removal_ablation else None
     status = gate_status(
         summary,
         max_mean_latency_ms=max_mean_latency_ms,
@@ -274,6 +290,7 @@ def run_gate(
         semantic_no_exact_anchor_ablation=semantic_no_exact_anchor_ablation,
         negative_control_ablation=negative_control_ablation,
         source_removal_ablation=source_removal_ablation,
+        semantic_source_removal_ablation=semantic_source_removal_ablation,
     )
     return {
         "schema_version": "mome_moce.external_generalization_gate.v0.1",
@@ -286,6 +303,7 @@ def run_gate(
         "semantic_no_exact_anchor_ablation": semantic_no_exact_anchor_ablation,
         "negative_control_ablation": negative_control_ablation,
         "source_removal_ablation": source_removal_ablation,
+        "semantic_source_removal_ablation": semantic_source_removal_ablation,
         "status": status,
     }
 
@@ -436,6 +454,26 @@ def write_report(gate: dict[str, Any], out: Path) -> None:
                 f"| P95 latency | `{status['source_removal_p95_latency_ms']:.3f} ms` |",
             ]
         )
+    if gate.get("semantic_source_removal_ablation") is not None:
+        removal = gate["semantic_source_removal_ablation"]
+        removal_metrics = removal.get("evidence_metrics", {})
+        lines.extend(
+            [
+                "",
+                "## Semantic Source-Removal Sensitivity",
+                "",
+                "This removes each required external source and reruns the hand-paraphrased query. Passing it means required-source causality holds even when the original query wording changes.",
+                "",
+                "| Metric | Value |",
+                "|---|---:|",
+                f"| Passed | `{removal['passed']} / {removal['cases']}` |",
+                f"| Quality | `{removal['quality']:.4f}` |",
+                f"| Required-only precision | `{removal_metrics.get('required_only_precision', 0.0):.4f}` |",
+                f"| Avg selected | `{removal_metrics.get('avg_selected', 0.0):.4f}` |",
+                f"| Mean latency | `{summary_latency(removal, 'mean'):.3f} ms` |",
+                f"| P95 latency | `{status['semantic_source_removal_p95_latency_ms']:.3f} ms` |",
+            ]
+        )
     lines.extend(
         [
             "",
@@ -466,6 +504,7 @@ def main() -> int:
     parser.add_argument("--skip-semantic-no-exact-anchor-ablation", action="store_true")
     parser.add_argument("--skip-negative-control-ablation", action="store_true")
     parser.add_argument("--skip-source-removal-ablation", action="store_true")
+    parser.add_argument("--skip-semantic-source-removal-ablation", action="store_true")
     args = parser.parse_args()
 
     dataset = args.dataset.resolve()
@@ -478,6 +517,7 @@ def main() -> int:
         include_semantic_no_exact_anchor_ablation=not args.skip_semantic_no_exact_anchor_ablation,
         include_negative_control_ablation=not args.skip_negative_control_ablation,
         include_source_removal_ablation=not args.skip_source_removal_ablation,
+        include_semantic_source_removal_ablation=not args.skip_semantic_source_removal_ablation,
     )
     write_report(gate, args.out.resolve())
     if args.json_out is not None:
@@ -516,6 +556,10 @@ def main() -> int:
                     if gate.get("source_removal_ablation") is None
                     else gate["source_removal_ablation"]["passed"],
                     "source_removal_p95_latency_ms": gate["status"]["source_removal_p95_latency_ms"],
+                    "semantic_source_removal_passed": None
+                    if gate.get("semantic_source_removal_ablation") is None
+                    else gate["semantic_source_removal_ablation"]["passed"],
+                    "semantic_source_removal_p95_latency_ms": gate["status"]["semantic_source_removal_p95_latency_ms"],
                 },
             },
             indent=2,
