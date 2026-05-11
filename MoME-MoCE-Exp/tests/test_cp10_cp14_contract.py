@@ -9,6 +9,8 @@ if str(IVY_ROOT) not in sys.path:
     sys.path.insert(0, str(IVY_ROOT))
 
 from ivy_agent_demo.acca_context import route_context
+from ivy_agent_demo.acca_corpus_export import export_acca_corpus
+from ivy_agent_demo.memory_store import MemoryStore
 from scripts.run_answer_level_eval import run_eval
 from scripts.generate_ivy_real_v3_dataset import write_dataset
 from scripts.memory_write_barrier import MemoryWriteError, append_memory_record, validate_memory_record
@@ -70,6 +72,56 @@ def test_cp16_acca_context_bridge_renders_prompt_packet(tmp_path: Path) -> None:
     assert "ACCA CONTEXT PACKET" in result.context_text
     assert "doc_hot_session_cache_rule" in result.context_text
     assert result.latency_ms <= 10.0
+
+
+def test_cp17_exports_runtime_memory_to_acca_corpus(tmp_path: Path) -> None:
+    db = tmp_path / "ivy_memory.sqlite3"
+    store = MemoryStore(db)
+    store.init_schema()
+    episode_id = store.insert_episode(run_id="cp17-test", task_text="test task", outcome="passed", success=True)
+    conn = store.connect()
+    try:
+        with conn:
+            store.insert_memory_item(
+                conn,
+                source_episode_id=episode_id,
+                kind="policy_warning",
+                text="Policy blocked an absolute path read outside sandbox.",
+                confidence=0.95,
+                source_artifact_path=str(IVY_ROOT / "runs" / "example" / "run_summary.json"),
+            )
+    finally:
+        conn.close()
+    manifest = export_acca_corpus(db, tmp_path / "acca_export")
+    corpus_path = tmp_path / "acca_export" / "corpus" / "corpus_items.jsonl"
+    rows = [json.loads(line) for line in corpus_path.read_text(encoding="utf-8").splitlines()]
+    assert manifest["corpus_items"] == 1
+    assert rows[0]["source_family"] == "safety_policy"
+    assert rows[0]["authority"] == "high"
+    assert rows[0]["provenance"]["artifact_path"] == "runs/example/run_summary.json"
+
+
+def test_cp17_export_skips_write_barrier_rejections(tmp_path: Path) -> None:
+    db = tmp_path / "ivy_memory.sqlite3"
+    store = MemoryStore(db)
+    store.init_schema()
+    conn = store.connect()
+    try:
+        with conn:
+            store.insert_memory_item(
+                conn,
+                kind="successful_pattern",
+                text="api key token should not enter frontier-visible memory",
+                confidence=0.9,
+                source_artifact_path=str(IVY_ROOT / "runs" / "secret" / "summary.md"),
+            )
+    finally:
+        conn.close()
+    manifest = export_acca_corpus(db, tmp_path / "acca_export")
+    rejected_path = tmp_path / "acca_export" / "metadata" / "rejected_memory_items.jsonl"
+    assert manifest["corpus_items"] == 0
+    assert manifest["rejected_items"] == 1
+    assert "obvious secret material" in rejected_path.read_text(encoding="utf-8")
 
 
 def test_cp13_opencode_go_finder_is_optional_without_proxy_token(tmp_path: Path) -> None:
