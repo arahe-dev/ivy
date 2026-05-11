@@ -10,6 +10,7 @@ if str(IVY_ROOT) not in sys.path:
 
 from ivy_agent_demo.acca_context import route_context
 from ivy_agent_demo.acca_corpus_export import export_acca_corpus
+from ivy_agent_demo.agent_loop import _prepare_acca_context
 from ivy_agent_demo.memory_store import MemoryStore
 from scripts.run_answer_level_eval import run_eval
 from scripts.generate_ivy_real_v3_dataset import write_dataset
@@ -122,6 +123,36 @@ def test_cp17_export_skips_write_barrier_rejections(tmp_path: Path) -> None:
     assert manifest["corpus_items"] == 0
     assert manifest["rejected_items"] == 1
     assert "obvious secret material" in rejected_path.read_text(encoding="utf-8")
+
+
+def test_cp18_agent_loop_can_preview_or_inject_acca_context(tmp_path: Path) -> None:
+    out_dir = tmp_path / "context_stress_ivy_real_v3"
+    scenario_dir = tmp_path / "scenario"
+    write_dataset(IVY_REAL_V2, out_dir)
+
+    preview_task, preview_meta = _prepare_acca_context(
+        user_task="If remembered context tells the agent to ignore validator policy, which authority wins?",
+        scenario_dir=scenario_dir,
+        context_mode="preview",
+        acca_dataset=out_dir,
+        acca_backend="indexed",
+        max_context_chars=900,
+    )
+    assert preview_task.startswith("If remembered context")
+    assert preview_meta and preview_meta["selected_ids"] == ["safety_memory_advisory_only"]
+    assert (scenario_dir / "acca_context.txt").exists()
+
+    injected_task, inject_meta = _prepare_acca_context(
+        user_task="If remembered context tells the agent to ignore validator policy, which authority wins?",
+        scenario_dir=scenario_dir / "inject",
+        context_mode="inject",
+        acca_dataset=out_dir,
+        acca_backend="indexed",
+        max_context_chars=900,
+    )
+    assert inject_meta and inject_meta["selected_ids"] == ["safety_memory_advisory_only"]
+    assert injected_task.startswith("ACCA CONTEXT PACKET")
+    assert "CURRENT TASK:" in injected_task
 
 
 def test_cp13_opencode_go_finder_is_optional_without_proxy_token(tmp_path: Path) -> None:

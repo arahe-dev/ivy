@@ -21,6 +21,7 @@ DEFAULT_MANIFEST = Path("C:/ivy/ivy/manifests/q4km_hot_agent.yaml")
 DEFAULT_SCENARIOS = Path("C:/ivy/ivy_agent_demo/scenarios/scenarios.json")
 DEFAULT_RUNS_ROOT = Path("C:/ivy/runs/phase1_agent_demo")
 DEFAULT_SANDBOX_ROOT = Path("C:/ivy/ivy_agent_demo/sandbox_workspace")
+DEFAULT_ACCA_DATASET = Path("C:/ivy/MoME-MoCE-Exp/out/context_stress_ivy_real_v3")
 MAX_STEPS = 5
 
 
@@ -139,6 +140,51 @@ def _build_repair_task(
         "Do not use C:\\ivy, drive letters, sandbox_workspace/, or .. in a path.\n"
         f"Output contract:\n{response_contract_text()}"
     )
+
+
+def _augment_task_with_acca_context(user_task: str, context_text: str) -> str:
+    return (
+        f"{context_text.rstrip()}\n\n"
+        "CURRENT TASK:\n"
+        f"{user_task}"
+    )
+
+
+def _prepare_acca_context(
+    *,
+    user_task: str,
+    scenario_dir: Path,
+    context_mode: str,
+    acca_dataset: Path,
+    acca_backend: str,
+    max_context_chars: int,
+) -> tuple[str, dict[str, Any] | None]:
+    if context_mode == "off":
+        return user_task, None
+
+    from .acca_context import route_context, write_context_artifacts
+
+    result = route_context(
+        user_task,
+        dataset=acca_dataset,
+        backend=acca_backend,
+        max_context_chars=max_context_chars,
+    )
+    write_context_artifacts(result, scenario_dir)
+    metadata = {
+        "mode": context_mode,
+        "dataset": str(acca_dataset),
+        "backend": acca_backend,
+        "selected_ids": result.selected_ids,
+        "decision": result.decision,
+        "answerability": result.answerability,
+        "latency_ms": round(result.latency_ms, 4),
+        "context_chars": len(result.context_text),
+    }
+    _write_json(scenario_dir / "acca_context_metadata.json", metadata)
+    if context_mode == "inject":
+        return _augment_task_with_acca_context(user_task, result.context_text), metadata
+    return user_task, metadata
 
 
 def _full_prompt(dynamic_suffix: str) -> str:
@@ -353,12 +399,25 @@ def run_scenario(
     policy: PolicyGate,
     scenario: dict[str, Any],
     run_dir: Path,
+    *,
+    context_mode: str = "off",
+    acca_dataset: Path = DEFAULT_ACCA_DATASET,
+    acca_backend: str = "indexed",
+    max_context_chars: int = 1800,
 ) -> dict[str, Any]:
     scenario_dir = run_dir / scenario["id"]
     scenario_dir.mkdir(parents=True, exist_ok=True)
 
     user_task = str(scenario["user_task"])
     _write_text(scenario_dir / "dynamic_task.txt", user_task)
+    model_user_task, acca_context_metadata = _prepare_acca_context(
+        user_task=user_task,
+        scenario_dir=scenario_dir,
+        context_mode=context_mode,
+        acca_dataset=acca_dataset,
+        acca_backend=acca_backend,
+        max_context_chars=max_context_chars,
+    )
 
     conversation_events: list[dict[str, Any]] = []
     steps: list[StepRecord] = []
@@ -371,7 +430,7 @@ def run_scenario(
     prompt_ms_values: list[float] = []
     decode_tps_values: list[float] = []
     cache_reuse_values: list[str] = []
-    large_output_mode = _task_needs_large_output(user_task)
+    large_output_mode = _task_needs_large_output(model_user_task)
     seen_tool_signatures: set[tuple[str, str]] = set()
     repeated_tool_blocked_count = 0
     progress_guard_triggered_count = 0
@@ -382,7 +441,7 @@ def run_scenario(
     progress_notes: list[str] = []
 
     for step in range(1, MAX_STEPS + 1):
-        dynamic_task = _build_dynamic_task(user_task, scenario, step, conversation_events)
+        dynamic_task = _build_dynamic_task(model_user_task, scenario, step, conversation_events)
         _write_text(scenario_dir / f"dynamic_task_step{step}.txt", dynamic_task)
 
         request_max_tokens = 768 if large_output_mode else None
@@ -438,7 +497,7 @@ def run_scenario(
 
             retries += 1
             retry_used = True
-            repair_task = _build_repair_task(scenario, user_task, result.content, validation)
+            repair_task = _build_repair_task(scenario, model_user_task, result.content, validation)
             _write_text(scenario_dir / f"repair_task_{step}.txt", repair_task)
 
             if "invalid_json" in validation.failure_taxonomy and _finish_reason(result.response_payload) == "length":
@@ -720,6 +779,8 @@ def run_scenario(
     run_summary = {
         "scenario_id": scenario["id"],
         "user_task": user_task,
+        "model_user_task": model_user_task if context_mode == "inject" else None,
+        "acca_context": acca_context_metadata,
         "expected_tools": expected,
         "expected_behavior": expected_behavior,
         "unsafe": unsafe,
@@ -834,6 +895,11 @@ def main() -> None:
     parser.add_argument("--slot-id", type=int, default=0)
     parser.add_argument("--request-timeout-sec", type=int, default=180)
     parser.add_argument("--stop-server-after", action="store_true")
+    parser.add_argument("--context-mode", choices=["off", "preview", "inject"], default="off")
+    parser.add_argument("--context-router", choices=["legacy_mome", "acca"], default="legacy_mome")
+    parser.add_argument("--acca-dataset", type=Path, default=DEFAULT_ACCA_DATASET)
+    parser.add_argument("--acca-backend", choices=["scan", "indexed", "rust"], default="indexed")
+    parser.add_argument("--max-context-chars", type=int, default=1800)
     args = parser.parse_args()
 
     manifest_path = Path(args.manifest)
@@ -862,7 +928,17 @@ def main() -> None:
     summaries: list[dict[str, Any]] = []
     try:
         for scenario in scenarios:
-            summary = run_scenario(model=model, policy=policy, scenario=scenario, run_dir=run_root)
+            effective_context_mode = args.context_mode if args.context_router == "acca" else "off"
+            summary = run_scenario(
+                model=model,
+                policy=policy,
+                scenario=scenario,
+                run_dir=run_root,
+                context_mode=effective_context_mode,
+                acca_dataset=args.acca_dataset,
+                acca_backend=args.acca_backend,
+                max_context_chars=args.max_context_chars,
+            )
             summaries.append(summary)
     finally:
         if args.stop_server_after:
