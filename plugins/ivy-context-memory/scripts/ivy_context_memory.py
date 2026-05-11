@@ -101,6 +101,10 @@ def build_cache_path(store: Path) -> Path:
     return store / "cache" / "build_fingerprint.json"
 
 
+def runtime_policy_path(store: Path) -> Path:
+    return store / "policy" / "autoresearch_policy.json"
+
+
 def chunk_cache_path(store: Path, root: Path, path: Path) -> Path:
     key = content_hash(f"{root.resolve()}::{path.relative_to(root).as_posix()}")[:24]
     return store / "cache" / "chunks" / f"{key}.json"
@@ -244,6 +248,13 @@ def load_build_cache(store: Path) -> dict[str, Any] | None:
     path = build_cache_path(store)
     if not path.exists():
         return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def load_runtime_policy(store: Path) -> dict[str, Any]:
+    path = runtime_policy_path(store)
+    if not path.exists():
+        return {}
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -610,11 +621,13 @@ def query_store(
     variant: str = "auto",
     top_k: int = 5,
     prefilter: bool = True,
-    max_prefilter_items: int = 192,
+    max_prefilter_items: int | None = None,
 ) -> dict[str, Any]:
     data = dataset_path(store)
     if not (data / "corpus" / "corpus_items.jsonl").exists():
         build_store(store)
+    if max_prefilter_items is None:
+        max_prefilter_items = int(load_runtime_policy(store).get("max_prefilter_items", 192))
     prefilter_meta: dict[str, Any] = {"enabled": False, "reason": "disabled"}
     route_dataset = data
     if prefilter:
@@ -711,6 +724,11 @@ def status(store: Path) -> dict[str, Any]:
             "fingerprint_sha256": build_cache.get("fingerprint", {}).get("fingerprint_sha256") if build_cache else None,
             "file_count": build_cache.get("fingerprint", {}).get("file_count") if build_cache else 0,
         },
+        "runtime_policy": {
+            "path": str(runtime_policy_path(store)),
+            "exists": runtime_policy_path(store).exists(),
+            "policy": load_runtime_policy(store),
+        },
         "last_build": state.get("last_build"),
     }
 
@@ -757,7 +775,7 @@ class ApiHandler(BaseHTTPRequestHandler):
                         query=str(payload["query"]),
                         variant=str(payload.get("variant", "auto")),
                         prefilter=bool(payload.get("prefilter", True)),
-                        max_prefilter_items=int(payload.get("max_prefilter_items", 192)),
+                        max_prefilter_items=int(payload["max_prefilter_items"]) if "max_prefilter_items" in payload else None,
                     ),
                 )
             elif self.path == "/remember":
@@ -991,7 +1009,7 @@ def mcp_call_tool(store: Path, name: str, args: dict[str, Any]) -> dict[str, Any
             variant=str(args.get("variant", "auto")),
             top_k=int(args.get("top_k", 5)),
             prefilter=bool(args.get("prefilter", True)),
-            max_prefilter_items=int(args.get("max_prefilter_items", 192)),
+            max_prefilter_items=int(args["max_prefilter_items"]) if "max_prefilter_items" in args else None,
         )
     if name == "ivy_memory_remember":
         tags = args.get("tags", [])
@@ -1152,7 +1170,7 @@ def main(argv: list[str] | None = None) -> int:
     query_parser.add_argument("--top-k", type=int, default=5)
     query_parser.add_argument("--text", action="store_true")
     query_parser.add_argument("--no-prefilter", action="store_true")
-    query_parser.add_argument("--max-prefilter-items", type=int, default=192)
+    query_parser.add_argument("--max-prefilter-items", type=int, default=None)
 
     serve_parser = sub.add_parser("serve")
     serve_parser.add_argument("--host", default="127.0.0.1")

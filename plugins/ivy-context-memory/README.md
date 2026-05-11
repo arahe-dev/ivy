@@ -87,6 +87,7 @@ And MCP prompts:
 - Uses CP29 persisted prefilter indexes for query routing.
 - Uses CP30 packet modes and direct note priority.
 - Uses CP32 build fingerprint caching for unchanged rebuilds.
+- Can consume an autoresearch runtime policy from `store/policy/autoresearch_policy.json`.
 - Stores route packets under `.ivy-context-memory/packets/`.
 - Keeps memory advisory; it never outranks current user/system/developer instructions or repo state.
 

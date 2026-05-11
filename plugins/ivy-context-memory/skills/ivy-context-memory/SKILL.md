@@ -9,6 +9,8 @@ Use this skill when a task would benefit from repository-scale or long-running m
 
 The sidecar stores memory outside the model context, compiles it through MoME/MoCE, and returns a small ACCA packet plus route proof.
 
+If `store/policy/autoresearch_policy.json` exists, query defaults may use its tuned `max_prefilter_items` value.
+
 ## CLI
 
 From `C:\ivy`:
