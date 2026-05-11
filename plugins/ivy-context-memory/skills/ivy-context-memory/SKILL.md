@@ -63,6 +63,12 @@ Available tools:
 - `ivy_memory_build`
 - `ivy_memory_status`
 
+Available resources:
+
+- `ivy-memory://status`
+- `ivy-memory://latest-packet`
+- `ivy-memory://track-record`
+
 ## Agent Use
 
 Before a deep task:

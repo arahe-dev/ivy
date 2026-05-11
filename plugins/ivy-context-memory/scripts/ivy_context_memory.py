@@ -790,6 +790,63 @@ def mcp_tool_definitions() -> list[dict[str, Any]]:
     ]
 
 
+def mcp_resource_definitions(store: Path) -> list[dict[str, Any]]:
+    latest_packet = latest_packet_path(store)
+    resources = [
+        {
+            "uri": "ivy-memory://status",
+            "name": "IVY memory status",
+            "description": "Current store, dataset, query index, and build-cache status.",
+            "mimeType": "application/json",
+        },
+        {
+            "uri": "ivy-memory://latest-packet",
+            "name": "Latest IVY memory packet",
+            "description": "Most recent packet emitted by ivy_memory_query.",
+            "mimeType": "application/json",
+        },
+        {
+            "uri": "ivy-memory://track-record",
+            "name": "IVY context memory supercharge track record",
+            "description": "Checkpoint ledger, benchmark results, bugs found, and next work.",
+            "mimeType": "text/markdown",
+        },
+    ]
+    if latest_packet and latest_packet.exists():
+        resources[1]["size"] = latest_packet.stat().st_size
+    return resources
+
+
+def latest_packet_path(store: Path) -> Path | None:
+    packet_dir = store / "packets"
+    if not packet_dir.exists():
+        return None
+    packets = sorted(packet_dir.glob("*.json"), key=lambda path: path.stat().st_mtime_ns, reverse=True)
+    return packets[0] if packets else None
+
+
+def mcp_read_resource(store: Path, uri: str) -> dict[str, Any]:
+    if uri == "ivy-memory://status":
+        return {
+            "contents": [
+                {
+                    "uri": uri,
+                    "mimeType": "application/json",
+                    "text": json.dumps(status(store), ensure_ascii=False, indent=2),
+                }
+            ]
+        }
+    if uri == "ivy-memory://latest-packet":
+        path = latest_packet_path(store)
+        text = path.read_text(encoding="utf-8") if path else json.dumps({"ok": False, "error": "no packets yet"}, indent=2)
+        return {"contents": [{"uri": uri, "mimeType": "application/json", "text": text}]}
+    if uri == "ivy-memory://track-record":
+        path = REPO_ROOT / "MoME-MoCE-Exp" / "docs" / "PLUGIN_SUPERCHARGE_TRACK_RECORD_2026-05-11.md"
+        text = path.read_text(encoding="utf-8") if path.exists() else "Track record document is not present in this checkout."
+        return {"contents": [{"uri": uri, "mimeType": "text/markdown", "text": text}]}
+    raise ValueError(f"unknown MCP resource: {uri}")
+
+
 def mcp_call_tool(store: Path, name: str, args: dict[str, Any]) -> dict[str, Any]:
     if name == "ivy_memory_query":
         return query_store(
@@ -876,12 +933,17 @@ def mcp_stdio(store: Path) -> None:
             if method == "initialize":
                 result = {
                     "protocolVersion": "2025-06-18",
-                    "capabilities": {"tools": {"listChanged": False}},
+                    "capabilities": {"tools": {"listChanged": False}, "resources": {"listChanged": False}},
                     "serverInfo": {"name": "ivy-context-memory", "version": "0.1.0"},
                 }
                 write_mcp_message(writer, mcp_success(request_id, result))
             elif method == "tools/list":
                 write_mcp_message(writer, mcp_success(request_id, {"tools": mcp_tool_definitions()}))
+            elif method == "resources/list":
+                write_mcp_message(writer, mcp_success(request_id, {"resources": mcp_resource_definitions(store)}))
+            elif method == "resources/read":
+                params = message.get("params", {})
+                write_mcp_message(writer, mcp_success(request_id, mcp_read_resource(store, str(params.get("uri", "")))))
             elif method == "tools/call":
                 params = message.get("params", {})
                 tool_name = str(params.get("name", ""))

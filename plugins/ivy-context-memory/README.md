@@ -68,6 +68,12 @@ The stdio command is:
 python C:\ivy\plugins\ivy-context-memory\scripts\ivy_context_memory.py mcp
 ```
 
+It also exposes MCP resources:
+
+- `ivy-memory://status`
+- `ivy-memory://latest-packet`
+- `ivy-memory://track-record`
+
 ## Design
 
 - Uses the existing MoME/MoCE ACCA router.
@@ -81,7 +87,7 @@ python C:\ivy\plugins\ivy-context-memory\scripts\ivy_context_memory.py mcp
 
 ## Current Limitations
 
-- The MCP server is intentionally minimal: tools only, no resources/prompts yet.
+- The MCP server exposes tools and a small resource surface, but no prompts yet.
 - Build caching is whole-build fingerprint caching, not per-file incremental chunk reuse yet.
 - Large ingested corpora are correct but still need more ranking/latency optimization.
 - The note write barrier is intentionally conservative and rejects obvious secret-like text.

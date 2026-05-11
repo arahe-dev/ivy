@@ -212,3 +212,32 @@ def test_mcp_stdio_remember_then_query(tmp_path: Path) -> None:
     assert queried["ok"] is True
     assert queried["selected_ids"][0].startswith("note_")
     assert "CP35 proves MCP clients" in queried["packet_text"]
+
+
+def test_mcp_stdio_lists_and_reads_resources(tmp_path: Path) -> None:
+    store = tmp_path / "store"
+    payload = b"".join(
+        [
+            framed({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+            framed({"jsonrpc": "2.0", "id": 2, "method": "resources/list", "params": {}}),
+            framed({"jsonrpc": "2.0", "id": 3, "method": "resources/read", "params": {"uri": "ivy-memory://status"}}),
+            framed({"jsonrpc": "2.0", "id": 4, "method": "resources/read", "params": {"uri": "ivy-memory://track-record"}}),
+        ]
+    )
+
+    proc = subprocess.run(
+        [sys.executable, str(PLUGIN_SCRIPT), "--store", str(store), "mcp"],
+        input=payload,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+    )
+    messages = parse_framed_messages(proc.stdout)
+    resource_uris = {resource["uri"] for resource in messages[1]["result"]["resources"]}
+    status_text = messages[2]["result"]["contents"][0]["text"]
+    track_record_text = messages[3]["result"]["contents"][0]["text"]
+
+    assert "ivy-memory://status" in resource_uris
+    assert "ivy-memory://latest-packet" in resource_uris
+    assert json.loads(status_text)["ok"] is True
+    assert "Commit Ledger" in track_record_text
