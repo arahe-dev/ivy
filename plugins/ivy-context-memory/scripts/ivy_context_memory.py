@@ -874,6 +874,11 @@ def status(store: Path) -> dict[str, Any]:
             "exists": runtime_policy_path(store).exists(),
             "policy": load_runtime_policy(store),
         },
+        "process_caches": {
+            "query_index_cache_entries": len(_QUERY_INDEX_CACHE),
+            "item_feature_cache_entries": len(_ITEM_FEATURE_CACHE),
+            "corpus_item_cache_entries": len(_CORPUS_ITEM_CACHE),
+        },
         "last_build": state.get("last_build"),
     }
 

@@ -176,6 +176,7 @@ def test_repeated_build_uses_fingerprint_cache(tmp_path: Path) -> None:
     assert second["corpus_items"] == first["build"]["corpus_items"]
     assert current_status["build_cache"]["exists"] is True
     assert current_status["build_cache"]["file_count"] == 1
+    assert "process_caches" in current_status
 
 
 def test_changed_source_reuses_unchanged_file_chunks(tmp_path: Path) -> None:
@@ -303,6 +304,7 @@ def test_mcp_stdio_warm_primes_caches(tmp_path: Path) -> None:
                     },
                 }
             ),
+            framed({"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "ivy_memory_status", "arguments": {}}}),
         ]
     )
 
@@ -315,12 +317,16 @@ def test_mcp_stdio_warm_primes_caches(tmp_path: Path) -> None:
     )
     messages = parse_framed_messages(proc.stdout)
     warmed = messages[2]["result"]["structuredContent"]
+    current_status = messages[3]["result"]["structuredContent"]
 
     assert warmed["ok"] is True
     assert warmed["warmed_queries"] == 1
     assert warmed["query_index_cache_entries"] >= 1
     assert warmed["item_feature_cache_entries"] >= 1
     assert warmed["corpus_item_cache_entries"] >= 1
+    assert current_status["process_caches"]["query_index_cache_entries"] >= 1
+    assert current_status["process_caches"]["item_feature_cache_entries"] >= 1
+    assert current_status["process_caches"]["corpus_item_cache_entries"] >= 1
 
 
 def test_mcp_stdio_lists_and_reads_resources(tmp_path: Path) -> None:
