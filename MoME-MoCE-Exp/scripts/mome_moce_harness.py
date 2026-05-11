@@ -1705,7 +1705,9 @@ class MoMEMoCERouter:
                 return False
         if item.authority not in {"high", "medium"} or item.staleness != "current":
             return False
-        if not (item.raw.get("valid_from") or item.raw.get("created_at")):
+        if asks_price and not item.raw.get("valid_from"):
+            return False
+        if not asks_price and not (item.raw.get("valid_from") or item.raw.get("created_at")):
             return False
         if asks_price and not any(term in blob for term in ["price", "pricing", "cost", "charge", "usd", "$", "per month"]):
             return False

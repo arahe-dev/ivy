@@ -220,39 +220,46 @@ def item_from_chunk(
     }
 
 
+def ingest_file(*, root_index: int, root: Path, path: Path, source_name: str, max_chars: int) -> list[dict[str, Any]]:
+    try:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return []
+    if not text.strip():
+        return []
+    sections = markdown_sections(text) if path.suffix.lower() in {".md", ".rst"} else [("source file", 0, len(text))]
+    items: list[dict[str, Any]] = []
+    chunk_index = 0
+    for title, start, end in sections:
+        section_text = text[start:end].strip()
+        for chunk_title, chunk_text in split_long_chunk(title, section_text, max_chars=max_chars):
+            if rough_tokens(chunk_text) < 8:
+                continue
+            item = item_from_chunk(
+                root_index=root_index,
+                root=root,
+                path=path,
+                source_name=source_name,
+                title=chunk_title,
+                text=chunk_text,
+                chunk_index=chunk_index,
+                offset_start=start,
+                offset_end=end,
+            )
+            chunk_index += 1
+            items.append(item)
+    return items
+
+
 def ingest(source_roots: list[Path], *, max_chars: int, max_files: int | None, extensions: set[str]) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
     for root_index, root, path in iter_files(source_roots, extensions, max_files):
         source_name = root.name or f"source_{root_index}"
-        try:
-            text = path.read_text(encoding="utf-8", errors="ignore")
-        except OSError:
-            continue
-        if not text.strip():
-            continue
-        sections = markdown_sections(text) if path.suffix.lower() in {".md", ".rst"} else [("source file", 0, len(text))]
-        chunk_index = 0
-        for title, start, end in sections:
-            section_text = text[start:end].strip()
-            for chunk_title, chunk_text in split_long_chunk(title, section_text, max_chars=max_chars):
-                if rough_tokens(chunk_text) < 8:
-                    continue
-                item = item_from_chunk(
-                    root_index=root_index,
-                    root=root,
-                    path=path,
-                    source_name=source_name,
-                    title=chunk_title,
-                    text=chunk_text,
-                    chunk_index=chunk_index,
-                    offset_start=start,
-                    offset_end=end,
-                )
-                chunk_index += 1
-                if item["id"] not in seen_ids:
-                    items.append(item)
-                    seen_ids.add(item["id"])
+        for item in ingest_file(root_index=root_index, root=root, path=path, source_name=source_name, max_chars=max_chars):
+            if item["id"] not in seen_ids:
+                items.append(item)
+                seen_ids.add(item["id"])
     return items
 
 

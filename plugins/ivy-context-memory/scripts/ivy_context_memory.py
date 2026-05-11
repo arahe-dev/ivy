@@ -28,7 +28,7 @@ if str(MOME_ROOT / "scripts") not in sys.path:
     sys.path.insert(0, str(MOME_ROOT / "scripts"))
 
 try:
-    from scripts.ingest_external_corpus import DEFAULT_EXTENSIONS, SKIP_DIRS, ingest  # type: ignore  # noqa: E402
+    from scripts.ingest_external_corpus import DEFAULT_EXTENSIONS, SKIP_DIRS, ingest_file  # type: ignore  # noqa: E402
     from scripts.mome_moce_harness import (  # type: ignore  # noqa: E402
         CorpusItem,
         MoMEMoCERouter,
@@ -42,7 +42,7 @@ try:
     )
     from scripts.run_packet_format_ab import render_variant  # type: ignore  # noqa: E402
 except ModuleNotFoundError:
-    from ingest_external_corpus import DEFAULT_EXTENSIONS, SKIP_DIRS, ingest  # type: ignore  # noqa: E402
+    from ingest_external_corpus import DEFAULT_EXTENSIONS, SKIP_DIRS, ingest_file  # type: ignore  # noqa: E402
     from mome_moce_harness import (  # type: ignore  # noqa: E402
         CorpusItem,
         MoMEMoCERouter,
@@ -99,6 +99,11 @@ def query_subset_path(store: Path) -> Path:
 
 def build_cache_path(store: Path) -> Path:
     return store / "cache" / "build_fingerprint.json"
+
+
+def chunk_cache_path(store: Path, root: Path, path: Path) -> Path:
+    key = content_hash(f"{root.resolve()}::{path.relative_to(root).as_posix()}")[:24]
+    return store / "cache" / "chunks" / f"{key}.json"
 
 
 def load_state(store: Path) -> dict[str, Any]:
@@ -188,6 +193,51 @@ def source_fingerprint(store: Path, roots: list[Path], *, extensions: set[str], 
         "fingerprint_sha256": content_hash("\n".join(rows) + "\nnotes:" + content_hash(notes_blob)),
     }
     return payload
+
+
+def cached_ingest(store: Path, roots: list[Path], *, max_chars: int, max_files: int | None, extensions: set[str]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    hit_files = 0
+    miss_files = 0
+    for root_index, root in enumerate(roots):
+        source_name = root.name or f"source_{root_index}"
+        for file_root, path in iter_fingerprint_files([root], extensions, max_files):
+            try:
+                stat = path.stat()
+            except OSError:
+                continue
+            cache_path = chunk_cache_path(store, file_root, path)
+            cache_meta = {
+                "root": str(file_root.resolve()),
+                "relative_path": path.relative_to(file_root).as_posix(),
+                "size": int(stat.st_size),
+                "mtime_ns": int(stat.st_mtime_ns),
+            }
+            file_items: list[dict[str, Any]]
+            cache_hit = False
+            if cache_path.exists():
+                cached = json.loads(cache_path.read_text(encoding="utf-8"))
+                if cached.get("meta") == cache_meta:
+                    file_items = list(cached.get("items", []))
+                    hit_files += 1
+                    cache_hit = True
+                else:
+                    file_items = ingest_file(root_index=root_index, root=file_root, path=path, source_name=source_name, max_chars=max_chars)
+                    miss_files += 1
+            else:
+                file_items = ingest_file(root_index=root_index, root=file_root, path=path, source_name=source_name, max_chars=max_chars)
+                miss_files += 1
+            if not cache_hit:
+                cache_path.parent.mkdir(parents=True, exist_ok=True)
+                tmp = cache_path.with_suffix(".json.tmp")
+                tmp.write_text(json.dumps({"meta": cache_meta, "items": file_items}, ensure_ascii=False), encoding="utf-8")
+                tmp.replace(cache_path)
+            for item in file_items:
+                if item["id"] not in seen_ids:
+                    items.append(item)
+                    seen_ids.add(item["id"])
+    return items, {"hit_files": hit_files, "miss_files": miss_files, "item_count": len(items)}
 
 
 def load_build_cache(store: Path) -> dict[str, Any] | None:
@@ -474,12 +524,13 @@ def build_store(store: Path, *, max_files: int | None = None, extensions: set[st
         save_state(store, state)
         return {"ok": True, "store": str(store), **cached_payload}
 
-    items = ingest(roots, max_chars=3600, max_files=max_files, extensions=active_extensions) if roots else []
+    items, chunk_cache = cached_ingest(store, roots, max_chars=3600, max_files=max_files, extensions=active_extensions) if roots else ([], {"hit_files": 0, "miss_files": 0, "item_count": 0})
     note_items = [note_to_corpus_item(note) for note in read_notes(store)]
     items.extend(note_items)
     payload = write_dataset(store, items, source_roots=[str(path) for path in roots])
     payload["notes"] = len(note_items)
     payload["cache"] = {"status": "miss", "fingerprint_path": str(build_cache_path(store))}
+    payload["chunk_cache"] = chunk_cache
     save_build_cache(store, fingerprint, payload)
     state["last_build"] = {"at": utc_now(), **payload}
     save_state(store, state)

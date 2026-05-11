@@ -138,6 +138,24 @@ def test_repeated_build_uses_fingerprint_cache(tmp_path: Path) -> None:
     assert current_status["build_cache"]["file_count"] == 1
 
 
+def test_changed_source_reuses_unchanged_file_chunks(tmp_path: Path) -> None:
+    plugin = load_plugin_module()
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "a.md").write_text("CP40 chunk cache source A should remain unchanged across builds.", encoding="utf-8")
+    (source / "b.md").write_text("CP40 chunk cache source B will change after the first build.", encoding="utf-8")
+
+    store = tmp_path / "store"
+    first = plugin.add_source(store, source, build=True)
+    (source / "b.md").write_text("CP40 chunk cache source B changed and should be reprocessed.", encoding="utf-8")
+    second = plugin.build_store(store)
+
+    assert first["build"]["chunk_cache"]["miss_files"] == 2
+    assert second["cache"]["status"] == "miss"
+    assert second["chunk_cache"]["hit_files"] == 1
+    assert second["chunk_cache"]["miss_files"] == 1
+
+
 def test_mcp_stdio_lists_and_calls_status(tmp_path: Path) -> None:
     store = tmp_path / "store"
     payload = b"".join(
