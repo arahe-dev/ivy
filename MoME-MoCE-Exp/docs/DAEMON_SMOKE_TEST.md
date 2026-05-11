@@ -1,9 +1,9 @@
 # IVY Context Memory Daemon Smoke Test
 
-Created: `2026-05-11T18:21:49Z`
+Created: `2026-05-11T18:23:21Z`
 Passed: `True`
-Base URL: `http://127.0.0.1:49582`
-Total wall: `4082.596 ms`
+Base URL: `http://127.0.0.1:49709`
+Total wall: `2277.323 ms`
 Query wall budget: `15.0 ms`
 Router budget: `5.0 ms`
 
@@ -26,11 +26,11 @@ Router budget: `5.0 ms`
 | Metric | Value |
 |---|---:|
 | Warmed queries | `4` |
-| Index items | `794` |
+| Index items | `799` |
 | Query index cache entries | `1` |
-| Item feature cache entries | `794` |
+| Item feature cache entries | `799` |
 | Corpus item cache entries | `83` |
-| Warm wall | `46.441 ms` |
+| Warm wall | `50.226 ms` |
 
 ## Query
 
@@ -38,17 +38,17 @@ Router budget: `5.0 ms`
 |---|---:|
 | Selected | `ing_mome_moce_exp_cp30_adaptive_packet_and_not_5_26513cc7eb30` |
 | Packet mode | `proof_lite` |
-| Query wall | `9.865 ms` |
-| Router latency | `3.257 ms` |
+| Query wall | `10.487 ms` |
+| Router latency | `3.236 ms` |
 
 ## Timing Breakdown
 
 | Stage | ms |
 |---|---:|
-| `prefilter` | `3.061` |
-| `corpus` | `0.019` |
-| `router_init` | `2.442` |
-| `route` | `3.257` |
-| `render` | `0.016` |
-| `packet_write` | `0.683` |
-| `total` | `9.865` |
+| `prefilter` | `2.116` |
+| `corpus` | `0.017` |
+| `router_init` | `2.531` |
+| `route` | `3.236` |
+| `render` | `0.017` |
+| `packet_write` | `2.272` |
+| `total` | `10.487` |

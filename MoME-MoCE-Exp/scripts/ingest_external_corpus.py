@@ -185,6 +185,7 @@ def item_from_chunk(
     chunk_index: int,
     offset_start: int,
     offset_end: int,
+    source_text: str | None = None,
 ) -> dict[str, Any]:
     rel = path.relative_to(root).as_posix()
     family = classify_family(path, text)
@@ -205,8 +206,8 @@ def item_from_chunk(
         "provenance": {
             "artifact_path": f"root/external/{slug(source_name)}/{rel}",
             "source_hash": sha256_text(text)[:32],
-            "line_start": line_for_offset(path.read_text(encoding="utf-8", errors="ignore"), offset_start),
-            "line_end": line_for_offset(path.read_text(encoding="utf-8", errors="ignore"), offset_end),
+            "line_start": line_for_offset(source_text if source_text is not None else path.read_text(encoding="utf-8", errors="ignore"), offset_start),
+            "line_end": line_for_offset(source_text if source_text is not None else path.read_text(encoding="utf-8", errors="ignore"), offset_end),
             "generator": "scripts/ingest_external_corpus.py",
             "record_index": chunk_index,
         },
@@ -245,6 +246,7 @@ def ingest_file(*, root_index: int, root: Path, path: Path, source_name: str, ma
                 chunk_index=chunk_index,
                 offset_start=start,
                 offset_end=end,
+                source_text=text,
             )
             chunk_index += 1
             items.append(item)
