@@ -8,6 +8,7 @@ import re
 import shutil
 import sys
 import time
+from collections import Counter
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -27,11 +28,31 @@ if str(MOME_ROOT / "scripts") not in sys.path:
 
 try:
     from scripts.ingest_external_corpus import DEFAULT_EXTENSIONS, ingest  # type: ignore  # noqa: E402
-    from scripts.mome_moce_harness import MoMEMoCERouter, load_corpus, rough_tokens  # type: ignore  # noqa: E402
+    from scripts.mome_moce_harness import (  # type: ignore  # noqa: E402
+        CorpusItem,
+        MoMEMoCERouter,
+        derive_exposure_policy,
+        derive_taint_labels,
+        load_corpus,
+        norm,
+        rough_tokens,
+        split_identifier,
+        tokenize,
+    )
     from scripts.run_packet_format_ab import render_variant  # type: ignore  # noqa: E402
 except ModuleNotFoundError:
     from ingest_external_corpus import DEFAULT_EXTENSIONS, ingest  # type: ignore  # noqa: E402
-    from mome_moce_harness import MoMEMoCERouter, load_corpus, rough_tokens  # type: ignore  # noqa: E402
+    from mome_moce_harness import (  # type: ignore  # noqa: E402
+        CorpusItem,
+        MoMEMoCERouter,
+        derive_exposure_policy,
+        derive_taint_labels,
+        load_corpus,
+        norm,
+        rough_tokens,
+        split_identifier,
+        tokenize,
+    )
     from run_packet_format_ab import render_variant  # type: ignore  # noqa: E402
 
 
@@ -65,6 +86,14 @@ def notes_path(store: Path) -> Path:
 
 def dataset_path(store: Path) -> Path:
     return store / "datasets" / DEFAULT_DATASET
+
+
+def index_path(store: Path) -> Path:
+    return store / "index" / "corpus_index.json"
+
+
+def query_subset_path(store: Path) -> Path:
+    return store / "query_subset"
 
 
 def load_state(store: Path) -> dict[str, Any]:
@@ -140,6 +169,158 @@ def note_to_corpus_item(note: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def item_search_text(item: dict[str, Any]) -> str:
+    return " ".join(
+        [
+            str(item.get("id", "")),
+            str(item.get("source_family", "")),
+            str(item.get("authority", "")),
+            str(item.get("staleness", "")),
+            " ".join(str(tag) for tag in item.get("tags", [])),
+            json.dumps(item.get("provenance", {}), sort_keys=True),
+            str(item.get("text", "")),
+        ]
+    )
+
+
+def build_query_index(store: Path, items: list[dict[str, Any]]) -> dict[str, Any]:
+    postings: dict[str, list[str]] = {}
+    docs: dict[str, dict[str, Any]] = {}
+    token_df: dict[str, int] = {}
+    for item in items:
+        item_id = str(item["id"])
+        docs[item_id] = item
+        tokens = sorted(set(tokenize(item_search_text(item))))
+        for token in tokens:
+            postings.setdefault(token, []).append(item_id)
+            token_df[token] = token_df.get(token, 0) + 1
+    payload = {
+        "schema_version": "ivy_context_memory.query_index.v0.1",
+        "created_at": utc_now(),
+        "items": len(items),
+        "tokens": len(postings),
+        "docs": docs,
+        "postings": postings,
+        "token_df": token_df,
+    }
+    path = index_path(store)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+    tmp.replace(path)
+    return {"path": str(path), "items": len(items), "tokens": len(postings)}
+
+
+def load_query_index(store: Path) -> dict[str, Any] | None:
+    path = index_path(store)
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def raw_to_corpus_item(raw: dict[str, Any]) -> CorpusItem:
+    taint_labels = derive_taint_labels(raw)
+    exposure_policy = derive_exposure_policy(raw, taint_labels)
+    search_text = " ".join(
+        [
+            raw["id"],
+            split_identifier(raw["id"]),
+            raw["source_family"],
+            raw["authority"],
+            raw.get("staleness", ""),
+            " ".join(raw.get("tags", [])),
+            split_identifier(" ".join(raw.get("tags", []))),
+            json.dumps(raw.get("provenance", {}), sort_keys=True),
+            raw["text"],
+        ]
+    )
+    tokens = tokenize(search_text)
+    return CorpusItem(
+        id=raw["id"],
+        source_family=raw["source_family"],
+        authority=raw["authority"],
+        staleness=raw.get("staleness", "unknown"),
+        safety_label=raw.get("safety_label", "normal"),
+        taint_labels=taint_labels,
+        exposure_policy=exposure_policy,
+        tags=list(raw.get("tags", [])),
+        text=raw["text"],
+        provenance=dict(raw.get("provenance", {})),
+        conflicts_with=list(raw.get("conflicts_with", [])),
+        raw=raw,
+        tokens=tokens,
+        token_counts=Counter(tokens),
+        search_text=norm(search_text),
+    )
+
+
+def raw_items_to_corpus(items: list[dict[str, Any]]) -> list[CorpusItem]:
+    return [raw_to_corpus_item(item) for item in items]
+
+
+def select_prefilter_items(store: Path, query: str, *, max_items: int = 192) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    index = load_query_index(store)
+    if not index:
+        return [], {"enabled": False, "reason": "missing_index"}
+    docs: dict[str, dict[str, Any]] = index.get("docs", {})
+    postings: dict[str, list[str]] = index.get("postings", {})
+    token_df: dict[str, int] = index.get("token_df", {})
+    query_tokens = set(tokenize(f"{query} mome moce acca context memory"))
+    scores: dict[str, float] = {}
+    matches: dict[str, list[str]] = {}
+    total_items = max(1, int(index.get("items", len(docs) or 1)))
+    for token in query_tokens:
+        ids = postings.get(token, [])
+        if not ids:
+            continue
+        weight = 1.0 + (total_items / max(1, int(token_df.get(token, len(ids)))))
+        for item_id in ids:
+            scores[item_id] = scores.get(item_id, 0.0) + weight
+            matches.setdefault(item_id, []).append(token)
+    if not scores:
+        return [], {"enabled": True, "reason": "no_token_hits", "candidate_count": 0, "total_items": total_items}
+    for item_id, item in docs.items():
+        tags = set(str(tag) for tag in item.get("tags", []))
+        if "agent_note" in tags and item_id in scores:
+            scores[item_id] += 500.0
+    ranked = sorted(
+        scores,
+        key=lambda item_id: (
+            scores[item_id],
+            len(matches.get(item_id, [])),
+            1 if docs[item_id].get("authority") in {"high", "medium"} else 0,
+            len(str(docs[item_id].get("text", ""))),
+        ),
+        reverse=True,
+    )
+    selected_ids = ranked[:max_items]
+    selected = [docs[item_id] for item_id in selected_ids if item_id in docs]
+    return selected, {
+        "enabled": True,
+        "reason": "ok",
+        "candidate_count": len(selected),
+        "total_items": total_items,
+        "max_items": max_items,
+        "top_ids": selected_ids[:10],
+    }
+
+
+def write_subset_dataset(store: Path, items: list[dict[str, Any]]) -> Path:
+    out = query_subset_path(store)
+    if out.exists():
+        shutil.rmtree(out)
+    (out / "corpus").mkdir(parents=True)
+    (out / "eval").mkdir(parents=True)
+    with (out / "corpus" / "corpus_items.jsonl").open("w", encoding="utf-8", newline="\n") as handle:
+        for item in items:
+            handle.write(json.dumps(item, sort_keys=True) + "\n")
+    (out / "eval" / "cases.json").write_text(
+        json.dumps({"schema_version": "context_stress_eval_cases.v0.1", "cases": []}, indent=2),
+        encoding="utf-8",
+    )
+    return out
+
+
 def write_dataset(store: Path, items: list[dict[str, Any]], *, source_roots: list[str]) -> dict[str, Any]:
     out = dataset_path(store)
     if out.exists():
@@ -192,7 +373,8 @@ def write_dataset(store: Path, items: list[dict[str, Any]], *, source_roots: lis
         },
     }
     (out / "metadata" / "dataset_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-    return {"dataset": str(out), "corpus_items": len(items), "source_roots": source_roots}
+    index = build_query_index(store, items)
+    return {"dataset": str(out), "corpus_items": len(items), "source_roots": source_roots, "index": index}
 
 
 def build_store(store: Path, *, max_files: int | None = None, extensions: set[str] | None = None) -> dict[str, Any]:
@@ -259,12 +441,29 @@ def auto_variant(result: Any) -> str:
     return "compact_default"
 
 
-def query_store(store: Path, *, query: str, variant: str = "auto", top_k: int = 5) -> dict[str, Any]:
+def query_store(
+    store: Path,
+    *,
+    query: str,
+    variant: str = "auto",
+    top_k: int = 5,
+    prefilter: bool = True,
+    max_prefilter_items: int = 192,
+) -> dict[str, Any]:
     data = dataset_path(store)
     if not (data / "corpus" / "corpus_items.jsonl").exists():
         build_store(store)
-    items = load_corpus(data)
-    router = MoMEMoCERouter(items, candidate_backend="indexed", dataset_path=data, top_k=top_k)
+    prefilter_meta: dict[str, Any] = {"enabled": False, "reason": "disabled"}
+    route_dataset = data
+    if prefilter:
+        subset_items, prefilter_meta = select_prefilter_items(store, query, max_items=max_prefilter_items)
+        if subset_items:
+            items = raw_items_to_corpus(subset_items)
+        else:
+            items = load_corpus(data)
+    else:
+        items = load_corpus(data)
+    router = MoMEMoCERouter(items, candidate_backend="indexed", dataset_path=route_dataset, top_k=top_k)
     started = time.perf_counter()
     result = router.route(query)
     if not result.selected_ids and items:
@@ -304,6 +503,7 @@ def query_store(store: Path, *, query: str, variant: str = "auto", top_k: int = 
         "ok": True,
         "store": str(store),
         "dataset": str(data),
+        "route_dataset": str(route_dataset),
         "query": query,
         "variant": chosen_variant,
         "decision": result.decision,
@@ -311,6 +511,7 @@ def query_store(store: Path, *, query: str, variant: str = "auto", top_k: int = 
         "selected_ids": result.selected_ids,
         "selected_count": len(result.selected_ids),
         "latency_ms": round(latency_ms, 3),
+        "prefilter": prefilter_meta,
         "packet_words": rough_tokens(packet_text),
         "packet_text": packet_text,
         "route_proof": result.route_proof,
@@ -322,6 +523,7 @@ def status(store: Path) -> dict[str, Any]:
     init_store(store)
     state = load_state(store)
     data = dataset_path(store)
+    index = load_query_index(store)
     corpus_items = 0
     if (data / "corpus" / "corpus_items.jsonl").exists():
         corpus_items = sum(1 for line in (data / "corpus" / "corpus_items.jsonl").read_text(encoding="utf-8").splitlines() if line.strip())
@@ -332,6 +534,12 @@ def status(store: Path) -> dict[str, Any]:
         "source_roots": state.get("source_roots", []),
         "notes": len(read_notes(store)),
         "corpus_items": corpus_items,
+        "index": {
+            "items": index.get("items", 0) if index else 0,
+            "tokens": index.get("tokens", 0) if index else 0,
+            "path": str(index_path(store)),
+            "exists": bool(index),
+        },
         "last_build": state.get("last_build"),
     }
 
@@ -371,7 +579,16 @@ class ApiHandler(BaseHTTPRequestHandler):
         try:
             payload = self._read_json()
             if self.path == "/query":
-                self._send(200, query_store(self.store, query=str(payload["query"]), variant=str(payload.get("variant", "auto"))))
+                self._send(
+                    200,
+                    query_store(
+                        self.store,
+                        query=str(payload["query"]),
+                        variant=str(payload.get("variant", "auto")),
+                        prefilter=bool(payload.get("prefilter", True)),
+                        max_prefilter_items=int(payload.get("max_prefilter_items", 192)),
+                    ),
+                )
             elif self.path == "/remember":
                 self._send(
                     200,
@@ -435,6 +652,8 @@ def main(argv: list[str] | None = None) -> int:
     query_parser.add_argument("--variant", choices=["auto", "compact_default", "proof_lite", "contradiction_aware"], default="auto")
     query_parser.add_argument("--top-k", type=int, default=5)
     query_parser.add_argument("--text", action="store_true")
+    query_parser.add_argument("--no-prefilter", action="store_true")
+    query_parser.add_argument("--max-prefilter-items", type=int, default=192)
 
     serve_parser = sub.add_parser("serve")
     serve_parser.add_argument("--host", default="127.0.0.1")
@@ -455,7 +674,17 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "remember":
             print_payload(remember(store, text=args.text, source_path=args.source_path, tags=args.tag, authority=args.authority))
         elif args.command == "query":
-            print_payload(query_store(store, query=args.query, variant=args.variant, top_k=args.top_k), text=args.text)
+            print_payload(
+                query_store(
+                    store,
+                    query=args.query,
+                    variant=args.variant,
+                    top_k=args.top_k,
+                    prefilter=not args.no_prefilter,
+                    max_prefilter_items=args.max_prefilter_items,
+                ),
+                text=args.text,
+            )
         elif args.command == "serve":
             if args.stdio_mcp_placeholder:
                 print(json.dumps({"ok": False, "error": "MCP protocol server is not implemented yet; use HTTP serve or CLI commands."}))

@@ -19,12 +19,17 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_EXTENSIONS = {".md", ".txt", ".rst", ".py", ".ps1", ".ts", ".tsx", ".js", ".jsx", ".rs", ".json", ".toml", ".yaml", ".yml"}
 SKIP_DIRS = {
     ".git",
+    ".ivy-context-memory",
     ".next",
     ".pytest_cache",
     ".venv",
+    "artifacts",
     "coverage",
     "dist",
     "node_modules",
+    "out",
+    "packets",
+    "query_subset",
     "release-artifacts",
     "research-runs",
     "target",
