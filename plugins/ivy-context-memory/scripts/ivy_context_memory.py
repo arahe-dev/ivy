@@ -658,7 +658,7 @@ def query_store(
         build_store(store)
     runtime_policy = load_runtime_policy(store)
     if max_prefilter_items is None:
-        max_prefilter_items = int(runtime_policy.get("max_prefilter_items", 192))
+        max_prefilter_items = int(runtime_policy.get("max_prefilter_items", 32))
     prefilter_meta: dict[str, Any] = {"enabled": False, "reason": "disabled"}
     route_dataset = data
     if prefilter:
