@@ -25,6 +25,10 @@ The important shift:
 | `fe0c754` | CP38 | Added MCP resources for status, latest packet, and track record. | 20 focused tests. |
 | `3459bc2` | CP39 | Added MCP workflow prompts for query-before-task and remember-after-verification. | 21 focused tests. |
 | `3ccf1ba` | CP40 | Added file-level chunk cache and stricter current-price evidence gate. | Benchmark 5/5; 22 focused tests. |
+| `5e3655f` | CP41 | Added rich note metadata for staleness, supersedes, and conflicts. | 17 focused tests. |
+| `2a4702d` | CP42 | Added stale/current conflict lane to plugin benchmark. | Benchmark 6/6; 23 focused tests. |
+| `1ca782b` | CP43 | Added stable committed plugin benchmark scoreboard. | Scoreboard 6/6; plugin tests passed. |
+| `dba5a98` | CP44 | Added Codex/OpenCode memory plugin bootstrap guide. | Documentation checkpoint. |
 
 ## Latest Benchmark
 
@@ -36,10 +40,10 @@ python MoME-MoCE-Exp\scripts\run_context_memory_plugin_benchmark.py --reset
 
 Latest result:
 
-- Query count: `5`
-- Passed expectations: `5 / 5`
-- Avg query wall: `96.344 ms`
-- Avg router latency: `11.235 ms`
+- Query count: `6`
+- Passed expectations: `6 / 6`
+- Avg query wall: `105.959 ms`
+- Avg router latency: `12.401 ms`
 
 | Query Type | Expected Behavior | Result |
 |---|---|---|
@@ -47,6 +51,7 @@ Latest result:
 | CP33 MCP tools memory | select direct note | passed |
 | CP29 generated-output ingestion | select CP29 note | passed |
 | CP32 build cache | select CP32 note | passed |
+| CP42 stale/current conflict | select conflict pair and use contradiction mode | passed |
 | live Bitcoin price | select no local memory | passed |
 
 ## Bugs Caught During Supercharge
@@ -95,6 +100,17 @@ Fix:
 - cache file chunks under `store/cache/chunks`
 - on changed-source rebuilds, reuse unchanged file chunks and reprocess only changed files
 
+### Missing Plugin-Native Conflict Authoring
+
+Before CP41, stale/conflicting plugin notes required hand-editing corpus JSON.
+
+Fix:
+
+- `remember` accepts `staleness`
+- `remember` accepts `supersedes`
+- `remember` accepts `conflicts_with`
+- CLI, HTTP, and MCP all expose the metadata
+
 ## Architecture Snapshot
 
 ```mermaid
@@ -129,6 +145,7 @@ flowchart LR
 - Query hot path is now low tens of milliseconds inside the router.
 - Repeatable benchmark catches both positive retrieval and negative over-retrieval.
 - Build refresh can reuse unchanged file chunks after source edits.
+- Plugin-authored notes can participate in stale/current conflict routing.
 - Safety still rejects obvious secret-like remembered notes.
 
 ## Current Weaknesses
