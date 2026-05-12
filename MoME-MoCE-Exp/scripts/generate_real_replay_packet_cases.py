@@ -4,7 +4,7 @@ import argparse
 import json
 import random
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +27,7 @@ class ReplayConcept:
     match_terms: list[str]
     stale_text: str | None = None
     decoy_text: str | None = None
+    distillation_patterns: list[list[str]] = field(default_factory=list)
 
 
 CONCEPTS = [
@@ -40,6 +41,7 @@ CONCEPTS = [
         ["what is acca", "search engine", "rag", "context system", "memory system", "context engine"],
         ["what have we actually made", "search engine", "rag", "memory and context", "context/memory", "acca actually"],
         decoy_text="Decoy claim: D-ACCA is only a normal search engine that returns textually similar documents.",
+        distillation_patterns=[["search engine"], ["rag"], ["memory", "context"], ["what", "made"]],
     ),
     ReplayConcept(
         "bm25_role",
@@ -51,6 +53,7 @@ CONCEPTS = [
         ["bm25", "naive bm25", "discard bm25", "retrieval primitive", "candidate generator", "bm25 precision"],
         ["bm25", "discard bm25", "naive", "precision", "retrieval primitive", "candidate generator"],
         decoy_text="Decoy claim: BM25 should be discarded entirely and never used in the D-ACCA stack.",
+        distillation_patterns=[["discard", "bm25"], ["bm25", "precision"], ["naive", "bm25"], ["candidate", "generator"]],
     ),
     ReplayConcept(
         "helper_lazy",
@@ -62,6 +65,7 @@ CONCEPTS = [
         ["helper-lazy", "helper lazy", "helper librarian", "alias brain", "profile brain", "helper and lazy", "min max helper"],
         ["helper-lazy", "helper lazy", "librarian helping", "alias", "metadata", "profile", "helper and lazy"],
         decoy_text="Decoy claim: helper-lazy's synthetic score proves external real-world generalization without more tests.",
+        distillation_patterns=[["helper", "lazy"], ["alias", "metadata"], ["profile", "brain"], ["min", "max", "helper"]],
     ),
     ReplayConcept(
         "spec_dd_lazy",
@@ -70,8 +74,20 @@ CONCEPTS = [
         "Spec-DD-lazy is the current sub-millisecond speculative draft sidecar candidate: it drafts a query cheaply and lets final D-ACCA routing verify it.",
         ["spec-dd", "spec-dd-lazy", "speculative", "mtp", "draft", "verify"],
         "Spec-DD-lazy speculative draft sidecar final D-ACCA verifier sub millisecond",
-        ["spec dd lazy", "spec decode", "mtp", "draft sidecar", "speculative", "sub ms", "min max latency", "lazy sidecar"],
-        ["spec decode", "mtp", "spec-dd", "spec dd", "speculative", "draft", "lazy", "latency and quality"],
+        ["spec dd lazy", "spec decode", "mtp", "draft sidecar", "speculative", "sub ms", "min max latency", "lazy sidecar", "bottom 80 top 20", "bottom 80% top 20%", "deterministaclly confirm", "deterministically confirm", "frontier model confirm and recall", "large frontier model"],
+        ["spec decode", "mtp", "spec-dd", "spec dd", "speculative", "draft", "lazy", "latency and quality", "bottom 80", "top 20", "confirm and recall", "large frontier model"],
+        distillation_patterns=[
+            ["spec", "decode"],
+            ["mtp"],
+            ["spec", "dd"],
+            ["latency", "quality"],
+            ["draft", "sidecar"],
+            ["bottom", "80"],
+            ["top", "20"],
+            ["confirm", "recall"],
+            ["deterministaclly"],
+            ["deterministically", "confirm"],
+        ],
     ),
     ReplayConcept(
         "confidence_gate",
@@ -82,6 +98,7 @@ CONCEPTS = [
         "confidence gate accept no_context escalate_librarian score margin stale conflict forbidden risk",
         ["confidence gate", "early exit", "when to deploy librarian", "activate librarian", "gated deterministic", "95% confidence"],
         ["confidence", "gate", "deploy the librarian", "activate the librarian", "early exit", "confidence answers", "confidence pass"],
+        distillation_patterns=[["confidence", "gate"], ["95%", "confidence"], ["activate", "librarian"], ["deploy", "librarian"]],
     ),
     ReplayConcept(
         "distillation_loop",
@@ -90,8 +107,19 @@ CONCEPTS = [
         "The distillation loop lets a slower librarian solve hard cases, then converts repeated wins into aliases, negative constraints, rules, and black-box tests for the fast deterministic path.",
         ["distillation", "learning", "aliases", "rules", "tests"],
         "librarian solves hard cases distill aliases negative constraints rules tests fast path",
-        ["distillation loop", "learns user patterns", "brain that learns", "post deployment", "teach deterministic", "human brain", "sub second"],
-        ["learns", "patterns", "distill", "post deployment", "brain", "user patterns", "future similar", "human brain"],
+        ["distillation loop", "learns user patterns", "brain that learns", "post deployment", "teach deterministic", "human brain", "sub second", "contextneedspec", "context need spec", "frontier-led context", "architecture theory", "large frontier model"],
+        ["learns", "patterns", "distill", "post deployment", "brain", "user patterns", "future similar", "human brain", "contextneedspec", "context need spec", "frontier model should", "architecture/theory"],
+        distillation_patterns=[
+            ["human", "brain"],
+            ["learns", "patterns"],
+            ["post", "deployment"],
+            ["distill"],
+            ["sub", "second"],
+            ["context", "need", "spec"],
+            ["contextneedspec"],
+            ["frontier", "model", "parameters"],
+            ["architecture", "theory"],
+        ],
     ),
     ReplayConcept(
         "librarian_role",
@@ -102,6 +130,7 @@ CONCEPTS = [
         "librarian advisory sidecar intent compiler query bundle D-ACCA final admission authority",
         ["librarian", "library", "special cases", "advisory", "sub agent"],
         ["librarian", "library", "book", "special cases", "side track", "sub agent"],
+        distillation_patterns=[["librarian"], ["library", "special"], ["sub", "agent"], ["truth", "verifier"]],
     ),
     ReplayConcept(
         "deepseek_role",
@@ -110,9 +139,10 @@ CONCEPTS = [
         "DeepSeek Flash is useful as a shadow or teacher librarian for hard intent cases, but prior live runs were too slow for every hot-path request.",
         ["deepseek", "flash", "teacher", "shadow", "latency"],
         "DeepSeek Flash shadow teacher librarian hard cases too slow hot path",
-        ["deepseek", "deepseek flash", "v4 flash", "model librarian", "teacher model"],
-        ["deepseek", "v4 flash", "flash", "hot path", "runtime", "teacher", "shadow"],
+        ["deepseek", "deepsee", "deepseek flas", "deepseek flash", "deepseek flash via", "deepseek pro", "v4 flash", "openrouter", "model librarian", "teacher model", "kimi-k2.6", "model selection deep dive", "codex-go model selection", "live opencode go model list", "launch 1 gpt 1 deepseek", "deep dive into this"],
+        ["deepseek", "deepsee", "deepseek pro", "deepseek flas", "v4 flash", "flash", "hot path", "runtime", "teacher", "shadow", "openrouter", "kimi-k2.6", "model selection deep dive", "codex-go model selection", "launch deepseek"],
         decoy_text="Decoy claim: DeepSeek Flash should be called for every D-ACCA request on the hot path.",
+        distillation_patterns=[["deepseek"], ["deepsee"], ["deepseek", "pro"], ["deepseek", "flas"], ["v4", "flash"], ["teacher", "model"], ["hot", "path"], ["shadow"], ["openrouter"], ["kimi-k2.6"], ["model", "selection", "deep", "dive"], ["codex-go", "model"], ["launch", "deepseek"]],
     ),
     ReplayConcept(
         "blackbox_results",
@@ -123,6 +153,7 @@ CONCEPTS = [
         "1700 case black-box packet synthetic mixed edge not external deployment proof",
         ["1700 cases", "simulated environment", "real world oriented", "black box", "edge cases", "1000 test case packet", "700 edge"],
         ["1700", "simulated", "real world", "black box", "edge", "internal benchmark", "1000 test case", "test case packet"],
+        distillation_patterns=[["1700"], ["1000", "test"], ["700", "edge"], ["simulated", "real"], ["black", "box"]],
     ),
     ReplayConcept(
         "real_replay_testing",
@@ -131,8 +162,22 @@ CONCEPTS = [
         "The next realism step is real conversation replay with metadata ablation and held-out aliases before adding more implementation that might overfit synthetic packets.",
         ["real replay", "metadata ablation", "held-out aliases", "codex logs", "opencode logs"],
         "real conversation replay metadata ablation held-out aliases Codex OpenCode logs",
-        ["real world tests", "codex chatlogs", "opencode chatlogs", "metadata ablation", "held-out alias"],
-        ["real world", "chatlogs", "codex logs", "opencode", "ablation", "held-out", "replay"],
+        ["real world tests", "codex chatlogs", "opencode chatlogs", "metadata ablation", "held-out alias", "staged pilot", "natural context recovery", "agent outcome a/b", "shadow field recorder", "files mentioned by the user", "ACCA_BUILD_DEV_PROCESS_WRITEUP", "what do you think about this", "my request for codex"],
+        ["real world", "chatlogs", "codex logs", "opencode", "ablation", "held-out", "replay", "staged pilot", "natural context recovery", "shadow field", "files mentioned by the user", "ACCA_BUILD_DEV_PROCESS_WRITEUP", "what do you think"],
+        distillation_patterns=[
+            ["real", "world", "tests"],
+            ["codex", "logs"],
+            ["opencode", "logs"],
+            ["metadata", "ablation"],
+            ["held", "out"],
+            ["staged", "pilot"],
+            ["natural", "context", "recovery"],
+            ["agent", "outcome"],
+            ["shadow", "field"],
+            ["files", "mentioned", "user"],
+            ["ACCA_BUILD_DEV_PROCESS_WRITEUP"],
+            ["what", "think"],
+        ],
     ),
     ReplayConcept(
         "signal_integration",
@@ -141,8 +186,9 @@ CONCEPTS = [
         "Signal is the local push and reply layer: agents can send progress pings or blocking asks to a phone through a local daemon, Tailscale Serve, and Web Push.",
         ["signal", "phone", "push", "reply", "tailscale"],
         "Signal local push reply phone daemon Tailscale Web Push agent pings",
-        ["signal", "signalcli", "phone ping", "pings via signal", "push reply", "ping as well", "notify phone"],
-        ["signal", "signalcli", "phone", "ping", "notify", "tailscale", "pings"],
+        ["signal", "signalcli", "phone ping", "pings via signal", "push reply", "ping as well", "notify phone", "kitty litter on my phone", "tailscale to my phone", "gguf is loaded", "smaller model", "frontier model", "keep going and running iterating"],
+        ["signal", "signalcli", "phone", "ping", "notify", "tailscale", "pings", "kitty litter phone", "gguf is loaded", "smaller model"],
+        distillation_patterns=[["signal"], ["ping", "phone"], ["ping", "as", "well"], ["tailscale", "phone"], ["notify"], ["phone", "kitty"], ["phone", "tailscale"], ["gguf", "loaded"], ["smaller", "model"], ["frontier", "model"]],
     ),
     ReplayConcept(
         "recall_board_integration",
@@ -151,8 +197,9 @@ CONCEPTS = [
         "Recall Board is the visual second-brain surface: it exports editable Excalidraw boards as compact AI-readable graph and context JSON instead of screenshots.",
         ["recall board", "excalidraw", "second brain", "graph", "ai context"],
         "Recall Board Excalidraw visual second brain AI-readable graph context JSON",
-        ["recall-board", "recall board", "excalidraw", "second brain", "visual memory"],
-        ["recall", "recall-board", "excalidraw", "second brain", "dashboard", "board"],
+        ["recall-board", "recall board", "excalidraw", "second brain", "visual memory", "3000 word write up", "integrations with signal and recall-board", "whole acca building/dev process", "250 on integrations", "integrations with other projects"],
+        ["recall", "recall-board", "excalidraw", "second brain", "dashboard", "board", "integrations", "3000 word write up", "250 integrations"],
+        distillation_patterns=[["recall", "board"], ["excalidraw"], ["second", "brain"], ["dashboard"], ["visual", "memory"], ["recall-board"], ["integrations", "recall"], ["3000", "word", "write"], ["250", "integrations"], ["integrations", "other", "projects"]],
     ),
     ReplayConcept(
         "startup_saas",
@@ -161,8 +208,9 @@ CONCEPTS = [
         "The strongest SaaS wedge is context governance for AI agents: shadow recorder first, assisted injection second, and team memory governance later.",
         ["startup", "saas", "context governance", "shadow recorder", "assisted injection"],
         "SaaS context governance AI agents shadow recorder assisted injection team memory",
-        ["startup", "saas", "revenue", "users", "product", "github stars", "basis of a SaaS", "real need", "get users", "product standpoint"],
-        ["startup", "saas", "revenue", "users", "product", "commercial", "real need", "built and get users"],
+        ["startup", "saas", "revenue", "users", "product", "github stars", "basis of a SaaS", "real need", "get users", "product standpoint", "pivot to different needs", "ai/llm field", "top practical capabilities", "confidence scores 0-100", "track record and points", "improve the system", "architectural stand point", "pivot to different needs"],
+        ["startup", "saas", "revenue", "users", "product", "commercial", "real need", "built and get users", "pivot", "capabilities", "model group", "track record", "improve the system", "architectural standpoint"],
+        distillation_patterns=[["saas"], ["startup"], ["revenue"], ["real", "need"], ["get", "users"], ["product", "standpoint"], ["pivot", "needs"], ["top", "practical", "capabilities"], ["confidence", "scores"], ["track", "record"], ["improve", "system"], ["architectural", "stand"]],
     ),
     ReplayConcept(
         "codex_opencode_logs",
@@ -171,8 +219,9 @@ CONCEPTS = [
         "Codex sessions are available under the local .codex sessions JSONL tree. OpenCode config is under .config/opencode, while desktop state may live in OpenCode WebView storage.",
         ["codex", "opencode", "logs", "sessions", "jsonl"],
         "Codex sessions .codex JSONL OpenCode .config opencode WebView storage logs",
-        ["codex chatlogs", "opencode chatlogs", ".config/opencode", ".codex sessions", "jsonl", "opencode go", "codexgo", "codex plus", "openai key", "api key"],
-        ["codex logs", "chatlogs", "opencode", ".config", ".codex", "sessions", "codexgo", "opencode go"],
+        ["codex chatlogs", "opencode chatlogs", ".config/opencode", ".codex sessions", "jsonl", "opencode go", "OpenCod Go", "codexgo", "codex plus", "openai key", "api key", "codex-go error", "unexpected argument", "model selection guide", "opencode go models", "codex-tauri-rust-prd", "rust+tauri", "boring use case", "launch 5 subagents", "not glm"],
+        ["codex logs", "chatlogs", "opencode", ".config", ".codex", "sessions", "codexgo", "opencode go", "OpenCod Go", "codex-go", "openai key", "codex-tauri", "launch 5 subagents"],
+        distillation_patterns=[["codex", "opencode"], ["opencode", "go"], ["OpenCod", "Go"], ["codexgo"], ["codex-go"], [".config", "opencode"], [".codex", "sessions"], ["api", "key"], ["unexpected", "argument"], ["model", "selection", "guide"], ["codex-tauri"], ["rust", "tauri"], ["launch", "5", "subagents"], ["not", "glm"]],
     ),
     ReplayConcept(
         "worktree_branch",
@@ -181,8 +230,9 @@ CONCEPTS = [
         "Current D-ACCA supercharge work is on the worktree branch codex/d-acca-dd-acca-librarian-supercharge under C:/ivy-worktrees/d-acca-dd-acca-librarian-supercharge.",
         ["worktree", "branch", "push", "merge", "codex/d-acca"],
         "worktree branch codex/d-acca-dd-acca-librarian-supercharge C:/ivy-worktrees",
-        ["worktree", "main", "branch", "push commits", "merge", "pr", "non pushed commits", "milestone commit", "commits along the way"],
-        ["worktree", "branch", "merge", "push", "pr", "main", "commits", "milestone"],
+        ["worktree", "main", "branch", "push commits", "merge", "pr", "non pushed commits", "milestone commit", "commits along the way", "read-only in c:\\ivy", "do not edit files", "codex planning agent", "subagent for ivy", "work read-only"],
+        ["worktree", "branch", "merge", "push", "pr", "main", "commits", "milestone", "read-only", "do not edit"],
+        distillation_patterns=[["worktree"], ["branch"], ["push", "commits"], ["non", "pushed", "commits"], ["merge"], ["pr"], ["milestone"], ["read-only", "c:\\ivy"], ["do", "not", "edit"], ["codex", "planning", "agent"], ["subagent", "ivy"]],
     ),
 ]
 
@@ -423,6 +473,8 @@ def item_record(concept: ReplayConcept, kind: str) -> dict[str, Any]:
         "helper_query": helper_query,
         "guard_terms": [concept.guard],
         "negative_constraints": ["Reject stale, decoy, superseded, wrong-entity, or unsupported evidence."],
+        "replay_match_terms": concept.match_terms,
+        "distillation_patterns": concept.distillation_patterns,
     }
 
 

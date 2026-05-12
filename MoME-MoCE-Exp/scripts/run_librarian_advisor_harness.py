@@ -1025,7 +1025,8 @@ def helper_lazy_advice(case: dict[str, Any], router: MoMEMoCERouter | None) -> L
         if item.authority == "decoy" or item.staleness == "stale":
             continue
         aliases = [str(alias) for alias in raw.get("aliases", []) if str(alias).strip()]
-        helper_terms = aliases + [item.id, *item.tags, str(raw.get("helper_query") or ""), item.text]
+        replay_match_terms = [str(term) for term in raw.get("replay_match_terms", []) if str(term).strip()]
+        helper_terms = aliases + replay_match_terms + [item.id, *item.tags, str(raw.get("helper_query") or ""), item.text]
         score = 0.0
         matched_alias = ""
         for alias in aliases:
@@ -1033,10 +1034,22 @@ def helper_lazy_advice(case: dict[str, Any], router: MoMEMoCERouter | None) -> L
             if alias_norm and alias_norm in lower:
                 score = max(score, 5.0 + len(alias_norm.split()) * 0.2)
                 matched_alias = alias
+        for term in replay_match_terms:
+            term_norm = norm_text(term)
+            if term_norm and term_norm in lower:
+                score += 3.4 + len(term_norm.split()) * 0.25
+                if not matched_alias:
+                    matched_alias = term
         item_tokens = set(token for term in helper_terms for token in norm_text(term).split())
         score += len(q_tokens & item_tokens) * 0.25
         item_blob = norm_text(" ".join(helper_terms))
         score += sum(0.45 for phrase in phrases if phrase in item_blob)
+        for pattern in raw.get("distillation_patterns", []) or []:
+            if not isinstance(pattern, list):
+                continue
+            terms = [norm_text(str(term)) for term in pattern if str(term).strip()]
+            if terms and all(term in lower for term in terms):
+                score += 8.0 + 0.5 * len(terms)
         if item.staleness == "current":
             score += 0.2
         if item.authority == "high":
