@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "docs" / "study_packet"
 TITLE = "IVY MoME/MoCE + ACCA Study Packet"
-SUBTITLE = "A deep learning packet for understanding the memory/context system built through CP0-CP20"
+SUBTITLE = "A deep learning packet for understanding the context-memory system built through CP102"
 
 
 def md_table(headers: list[str], rows: list[list[str]]) -> str:
@@ -1947,6 +1947,508 @@ e89544b cp10 add answer-level eval
 ]
 
 
+LATEST_CP_ROWS = [
+    ["CP0-CP6", "Contracts, packet ABI, baselines, mutation", "Moved from forgiving recall checks to auditable route proofs, frontier packets, compactness gates, baseline comparison, and ablation discipline."],
+    ["CP7-CP9.1", "Ivy-real + indexed/Rust candidate search", "Moved from synthetic corpora into real IVY evidence; proved indexed Python and Rust candidate backends could preserve selected evidence while reducing route latency."],
+    ["CP10-CP14", "Answer quality, harder labels, latency gates, write barrier", "Measured final answers, added hard cases, enforced sub-5 ms deterministic routing, kept DeepSeek advisory only, and blocked unsafe/stale/private proposed memory before ingestion."],
+    ["CP15-CP20", "Bridge into agent runtime", "Solved v3 hard cases, added ACCA CLI/context bridge, exported IVY SQLite memory, made agent injection opt-in, ingested milestones, and certified provider JSON/tool behavior."],
+    ["CP21-CP30", "External corpora and plugin MVP", "Expanded beyond internal docs, tested packet formats, added external ingestion, created the first `ivy-context-memory` plugin, and added persisted prefiltering and adaptive packet modes."],
+    ["CP32-CP44", "MCP, notes, benchmarks, conflict behavior", "Added build fingerprint cache, MCP stdio/resources/prompts, repeatable plugin benchmarks, rich note metadata, stale/current conflicts, and Codex/OpenCode bootstrap docs."],
+    ["CP45-CP60", "Autoresearch and latency hardening", "Mined real conversation records, rated sharded memory at 10M tokens, selected a 32-item prefilter budget, added regression gates, and reduced repeated plugin query wall time to about 7.5-7.7 ms."],
+    ["CP62-CP72", "Warm caches and daemon path", "Added CLI/HTTP/MCP warmup, visible process cache status, persistent HTTP daemon smoke/latency checks, line-offset ingest optimization, and a PowerShell daemon bootstrap."],
+    ["CP74-CP82", "External generalization and sensitivity gates", "Added Signal/Recall external pack gates, no-exact-anchor ablations, semantic paraphrases, near-miss negative controls, source-removal sensitivity, and combined regression subchecks."],
+    ["CP83-CP92", "Agent memory lifecycle", "Added session capture, memory deltas, packet v2, before/after agent hooks, daemon/MCP surfaces, router candidate caps, docs, and burn-in."],
+    ["CP93-CP102", "Usable agent workflow", "Added adapter lifecycle, answer-quality A/B, batch session ingest, freshness scan, long-session drill, readiness doctor, refreshed docs, daemon smoke, and regression gate."],
+]
+
+
+LATEST_RESULT_ROWS = [
+    ["Ivy-real v2 ACCA", "119/119", "Required precision 1.0, forbidden hits 0"],
+    ["Stress Rust batch", "62/62", "Route mean 1.694 ms after preload"],
+    ["Plugin benchmark", "6/6", "Covers notes, MCP tools, generated-output skip, build cache, stale/current conflict, and no-context abstention"],
+    ["Avg plugin query wall", "15.535 ms", "Committed scoreboard path"],
+    ["Avg plugin router latency", "2.478 ms", "Committed scoreboard path"],
+    ["Hot repeated plugin wall", "~7.5-7.7 ms", "Repeated-query benchmark"],
+    ["Regression gate plugin wall", "19.351 ms", "Combined gate"],
+    ["Regression gate plugin router", "3.747 ms", "Combined gate"],
+    ["Daemon post-warm query wall", "10.142 ms", "Daemon smoke/gate"],
+    ["Daemon post-warm router", "4.638 ms", "Daemon smoke/gate"],
+    ["External generalization", "9/9", "Combined external gate"],
+    ["No-exact-anchor external gate", "9/9", "Exact anchor disabled"],
+    ["Semantic paraphrase external gate", "9/9", "Paraphrased external queries"],
+    ["Negative controls", "5/5", "Unsupported current/product facts abstain with avg selected 0.0"],
+    ["Source-removal gate", "8/8", "Required missing evidence abstains with avg selected 0.0"],
+    ["Agent answer A/B", "3/3 vs 0/3", "Packet-v2 memory beats no-memory on targeted agent-memory cases"],
+    ["Long-session drill", "1000 -> 3", "1000 raw records distilled into 3 durable deltas; 3.179 ms packet wall"],
+    ["Focused tests", "28 passed", "CP93-CP102 lifecycle track"],
+    ["Capacity rating", "10M tokens", "Sharded external memory rating, not a single prompt-window claim"],
+]
+
+
+LATEST_REFERENCE_ROWS = [
+    ["`README.md`", "Root project summary and current status"],
+    ["`MoME-MoCE-Exp/README.md`", "Experiment overview and CP102 state"],
+    ["`MoME-MoCE-Exp/HANDOFF_CONTEXT.md`", "Short handoff context for continuation"],
+    ["`MoME-MoCE-Exp/docs/AUTORESEARCH_LOOP_SCOREBOARD.md`", "Current CP102-era scoreboard"],
+    ["`MoME-MoCE-Exp/docs/PLUGIN_BENCHMARK_SCOREBOARD.md`", "Plugin benchmark scoreboard"],
+    ["`MoME-MoCE-Exp/docs/PLUGIN_SUPERCHARGE_TRACK_RECORD_2026-05-11.md`", "Plugin lifecycle build track record through CP102"],
+    ["`MoME-MoCE-Exp/docs/CP93_CP102_AGENT_MEMORY_USAGE_2026-05-12.md`", "Agent memory usage report"],
+    ["`plugins/ivy-context-memory/README.md`", "User-facing plugin commands and MCP/API surface"],
+    ["`plugins/ivy-context-memory/scripts/ivy_context_memory.py`", "Main plugin implementation"],
+    ["`MoME-MoCE-Exp/scripts/run_context_memory_regression_gate.py`", "Combined regression gate"],
+    ["`MoME-MoCE-Exp/scripts/run_agent_memory_answer_ab.py`", "Answer-quality A/B harness"],
+]
+
+
+LATEST_SECTIONS: list[tuple[str, str]] = [
+    (
+        "How To Use This Packet",
+        """
+Read this as the current course packet for IVY MoME/MoCE through CP102. The old CP0-CP20 packet taught the ACCA kernel. This version keeps that foundation but updates the center of gravity: the current system is an agent-facing context-memory sidecar.
+
+Recommended order:
+
+1. Read the one-sentence idea and the "not RAG" distinction.
+2. Study the CP102 architecture diagram.
+3. Read the checkpoint timeline once.
+4. Learn the read path, write path, and agent lifecycle.
+5. Run the quick commands.
+6. Use the reference map to open the source files and docs.
+
+Mental model:
+
+- ACCA is the algorithm: Authority-Constrained Context Assembly.
+- MoCE/MoME is the architecture: context experts route over memory experts.
+- `ivy-context-memory` is the current usable sidecar for Codex/OpenCode-style agents.
+- The model never receives raw unlimited memory. It receives a compact, cited, advisory packet.
+- CP9.1 Rust speed is historical. CP102 agent lifecycle is current.
+""",
+    ),
+    (
+        "The One-Sentence Idea",
+        """
+IVY MoME/MoCE is a local context-memory compiler for coding agents: it keeps large memory outside the model and compiles only a tiny admissible ACCA packet for the current task.
+
+That sentence has four important parts:
+
+- local: the hot path can run on this Windows laptop without a remote model call.
+- context-memory compiler: the output is a small packet and route proof, not raw retrieved chunks.
+- coding agents: the target is Codex, OpenCode, and local agent loops that edit files and run tools.
+- admissible: memory is filtered by authority, freshness, safety, conflict, source family, and budget.
+
+The strongest current framing:
+
+> ACCA is an auditable authority-constrained context compiler for agent memory.
+""",
+    ),
+    (
+        "Why This Is Not RAG",
+        """
+Traditional RAG usually does this:
+
+1. chunk documents;
+2. retrieve top-k similar chunks;
+3. stuff them into a prompt;
+4. hope the model uses them correctly.
+
+The IVY system does something stricter:
+
+1. discover candidate evidence;
+2. classify whether context is needed at all;
+3. apply authority, freshness, safety, conflict, source-family, and exposure gates;
+4. compile a small model-facing packet;
+5. emit a route proof that explains selected and rejected evidence;
+6. abstain when local memory should not answer.
+
+The difference is not only better retrieval. The difference is context governance. The sidecar can say "no local evidence should be used" for live prices, unsupported product facts, missing sources, and unsafe/private records.
+""",
+    ),
+    (
+        "Current Architecture",
+        """
+```mermaid
+flowchart LR
+  Sources["Repos / docs / notes / sessions"] --> Store[".ivy-context-memory store"]
+  Store --> Build["ACCA corpus + persisted indexes"]
+  Task["Agent task"] --> Hook["before_task / before_edit hook"]
+  Hook --> Router["MoME/MoCE router"]
+  Build --> Router
+  Router --> Packet["packet v2: compact advisory context"]
+  Router --> Proof["route proof: selected + rejected evidence"]
+  Packet --> Agent["Codex / OpenCode / local agent"]
+  Agent --> Work["edits / tool use / tests"]
+  Work --> After["after_test / after_task hook"]
+  After --> Barrier["write barrier"]
+  Barrier --> Store
+```
+
+The sidecar has three major loops:
+
+- Read loop: task -> route -> packet -> agent.
+- Write loop: verified work -> memory delta -> write barrier -> store.
+- Maintenance loop: ingest, build, warm, freshness scan, doctor, benchmark, regression gate.
+
+The important invariant is that memory remains advisory. It never outranks current user, system, developer, repo, validator, or sandbox policy.
+""",
+    ),
+    (
+        "Checkpoint Timeline Through CP102",
+        md_table(["Checkpoint", "Theme", "What It Proved"], LATEST_CP_ROWS),
+    ),
+    (
+        "What Changed Since The Old Packet",
+        """
+The old study packet stopped at CP20 and treated the system mainly as a deterministic router plus early agent bridge. The repo moved much further.
+
+Key changes:
+
+- CP28 created the first local context-memory plugin.
+- CP33 made MCP real through stdio tool discovery.
+- CP38-CP39 added MCP resources and workflow prompts.
+- CP45 started real-conversation autoresearch and the 10M-token sharded capacity rating.
+- CP50 added a combined context-memory regression gate.
+- CP60 measured repeated hot plugin queries around 7.5-7.7 ms.
+- CP62-CP64 added warmup through CLI, HTTP, and MCP plus visible process-cache counts.
+- CP66-CP72 made the daemon path testable and documented.
+- CP74-CP82 proved external generalization, paraphrases, no-exact-anchor behavior, negative controls, and source-removal sensitivity.
+- CP83-CP102 made the sidecar agent-usable: session capture, deltas, packet v2, hooks, adapter lifecycle, answer A/B, batch ingest, freshness scan, long-session drill, and doctor checks.
+
+So CP9.1 is now a historical speed result. The current frontier is whether agents can use memory safely and usefully during real work.
+""",
+    ),
+    (
+        "Current Results",
+        md_table(["Surface", "Result", "Meaning"], LATEST_RESULT_ROWS),
+    ),
+    (
+        "Read Path Deep Dive",
+        """
+The read path is what happens before an agent starts work.
+
+```mermaid
+sequenceDiagram
+  participant Agent
+  participant Plugin
+  participant Index
+  participant Router
+  participant Packet
+  Agent->>Plugin: before_task(task)
+  Plugin->>Index: prefilter candidate evidence
+  Index-->>Plugin: bounded candidates
+  Plugin->>Router: route with authority/freshness/safety gates
+  Router-->>Plugin: selected, rejected, mode, proof
+  Plugin->>Packet: render packet v2
+  Packet-->>Agent: advisory context + citations
+```
+
+Important details:
+
+- Prefilter budget is currently selected around 32 items for the common path.
+- Exact anchors help but are not required; no-exact-anchor gates pass.
+- Paraphrase gates pass, so the system is not only memorizing exact labels.
+- Negative controls abstain, so the system does not answer unsupported current facts from local memory.
+- Source-removal gates abstain when required evidence is missing.
+""",
+    ),
+    (
+        "Write Path Deep Dive",
+        """
+The write path is what happens after useful verified work.
+
+```mermaid
+flowchart TD
+  Raw["Raw session / task events"] --> Distill["Distill durable deltas"]
+  Distill --> Candidate["Candidate memory records"]
+  Candidate --> Barrier["write barrier"]
+  Barrier -->|safe| Store["memory store"]
+  Barrier -->|unsafe/stale/private/unverified| Reject["rejection record"]
+  Store --> Build["rebuild or batch rebuild"]
+  Build --> Queryable["future queryable evidence"]
+```
+
+The long-session drill is the cleanest mental model:
+
+- 1000 raw records stayed outside the model prompt.
+- The system distilled 3 durable deltas.
+- The packet wall time was 3.179 ms.
+
+This is how "unlimited context" should be understood in this project: not as an infinite prompt, but as a large external memory store that compiles small relevant packets.
+""",
+    ),
+    (
+        "Agent Lifecycle Through CP102",
+        """
+CP83-CP92 proved lifecycle primitives. CP93-CP102 proved they are usable.
+
+| Stage | Purpose |
+|---|---|
+| `before_task` | retrieve packet before planning |
+| `before_edit` | retrieve packet before touching files |
+| `after_test` | record verified test outcome candidates |
+| `after_task` | record durable result candidates |
+| `session-ingest` | turn raw sessions into memory deltas |
+| `session-batch-ingest` | ingest many sessions with one final rebuild |
+| `freshness-scan` | detect source roots modified after last build |
+| `agent-doctor` | check readiness of dataset, index, tools, hooks, and write barrier |
+
+The CP96-CP97 answer A/B matters because it asks whether the memory packet improves final answers, not just retrieval metrics. The targeted result was packet-v2 memory 3/3 versus no-memory 0/3.
+""",
+    ),
+    (
+        "Plugin Surfaces",
+        """
+The current sidecar can be used four ways.
+
+CLI:
+
+```powershell
+python .\\plugins\\ivy-context-memory\\scripts\\ivy_context_memory.py query --query "What should I know before changing the MoME router?" --text
+python .\\plugins\\ivy-context-memory\\scripts\\ivy_context_memory.py remember --text "<verified result>" --tag milestone
+python .\\plugins\\ivy-context-memory\\scripts\\ivy_context_memory.py agent-doctor
+```
+
+HTTP daemon:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\\MoME-MoCE-Exp\\scripts\\start_context_memory_daemon.ps1
+Invoke-RestMethod http://127.0.0.1:8768/status
+Invoke-RestMethod http://127.0.0.1:8768/warm -Method Post -ContentType application/json -Body '{"queries":["What matters for CP102?"]}'
+```
+
+MCP:
+
+```powershell
+python C:\\ivy\\plugins\\ivy-context-memory\\scripts\\ivy_context_memory.py mcp
+```
+
+Codex/OpenCode workflow:
+
+- query before task;
+- use packet as advisory context only;
+- remember only verified durable outcomes after tests;
+- run doctor/freshness checks during long sessions.
+""",
+    ),
+    (
+        "Latency Model",
+        """
+The system has two latency stories.
+
+Historical CP9.1:
+
+- Rust batch proved large-corpus candidate search can be fast after preload.
+- Stress Rust batch route mean was 1.694 ms.
+- This was a retrieval/index milestone.
+
+Current CP102:
+
+- Plugin benchmark average wall: 15.535 ms.
+- Plugin benchmark router: 2.478 ms.
+- Repeated hot plugin wall: about 7.5-7.7 ms.
+- Daemon post-warm query wall: 10.142 ms.
+- Daemon post-warm router: 4.638 ms.
+
+Interpretation:
+
+- Router latency is already low enough for interactive use.
+- Total wall time still matters because loading, prefiltering, corpus conversion, packet writes, and process boundaries can dominate.
+- The next latency work should optimize the full sidecar path, not only isolated routing.
+""",
+    ),
+    (
+        "Generalization And Anti-Cheat Evidence",
+        """
+The project explicitly tested the questions that made the earlier benchmark look too internal.
+
+Were the labels too easy?
+
+- Later gates added hard cases, paraphrases, external packs, negative controls, and source-removal sensitivity.
+
+Did exact anchors make it trivial?
+
+- No-exact-anchor external gates pass 9/9.
+- Semantic plus no-exact gates pass 9/9.
+
+Was the dataset hand-built around the algorithm?
+
+- Early data was curated, but CP74-CP82 added external Signal/Recall-style packs and combined sub-gates.
+
+Does it generalize outside IVY docs?
+
+- External generalization gate passes 9/9 in the combined gate.
+
+What happens with ambiguous, contradictory, stale, or missing evidence?
+
+- Stale/current conflict lanes select contradiction-aware packets.
+- Negative controls abstain 5/5.
+- Source-removal cases abstain 8/8.
+
+Does it improve answers?
+
+- CP96-CP97 targeted answer A/B: packet-v2 memory 3/3, no-memory 0/3.
+""",
+    ),
+    (
+        "Safety And Authority",
+        """
+Safety is not an afterthought. It is part of the routing and write model.
+
+Read-side safety:
+
+- local memory is advisory;
+- selected evidence is cited;
+- rejected evidence is tracked;
+- no-context/abstain is valid output;
+- volatile live facts should not be answered from stale local memory.
+
+Write-side safety:
+
+- proposed notes pass a write barrier;
+- private paths and secret-like content are rejected;
+- low-confidence claims should not become high-authority memory;
+- stale/current conflicts are represented rather than silently overwritten;
+- batch ingest rebuilds once after many deltas.
+
+The sidecar should never be allowed to smuggle instructions around system, developer, repo, validator, sandbox, or current user authority.
+""",
+    ),
+    (
+        "How To Reproduce The Main Claims",
+        """
+Run from `C:\\ivy`.
+
+Daemon path:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\\MoME-MoCE-Exp\\scripts\\start_context_memory_daemon.ps1
+```
+
+Plugin query:
+
+```powershell
+python .\\plugins\\ivy-context-memory\\scripts\\ivy_context_memory.py query --query "What MCP tools does ivy-context-memory expose?" --text
+```
+
+Benchmark:
+
+```powershell
+python MoME-MoCE-Exp\\scripts\\run_context_memory_plugin_benchmark.py --reset
+```
+
+Regression gate:
+
+```powershell
+python MoME-MoCE-Exp\\scripts\\run_context_memory_regression_gate.py
+```
+
+Agent memory A/B:
+
+```powershell
+python MoME-MoCE-Exp\\scripts\\run_agent_memory_answer_ab.py --reset
+```
+
+Focused tests:
+
+```powershell
+.\\.venv\\Scripts\\python.exe -m pytest tests\\test_ivy_context_memory_plugin.py tests\\test_agent_memory_burn_in.py tests\\test_agent_memory_cp93_cp102.py tests\\test_context_memory_daemon_smoke.py -q
+```
+""",
+    ),
+    (
+        "How To Study The Code",
+        """
+Study in this order:
+
+1. `MoME-MoCE-Exp/README.md` for the current state.
+2. `plugins/ivy-context-memory/README.md` for user-facing behavior.
+3. `plugins/ivy-context-memory/scripts/ivy_context_memory.py` for the sidecar implementation.
+4. `MoME-MoCE-Exp/scripts/mome_moce_harness.py` for the original ACCA router/harness.
+5. `MoME-MoCE-Exp/scripts/run_context_memory_plugin_benchmark.py` for benchmark expectations.
+6. `MoME-MoCE-Exp/scripts/run_context_memory_regression_gate.py` for combined quality/latency gates.
+7. `MoME-MoCE-Exp/scripts/run_agent_memory_answer_ab.py` for answer-level A/B.
+8. `MoME-MoCE-Exp/docs/PLUGIN_SUPERCHARGE_TRACK_RECORD_2026-05-11.md` for the checkpoint history.
+
+The most important implementation question while reading is:
+
+> Where does evidence become admissible context, and where is it rejected?
+
+Follow selected/rejected evidence and route-proof fields through the code.
+""",
+    ),
+    (
+        "Failure Modes",
+        """
+Known or likely failure modes:
+
+- Over-retrieval: too many plausible but non-authoritative chunks enter the packet.
+- Stale facts: old notes answer "latest/current" queries.
+- Exact-anchor dependence: routing works only because labels are too literal.
+- Source drift: source roots change after the memory build.
+- Private leakage: local file paths, secrets, or private content become memory.
+- Rebuild cost: repeated writes rebuild too often unless batch ingest is used.
+- Wall-time drift: router is fast but total plugin path grows from I/O or conversion overhead.
+- False confidence: retrieval metrics look good but final model answers do not improve.
+
+Current mitigations:
+
+- no-exact-anchor and paraphrase gates;
+- negative controls and source-removal gates;
+- freshness scan and doctor;
+- write barrier;
+- batch session ingest;
+- answer-level A/B;
+- combined regression gate with latency budgets.
+""",
+    ),
+    (
+        "Next Build Work",
+        """
+The next useful work is not more broad documentation. It is proving daily-driver behavior.
+
+Recommended next checkpoints:
+
+1. Fresh-machine replay: clone, install plugin, ingest, warm, query, remember, compare packet hashes.
+2. Agent integration: make Codex/OpenCode call before_task and after_task in normal work.
+3. Bigger answer-level A/B: require final answers to cite selected IDs and avoid rejected/stale evidence.
+4. Larger external corpora: add non-IVY docs while keeping source-removal and negative-control gates.
+5. Latency min-max: lower full plugin wall time while preserving abstention and conflict behavior.
+6. Freshness policy: decide how aggressive rebuild prompts should be after source edits.
+7. Rust decision: keep Rust as historical proof, or make it a persistent service/library for larger stores.
+
+The guiding principle:
+
+> Optimize positively: make the sidecar faster and easier to use only when quality gates stay intact.
+""",
+    ),
+    (
+        "Reference Map",
+        md_table(["Path", "Why It Matters"], LATEST_REFERENCE_ROWS),
+    ),
+    (
+        "Glossary",
+        """
+ACCA: Authority-Constrained Context Assembly. The algorithm that filters, ranks, rejects, packs, and proves evidence choices.
+
+MoCE: Mixture of Context Experts. The router/compiler/gate side that decides what context is needed.
+
+MoME: Mixture of Memory Experts. The external evidence pool: docs, notes, sessions, runbooks, source facts, conflicts, and benchmarks.
+
+Packet v2: The current agent-facing packet wrapper used in the plugin lifecycle.
+
+Route proof: The audit artifact showing selected and rejected evidence, modes, scores, conflicts, and answerability.
+
+Write barrier: The gate that blocks unsafe, private, stale, secret-like, or unverified proposed memory.
+
+Sharded memory capacity: The memory store can hold far more than a prompt, but each task still receives only a small compiled packet.
+
+Historical CP9.1: The Rust batch speed milestone. It is important, but no longer the current endpoint.
+
+CP102-era system: The current plugin/daemon/agent-lifecycle sidecar.
+""",
+    ),
+]
+
+
 def build_markdown() -> str:
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     parts = [
@@ -1956,15 +2458,15 @@ def build_markdown() -> str:
         "",
         f"Generated: {now}",
         "",
-        "> Scope: CP0 through CP20 of `C:\\ivy\\MoME-MoCE-Exp` plus the IVY agent-side ACCA bridge in `C:\\ivy\\ivy_agent_demo`.",
+        "> Scope: CP0 through CP102 of `C:\\ivy\\MoME-MoCE-Exp`, `C:\\ivy\\plugins\\ivy-context-memory`, and the IVY agent-side ACCA bridge in `C:\\ivy\\ivy_agent_demo`.",
         "",
         "## Table Of Contents",
         "",
     ]
-    for index, (title, _) in enumerate(SECTIONS, start=1):
+    for index, (title, _) in enumerate(LATEST_SECTIONS, start=1):
         parts.append(f"{index}. {title}")
     parts.append("")
-    for title, body in SECTIONS:
+    for title, body in LATEST_SECTIONS:
         parts.append(f"## {title}")
         parts.append("")
         parts.append(body.strip())
