@@ -817,13 +817,17 @@ def dd_rule_advice(case: dict[str, Any], router: MoMEMoCERouter | None) -> Libra
     )
 
 
-def speculative_draft_queries(case: dict[str, Any], router: MoMEMoCERouter | None) -> tuple[list[DraftQuery], list[str], str]:
+def speculative_draft_queries(
+    case: dict[str, Any],
+    router: MoMEMoCERouter | None,
+    dd: LibrarianAdvice | None = None,
+) -> tuple[list[DraftQuery], list[str], str, LibrarianAdvice]:
     query = str(case["query"])
     lower = norm_text(query)
     guards = infer_catalog_guard_terms(router, query)
     draft: list[DraftQuery] = [DraftQuery("original", query, 0.25)]
 
-    dd = dd_rule_advice(case, router)
+    dd = dd or dd_rule_advice(case, router)
     for idx, candidate in enumerate(dd.queries):
         draft.append(DraftQuery("dd_rule", candidate, 0.9 - idx * 0.05))
 
@@ -874,7 +878,7 @@ def speculative_draft_queries(case: dict[str, Any], router: MoMEMoCERouter | Non
                     draft.append(DraftQuery("corpus_phrase_head", tag_query, 0.62))
 
     mode = dd.escalation_mode
-    return sorted(draft, key=lambda item: item.priority, reverse=True), unique(guards, limit=6), mode
+    return sorted(draft, key=lambda item: item.priority, reverse=True), unique(guards, limit=6), mode, dd
 
 
 def verifier_selected_ids(router: MoMEMoCERouter, result: RouteResult, entity_terms: list[str]) -> list[str]:
@@ -900,7 +904,7 @@ def spec_dd_advice(case: dict[str, Any], router: MoMEMoCERouter | None) -> Libra
         fallback.strategy = "spec-dd:fallback_dd_rule"
         return fallback
 
-    draft, guards, mode = speculative_draft_queries(case, router)
+    draft, guards, mode, dd = speculative_draft_queries(case, router)
     accepted: list[DraftQuery] = []
     accepted_seen: set[str] = set()
     rejected_count = 0
@@ -936,7 +940,7 @@ def spec_dd_advice(case: dict[str, Any], router: MoMEMoCERouter | None) -> Libra
         intent_summary="speculative deterministic draft verified by D-ACCA",
         queries=[candidate.query for candidate in accepted],
         entity_terms=normalize_model_entity_terms(guards),
-        negative_constraints=dd_rule_advice(case, router).negative_constraints,
+        negative_constraints=dd.negative_constraints,
         side_tracks=[
             "Draft heads: " + ", ".join(f"{head}={count}" for head, count in sorted(head_counts.items())),
             f"Accepted draft query limit: {SPEC_DD_ACCEPTED_QUERY_LIMIT}",
@@ -949,7 +953,7 @@ def spec_dd_advice(case: dict[str, Any], router: MoMEMoCERouter | None) -> Libra
 
 def spec_dd_lazy_advice(case: dict[str, Any], router: MoMEMoCERouter | None) -> LibrarianAdvice:
     started = time.perf_counter()
-    draft, guards, mode = speculative_draft_queries(case, router)
+    draft, guards, mode, dd = speculative_draft_queries(case, router)
     accepted = next((candidate for candidate in draft if is_local_catalog_query(candidate.query)), None)
     if accepted is None:
         fallback = dd_rule_advice(case, router)
@@ -964,7 +968,7 @@ def spec_dd_lazy_advice(case: dict[str, Any], router: MoMEMoCERouter | None) -> 
         intent_summary="lazy speculative deterministic draft; final D-ACCA route is the verifier",
         queries=[accepted.query],
         entity_terms=normalize_model_entity_terms(guards),
-        negative_constraints=dd_rule_advice(case, router).negative_constraints,
+        negative_constraints=dd.negative_constraints,
         side_tracks=[
             f"Accepted draft head without internal route: {accepted.head}",
             "Verifier is deferred to the final D-ACCA bundle route.",
