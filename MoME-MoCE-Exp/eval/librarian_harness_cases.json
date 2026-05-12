@@ -1,0 +1,141 @@
+{
+  "schema_version": "d_acca.librarian_harness_cases.v0.1",
+  "description": "Focused cases for testing an advisory librarian around deterministic D-ACCA routing. The fixture librarian simulates sub-frontier advice; D-ACCA remains the final admission authority.",
+  "cases": [
+    {
+      "id": "lib_cp27_recall_price_vague",
+      "dataset": "out/context_stress_freshness_authority_cp27",
+      "category": "freshness",
+      "query": "What are we charging for the hosted sync thing now?",
+      "should_retrieve": true,
+      "must_abstain": false,
+      "required_source_ids": ["cp27_recall_cloud_current_price"],
+      "forbidden_source_ids": ["cp27_recall_cloud_stale_price", "cp27_recall_cloud_identity_no_price"],
+      "max_evidence_items": 2,
+      "librarian": {
+        "escalation_mode": "blocking_escalation",
+        "intent_summary": "The user is asking for current Recall Cloud production pricing using vague product language.",
+        "queries": [
+          "latest current Recall Cloud production pricing hosted sync individual plan",
+          "Recall Cloud current price production price as of 2026-05-10"
+        ],
+        "entity_terms": ["recall"],
+        "negative_constraints": [
+          "Reject stale April pricing drafts.",
+          "Reject identity notes that do not state a price."
+        ],
+        "side_tracks": [
+          "Check whether selected evidence supersedes stale pricing."
+        ],
+        "rationale": "A librarian maps vague wording to the canonical product and freshness-sensitive pricing query."
+      }
+    },
+    {
+      "id": "lib_cp27_signal_ga_vague",
+      "dataset": "out/context_stress_freshness_authority_cp27",
+      "category": "freshness",
+      "query": "Is the Signal thing public yet or still not GA?",
+      "should_retrieve": true,
+      "must_abstain": false,
+      "required_source_ids": ["cp27_signal_current_release_status"],
+      "forbidden_source_ids": ["cp27_signal_stale_ga_status"],
+      "max_evidence_items": 2,
+      "librarian": {
+        "escalation_mode": "blocking_escalation",
+        "intent_summary": "The user is asking for current Signal release or GA status.",
+        "queries": [
+          "current Signal production release status internal beta not public GA",
+          "Signal current GA status release status latest"
+        ],
+        "entity_terms": ["signal"],
+        "negative_constraints": [
+          "Reject stale GA claims if a newer current status exists."
+        ],
+        "side_tracks": [
+          "Look for stale/current release-status conflict pairs."
+        ],
+        "rationale": "A librarian turns casual GA wording into a current release-status query."
+      }
+    },
+    {
+      "id": "lib_cp27_nebula_price_abstain",
+      "dataset": "out/context_stress_freshness_authority_cp27",
+      "category": "abstention",
+      "query": "What is Nebula charging right now?",
+      "should_retrieve": true,
+      "must_abstain": true,
+      "required_source_ids": [],
+      "forbidden_source_ids": [],
+      "max_evidence_items": 0,
+      "librarian": {
+        "escalation_mode": "blocking_escalation",
+        "intent_summary": "The user asks for current Nebula pricing, but this corpus has no authoritative Nebula price.",
+        "queries": [
+          "latest current Nebula Cloud production pricing authoritative record"
+        ],
+        "entity_terms": ["nebula"],
+        "negative_constraints": [
+          "Abstain if no current Nebula Cloud pricing record exists."
+        ],
+        "side_tracks": [
+          "Check for false lexical match against Recall Cloud pricing."
+        ],
+        "rationale": "A librarian should improve answerability discipline for unsupported latest/current claims."
+      }
+    },
+    {
+      "id": "lib_v2_sandbox_permissions_vague",
+      "dataset": "out/context_stress_ivy_real_v2",
+      "category": "safety",
+      "query": "Can the demo agent poke around or write wherever?",
+      "should_retrieve": true,
+      "must_abstain": false,
+      "required_source_ids": ["safety_sandbox_paths"],
+      "forbidden_source_ids": ["stale_phase1_write_anywhere"],
+      "max_evidence_items": 2,
+      "librarian": {
+        "escalation_mode": "blocking_escalation",
+        "intent_summary": "The user is asking about sandbox read/write boundaries.",
+        "queries": [
+          "current Phase 1 sandbox tools read only sandbox_workspace write only sandbox_workspace/out",
+          "agent tool sandbox paths read write safety policy"
+        ],
+        "entity_terms": ["sandbox"],
+        "negative_constraints": [
+          "Reject stale notes claiming write-anywhere behavior."
+        ],
+        "side_tracks": [
+          "Audit exposure policy for safety-critical records."
+        ],
+        "rationale": "A librarian maps casual safety wording to explicit sandbox path policy."
+      }
+    },
+    {
+      "id": "lib_v2_hot_cache_footgun",
+      "dataset": "out/context_stress_ivy_real_v2",
+      "category": "workflow",
+      "query": "What was the cache footgun with the hot session prefix?",
+      "should_retrieve": true,
+      "must_abstain": false,
+      "required_source_ids": ["doc_hot_session_cache_rule"],
+      "forbidden_source_ids": ["decoy_hot_session_timestamp_ok", "stale_hot_cache_threshold_500ms"],
+      "max_evidence_items": 2,
+      "librarian": {
+        "escalation_mode": "parallel_advisory",
+        "intent_summary": "The user wants the hot-session cache reuse rule and the volatile-prefix failure mode.",
+        "queries": [
+          "hot-session cache reuse static prefix byte-identical timestamps volatile data before prefix destroy cache shape",
+          "id_slot cache_prompt static prefix hot session cache rule"
+        ],
+        "entity_terms": ["hot-session"],
+        "negative_constraints": [
+          "Reject stale cache threshold notes and timestamp-is-ok decoys."
+        ],
+        "side_tracks": [
+          "Check whether this should become a durable runbook memory."
+        ],
+        "rationale": "A librarian expands 'footgun' into the canonical hot-cache rule terms."
+      }
+    }
+  ]
+}
