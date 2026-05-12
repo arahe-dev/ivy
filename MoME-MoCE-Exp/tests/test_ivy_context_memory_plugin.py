@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 
@@ -201,6 +203,75 @@ def test_session_ingest_can_defer_rebuild(tmp_path: Path) -> None:
     assert current_status["corpus_items"] == 0
 
 
+def test_session_batch_ingest_rebuilds_once(tmp_path: Path, monkeypatch) -> None:
+    plugin = load_plugin_module()
+    store = tmp_path / "store"
+    original_build_store = plugin.build_store
+    calls = {"count": 0}
+
+    def counted_build_store(*args, **kwargs):
+        calls["count"] += 1
+        return original_build_store(*args, **kwargs)
+
+    monkeypatch.setattr(plugin, "build_store", counted_build_store)
+    result = plugin.ingest_session_batch(
+        store,
+        {
+            "sessions": [
+                {"session_id": "cp98_a", "records": [{"event_type": "decision", "text": "CP98 batch ingest writes first delta."}]},
+                {"session_id": "cp98_b", "records": [{"event_type": "outcome", "text": "CP98 batch ingest rebuilds once after all notes."}]},
+            ]
+        },
+    )
+    current_status = plugin.status(store)
+
+    assert result["ok"] is True
+    assert result["sessions"] == 2
+    assert result["delta_count"] == 2
+    assert result["remembered_notes"] == 2
+    assert calls["count"] == 1
+    assert current_status["notes"] == 2
+    assert current_status["memory_deltas"] == 2
+    assert current_status["corpus_items"] == 2
+
+
+def test_freshness_scan_detects_modified_source_after_build(tmp_path: Path) -> None:
+    plugin = load_plugin_module()
+    source = tmp_path / "source"
+    source.mkdir()
+    doc = source / "README.md"
+    doc.write_text("CP99 freshness scan source starts current.", encoding="utf-8")
+    store = tmp_path / "store"
+    plugin.add_source(store, source, build=True)
+    future = datetime.now(UTC) + timedelta(seconds=60)
+    os.utime(doc, (future.timestamp(), future.timestamp()))
+
+    scan = plugin.source_freshness_scan(store, limit=5)
+
+    assert scan["ok"] is True
+    assert scan["fresh"] is False
+    assert scan["changed_count_visible"] == 1
+    assert scan["changed_files"][0]["path"].endswith("README.md")
+
+
+def test_agent_memory_doctor_reports_lifecycle_readiness(tmp_path: Path) -> None:
+    plugin = load_plugin_module()
+    store = tmp_path / "store"
+    plugin.remember(
+        store,
+        text="CP101 agent doctor checks lifecycle hooks, MCP tools, dataset, index, and write-barrier readiness.",
+        source_path="root/notes/cp101.md",
+        tags=["cp101", "doctor"],
+    )
+
+    doctor = plugin.agent_memory_doctor(store)
+
+    assert doctor["ok"] is True
+    assert doctor["checks"]["mcp_lifecycle_tools_available"] is True
+    assert "ivy_memory_session_batch_ingest" in doctor["available_mcp_tools"]
+    assert "ivy_memory_freshness_scan" in doctor["available_mcp_tools"]
+
+
 def test_plugin_remember_preserves_staleness_and_conflicts(tmp_path: Path) -> None:
     plugin = load_plugin_module()
     store = tmp_path / "store"
@@ -339,7 +410,10 @@ def test_mcp_stdio_lists_and_calls_status(tmp_path: Path) -> None:
         "ivy_memory_query",
         "ivy_memory_remember",
         "ivy_memory_session_ingest",
+        "ivy_memory_session_batch_ingest",
         "ivy_memory_agent_hook",
+        "ivy_memory_freshness_scan",
+        "ivy_memory_agent_doctor",
         "ivy_memory_warm",
         "ivy_memory_status",
     } <= tool_names
@@ -401,6 +475,55 @@ def test_mcp_stdio_session_ingest_then_agent_hook(tmp_path: Path) -> None:
     assert hooked["schema_version"] == "ivy_context_memory.context_packet.v0.2"
     assert hooked["packet"]["selected_ids"]
     assert "current repo state outranks memory" in hooked["packet"]["text"]
+
+
+def test_mcp_stdio_batch_ingest_then_doctor(tmp_path: Path) -> None:
+    store = tmp_path / "store"
+    payload = b"".join(
+        [
+            framed({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+            framed(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "ivy_memory_session_batch_ingest",
+                        "arguments": {
+                            "sessions": [
+                                {
+                                    "session_id": "cp98_mcp_batch",
+                                    "records": [
+                                        {
+                                            "event_type": "decision",
+                                            "text": "CP98 MCP batch ingest rebuilds once and keeps lifecycle memory queryable.",
+                                        }
+                                    ],
+                                }
+                            ]
+                        },
+                    },
+                }
+            ),
+            framed({"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "ivy_memory_agent_doctor", "arguments": {}}}),
+        ]
+    )
+
+    proc = subprocess.run(
+        [sys.executable, str(PLUGIN_SCRIPT), "--store", str(store), "mcp"],
+        input=payload,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+    )
+    messages = parse_framed_messages(proc.stdout)
+    batch = messages[1]["result"]["structuredContent"]
+    doctor = messages[2]["result"]["structuredContent"]
+
+    assert batch["ok"] is True
+    assert batch["sessions"] == 1
+    assert doctor["ok"] is True
+    assert doctor["checks"]["mcp_lifecycle_tools_available"] is True
 
 
 def test_mcp_stdio_remember_then_query(tmp_path: Path) -> None:

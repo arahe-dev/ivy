@@ -1,6 +1,6 @@
 # IVY Autoresearch Loop Scoreboard
 
-Last updated: `2026-05-12T03:06:30Z`
+Last updated: `2026-05-12T03:25:36Z`
 
 | Metric | Value |
 |---|---:|
@@ -13,15 +13,15 @@ Last updated: `2026-05-12T03:06:30Z`
 | Capacity rated | `True` |
 | Mined hard-case eval | `5 / 5` |
 | Regression gate | `passed` |
-| Regression gate feature router | `2.5 ms` |
-| Regression gate plugin router | `3.546 ms` |
-| Regression gate plugin wall | `19.061 ms` |
+| Regression gate feature router | `2.431 ms` |
+| Regression gate plugin router | `3.747 ms` |
+| Regression gate plugin wall | `19.351 ms` |
 | Hot repeated plugin wall | `~7.5-7.7 ms` |
 | MCP warmup contract | `verified` |
 | Process cache status | `visible` |
 | Daemon latency gate | `passed` |
-| Post-warm daemon query wall | `11.889 ms` |
-| Post-warm daemon router | `4.406 ms` |
+| Post-warm daemon query wall | `10.142 ms` |
+| Post-warm daemon router | `4.638 ms` |
 | Daemon bootstrap | `documented + tested` |
 | External generalization gate | `9 / 9 in combined gate` |
 | External gate mean latency | `0.492 ms` |
@@ -45,9 +45,14 @@ Last updated: `2026-05-12T03:06:30Z`
 | Agent hook packet v2 | `verified` |
 | Agent memory burn-in | `passed, 399.67 ms cold one-shot` |
 | Daemon agent-hook smoke | `passed, /agent/hook + /packet/v2 selected evidence` |
-| Daemon query wall | `11.889 ms` |
-| Daemon router latency | `4.406 ms` |
-| Focused test suite | `21 passed` |
+| Agent adapter lifecycle | `passed, 247.77 ms` |
+| Agent answer A/B | `packet-v2 memory 3/3, no-memory 0/3` |
+| Batch session ingest | `verified, single rebuild` |
+| Long-session drill | `1000 records -> 3 deltas, 3.179 ms packet wall` |
+| Agent memory doctor | `verified` |
+| Daemon query wall | `10.142 ms` |
+| Daemon router latency | `4.638 ms` |
+| Focused test suite | `28 passed` |
 
 ## Notes
 
@@ -69,3 +74,4 @@ Last updated: `2026-05-12T03:06:30Z`
 - CP81 added semantic source-removal sensitivity; paraphrased missing-source cases abstain `8/8`.
 - CP82 exposed every external sub-gate check in the combined regression gate status.
 - CP83-CP92 add the Codex/OpenCode memory lifecycle: session capture, memory deltas, packet v2, agent hooks, daemon/MCP surfaces, and a burn-in loop.
+- CP93-CP102 add the adapter lifecycle, answer-quality A/B, batch ingest, freshness scan, long-session drill, and readiness doctor.

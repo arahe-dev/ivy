@@ -50,8 +50,11 @@ python .\plugins\ivy-context-memory\scripts\ivy_context_memory.py query --query 
 | `build` | Rebuild from registered source roots and notes |
 | `remember --text ...` | Store a short safe milestone note and rebuild; supports `--staleness`, `--supersedes`, and `--conflicts-with` |
 | `session-ingest --json PATH` | Capture an agent chat/session transcript, derive memory deltas, and optionally remember them |
+| `session-batch-ingest --json PATH` | Ingest multiple sessions and rebuild once |
 | `agent-hook --hook before_task --task ...` | Run an agent lifecycle hook for packet retrieval or after-task memory writing |
 | `packet-v2 --query ...` | Return the agent-oriented context packet v2 wrapper |
+| `freshness-scan` | Report registered source files modified after the last build |
+| `agent-doctor` | Check readiness for the agent memory lifecycle |
 | `query --query ...` | Return JSON with selected IDs, packet text, route proof |
 | `query --query ... --text` | Return only the packet text |
 | `warm` | Preload query-index, feature, and corpus-item caches in the current process |
@@ -71,6 +74,9 @@ Invoke-RestMethod http://127.0.0.1:8768/status
 Invoke-RestMethod http://127.0.0.1:8768/warm -Method Post -ContentType application/json -Body '{"queries":["What matters for CP29?"]}'
 Invoke-RestMethod http://127.0.0.1:8768/query -Method Post -ContentType application/json -Body '{"query":"What matters for CP29?","variant":"auto"}'
 Invoke-RestMethod http://127.0.0.1:8768/agent/hook -Method Post -ContentType application/json -Body '{"hook":"before_task","task":"What context matters for this edit?"}'
+Invoke-RestMethod http://127.0.0.1:8768/session/batch-ingest -Method Post -ContentType application/json -Body '{"sessions":[{"records":[{"event_type":"decision","text":"..."}]}]}'
+Invoke-RestMethod http://127.0.0.1:8768/freshness -Method Post -ContentType application/json -Body '{}'
+Invoke-RestMethod http://127.0.0.1:8768/agent/doctor -Method Post -ContentType application/json -Body '{}'
 ```
 
 ## MCP
@@ -81,7 +87,10 @@ The plugin now exposes local MCP tools through `.mcp.json`:
 - `ivy_memory_remember`
 - `ivy_memory_ingest`
 - `ivy_memory_session_ingest`
+- `ivy_memory_session_batch_ingest`
 - `ivy_memory_agent_hook`
+- `ivy_memory_freshness_scan`
+- `ivy_memory_agent_doctor`
 - `ivy_memory_build`
 - `ivy_memory_warm`
 - `ivy_memory_status`
@@ -115,6 +124,8 @@ And MCP prompts:
 - Uses process-local query-index, feature, and corpus-item caches; `warm` / `/warm` / `ivy_memory_warm` preheats them.
 - Captures agent sessions into `sessions/*.json`, distills durable records into `memory_deltas.jsonl`, and remembers safe deltas as queryable evidence.
 - Exposes lifecycle hooks for `before_task`, `before_edit`, `after_test`, `after_task`, `remember`, and `supersede`.
+- Supports batch session ingest so many deltas can be remembered before one final rebuild.
+- Includes freshness and doctor checks for long-running agent use.
 - Can consume an autoresearch runtime policy from `store/policy/autoresearch_policy.json`.
 - Stores route packets under `.ivy-context-memory/packets/`.
 - Keeps memory advisory; it never outranks current user/system/developer instructions or repo state.

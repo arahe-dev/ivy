@@ -858,6 +858,21 @@ def append_memory_deltas(store: Path, deltas: list[dict[str, Any]]) -> None:
             handle.write(json.dumps(delta, sort_keys=True) + "\n")
 
 
+def remember_delta_notes(store: Path, deltas: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    notes: list[dict[str, Any]] = []
+    for delta in deltas:
+        result = remember(
+            store,
+            text=memory_delta_text(delta),
+            source_path=str(delta["source_path"]),
+            tags=list(delta["tags"]),
+            authority=str(delta["authority"]),
+            build=False,
+        )
+        notes.append(result["note"])
+    return notes
+
+
 def ingest_session(store: Path, payload: dict[str, Any], *, remember_deltas: bool = True, build: bool = True) -> dict[str, Any]:
     session = normalize_session(payload)
     path = write_session_record(store, session)
@@ -865,17 +880,8 @@ def ingest_session(store: Path, payload: dict[str, Any], *, remember_deltas: boo
     append_memory_deltas(store, deltas)
     notes: list[dict[str, Any]] = []
     if remember_deltas:
-        for delta in deltas:
-            result = remember(
-                store,
-                text=memory_delta_text(delta),
-                source_path=str(delta["source_path"]),
-                tags=list(delta["tags"]),
-                authority=str(delta["authority"]),
-                build=build,
-            )
-            notes.append(result["note"])
-    elif build:
+        notes = remember_delta_notes(store, deltas)
+    if build:
         build_store(store)
     return {
         "ok": True,
@@ -885,6 +891,105 @@ def ingest_session(store: Path, payload: dict[str, Any], *, remember_deltas: boo
         "deltas": deltas,
         "delta_count": len(deltas),
         "remembered_notes": len(notes),
+    }
+
+
+def ingest_session_batch(store: Path, payload: dict[str, Any], *, remember_deltas: bool = True, build: bool = True) -> dict[str, Any]:
+    raw_sessions = payload.get("sessions", payload.get("items", []))
+    if not isinstance(raw_sessions, list):
+        raise ValueError("batch payload must include sessions/items list")
+    results = [ingest_session(store, session if isinstance(session, dict) else {"records": [str(session)]}, remember_deltas=remember_deltas, build=False) for session in raw_sessions]
+    build_result = build_store(store) if build else {"ok": True, "skipped": True}
+    return {
+        "ok": True,
+        "store": str(store),
+        "sessions": len(results),
+        "delta_count": sum(int(result["delta_count"]) for result in results),
+        "remembered_notes": sum(int(result["remembered_notes"]) for result in results),
+        "build": build_result,
+        "results": results,
+    }
+
+
+def parse_utc(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def source_freshness_scan(store: Path, *, source_root: Path | None = None, limit: int = 20) -> dict[str, Any]:
+    init_store(store)
+    state = load_state(store)
+    roots = [str(source_root)] if source_root else list(state.get("source_roots", []))
+    last_build_at = parse_utc((state.get("last_build") or {}).get("at"))
+    changed: list[dict[str, Any]] = []
+    newest_mtime = 0.0
+    for root_text in roots:
+        root = Path(root_text)
+        if not root.exists():
+            changed.append({"path": str(root), "reason": "missing_source_root"})
+            continue
+        for path in root.rglob("*"):
+            if not path.is_file():
+                continue
+            if any(part in SKIP_DIRS for part in path.parts):
+                continue
+            if path.suffix.lower() not in DEFAULT_EXTENSIONS:
+                continue
+            mtime = path.stat().st_mtime
+            newest_mtime = max(newest_mtime, mtime)
+            mtime_dt = datetime.fromtimestamp(mtime, UTC)
+            if last_build_at is None or mtime_dt > last_build_at:
+                changed.append({"path": str(path), "modified_at": mtime_dt.isoformat(timespec="seconds").replace("+00:00", "Z")})
+                if len(changed) >= limit:
+                    break
+        if len(changed) >= limit:
+            break
+    return {
+        "ok": True,
+        "store": str(store),
+        "source_roots": roots,
+        "last_build_at": last_build_at.isoformat(timespec="seconds").replace("+00:00", "Z") if last_build_at else None,
+        "newest_source_mtime": datetime.fromtimestamp(newest_mtime, UTC).isoformat(timespec="seconds").replace("+00:00", "Z") if newest_mtime else None,
+        "changed_count_visible": len(changed),
+        "changed_files": changed,
+        "fresh": len(changed) == 0,
+        "truncated": len(changed) >= limit,
+    }
+
+
+def agent_memory_doctor(store: Path) -> dict[str, Any]:
+    current_status = status(store)
+    tool_names = {tool["name"] for tool in mcp_tool_definitions()}
+    required_tools = {
+        "ivy_memory_query",
+        "ivy_memory_remember",
+        "ivy_memory_session_ingest",
+        "ivy_memory_session_batch_ingest",
+        "ivy_memory_agent_hook",
+        "ivy_memory_freshness_scan",
+        "ivy_memory_agent_doctor",
+        "ivy_memory_status",
+    }
+    checks = {
+        "store_initialized": bool(current_status.get("ok")),
+        "dataset_exists": Path(str(current_status["dataset"])).exists(),
+        "index_exists": bool(current_status.get("index", {}).get("exists")),
+        "agent_hooks_available": AGENT_HOOKS >= {"before_task", "before_edit", "after_test", "after_task"},
+        "mcp_lifecycle_tools_available": required_tools <= tool_names,
+        "secret_write_barrier_enabled": SECRET_RE.search("api_key=example") is not None,
+    }
+    return {
+        "ok": all(checks.values()),
+        "store": str(store),
+        "checks": checks,
+        "status": current_status,
+        "policy": agent_memory_policy(),
+        "available_hooks": sorted(AGENT_HOOKS),
+        "available_mcp_tools": sorted(tool_names),
     }
 
 
@@ -1200,6 +1305,16 @@ class ApiHandler(BaseHTTPRequestHandler):
                         build=bool(payload.get("build", True)),
                     ),
                 )
+            elif self.path == "/session/batch-ingest":
+                self._send(
+                    200,
+                    ingest_session_batch(
+                        self.store,
+                        payload,
+                        remember_deltas=bool(payload.get("remember_deltas", True)),
+                        build=bool(payload.get("build", True)),
+                    ),
+                )
             elif self.path == "/agent/hook":
                 self._send(
                     200,
@@ -1212,6 +1327,17 @@ class ApiHandler(BaseHTTPRequestHandler):
                 )
             elif self.path == "/packet/v2":
                 self._send(200, context_packet_v2(self.store, query=str(payload["query"]), hook=str(payload.get("hook", "before_task"))))
+            elif self.path == "/freshness":
+                self._send(
+                    200,
+                    source_freshness_scan(
+                        self.store,
+                        source_root=Path(str(payload["source_root"])) if payload.get("source_root") else None,
+                        limit=int(payload.get("limit", 20)),
+                    ),
+                )
+            elif self.path == "/agent/doctor":
+                self._send(200, agent_memory_doctor(self.store))
             elif self.path == "/ingest":
                 self._send(200, add_source(self.store, Path(str(payload["source_root"])), build=bool(payload.get("build", True))))
             elif self.path == "/build":
@@ -1303,6 +1429,19 @@ def mcp_tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "ivy_memory_session_batch_ingest",
+            "description": "Batch-ingest multiple agent sessions, derive safe memory deltas, and rebuild once.",
+            "inputSchema": {
+                "type": "object",
+                "required": ["sessions"],
+                "properties": {
+                    "sessions": {"type": "array", "items": {"type": "object"}},
+                    "remember_deltas": {"type": "boolean"},
+                    "build": {"type": "boolean"},
+                },
+            },
+        },
+        {
             "name": "ivy_memory_agent_hook",
             "description": "Run a Codex/OpenCode memory hook: before_task, before_edit, after_test, after_task, remember, or supersede.",
             "inputSchema": {
@@ -1314,6 +1453,22 @@ def mcp_tool_definitions() -> list[dict[str, Any]]:
                     "payload": {"type": "object"},
                 },
             },
+        },
+        {
+            "name": "ivy_memory_freshness_scan",
+            "description": "Check registered source roots for files newer than the last memory build.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "source_root": {"type": "string"},
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 1000},
+                },
+            },
+        },
+        {
+            "name": "ivy_memory_agent_doctor",
+            "description": "Run readiness checks for agent memory lifecycle use.",
+            "inputSchema": {"type": "object", "properties": {}},
         },
         {
             "name": "ivy_memory_ingest",
@@ -1507,6 +1662,13 @@ def mcp_call_tool(store: Path, name: str, args: dict[str, Any]) -> dict[str, Any
             remember_deltas=bool(args.get("remember_deltas", True)),
             build=bool(args.get("build", True)),
         )
+    if name == "ivy_memory_session_batch_ingest":
+        return ingest_session_batch(
+            store,
+            args,
+            remember_deltas=bool(args.get("remember_deltas", True)),
+            build=bool(args.get("build", True)),
+        )
     if name == "ivy_memory_agent_hook":
         payload = args.get("payload", {})
         return agent_hook(
@@ -1515,6 +1677,14 @@ def mcp_call_tool(store: Path, name: str, args: dict[str, Any]) -> dict[str, Any
             task=str(args.get("task", "")),
             payload=payload if isinstance(payload, dict) else {},
         )
+    if name == "ivy_memory_freshness_scan":
+        return source_freshness_scan(
+            store,
+            source_root=Path(str(args["source_root"])) if args.get("source_root") else None,
+            limit=int(args.get("limit", 20)),
+        )
+    if name == "ivy_memory_agent_doctor":
+        return agent_memory_doctor(store)
     if name == "ivy_memory_ingest":
         return add_source(store, Path(str(args["source_root"])), build=bool(args.get("build", True)))
     if name == "ivy_memory_build":
@@ -1673,6 +1843,11 @@ def main(argv: list[str] | None = None) -> int:
     session_parser.add_argument("--no-remember-deltas", action="store_true")
     session_parser.add_argument("--no-build", action="store_true")
 
+    batch_parser = sub.add_parser("session-batch-ingest")
+    batch_parser.add_argument("--json", type=Path, required=True)
+    batch_parser.add_argument("--no-remember-deltas", action="store_true")
+    batch_parser.add_argument("--no-build", action="store_true")
+
     hook_parser = sub.add_parser("agent-hook")
     hook_parser.add_argument("--hook", choices=sorted(AGENT_HOOKS), required=True)
     hook_parser.add_argument("--task", default="")
@@ -1681,6 +1856,12 @@ def main(argv: list[str] | None = None) -> int:
     packet_parser = sub.add_parser("packet-v2")
     packet_parser.add_argument("--query", required=True)
     packet_parser.add_argument("--hook", default="before_task")
+
+    freshness_parser = sub.add_parser("freshness-scan")
+    freshness_parser.add_argument("--source-root", type=Path, default=None)
+    freshness_parser.add_argument("--limit", type=int, default=20)
+
+    sub.add_parser("agent-doctor")
 
     query_parser = sub.add_parser("query")
     query_parser.add_argument("--query", required=True)
@@ -1733,11 +1914,25 @@ def main(argv: list[str] | None = None) -> int:
                     build=not args.no_build,
                 )
             )
+        elif args.command == "session-batch-ingest":
+            payload = json.loads(args.json.read_text(encoding="utf-8"))
+            print_payload(
+                ingest_session_batch(
+                    store,
+                    payload,
+                    remember_deltas=not args.no_remember_deltas,
+                    build=not args.no_build,
+                )
+            )
         elif args.command == "agent-hook":
             payload = json.loads(args.payload_json.read_text(encoding="utf-8")) if args.payload_json else {}
             print_payload(agent_hook(store, hook=args.hook, task=args.task, payload=payload))
         elif args.command == "packet-v2":
             print_payload(context_packet_v2(store, query=args.query, hook=args.hook))
+        elif args.command == "freshness-scan":
+            print_payload(source_freshness_scan(store, source_root=args.source_root, limit=args.limit))
+        elif args.command == "agent-doctor":
+            print_payload(agent_memory_doctor(store))
         elif args.command == "query":
             print_payload(
                 query_store(

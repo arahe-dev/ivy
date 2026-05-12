@@ -47,8 +47,11 @@ Capture a session transcript and query the agent packet wrapper:
 
 ```powershell
 python .\plugins\ivy-context-memory\scripts\ivy_context_memory.py session-ingest --json .\session.json
+python .\plugins\ivy-context-memory\scripts\ivy_context_memory.py session-batch-ingest --json .\sessions.json
 python .\plugins\ivy-context-memory\scripts\ivy_context_memory.py agent-hook --hook before_task --task "What context matters for this task?"
 python .\plugins\ivy-context-memory\scripts\ivy_context_memory.py packet-v2 --query "What did the last verified session establish?"
+python .\plugins\ivy-context-memory\scripts\ivy_context_memory.py freshness-scan
+python .\plugins\ivy-context-memory\scripts\ivy_context_memory.py agent-doctor
 ```
 
 ## HTTP API
@@ -66,8 +69,11 @@ Endpoints:
 - `POST /ingest` with `{ "source_root": "C:\\ivy", "build": true }`
 - `POST /remember` with `{ "text": "...", "source_path": "root/notes/x.md", "tags": ["tag"] }`
 - `POST /session/ingest` with `{ "session_id": "...", "records": [{ "event_type": "decision", "text": "..." }] }`
+- `POST /session/batch-ingest` with `{ "sessions": [{ "records": [...] }] }`
 - `POST /agent/hook` with `{ "hook": "before_task", "task": "..." }`
 - `POST /packet/v2` with `{ "query": "...", "hook": "before_task" }`
+- `POST /freshness` with `{ "source_root": "...", "limit": 20 }`
+- `POST /agent/doctor`
 - `POST /query` with `{ "query": "...", "variant": "auto" }`
 - `POST /build`
 - `POST /warm` with `{ "queries": ["..."] }`
@@ -85,7 +91,10 @@ Available tools:
 - `ivy_memory_query`
 - `ivy_memory_remember`
 - `ivy_memory_session_ingest`
+- `ivy_memory_session_batch_ingest`
 - `ivy_memory_agent_hook`
+- `ivy_memory_freshness_scan`
+- `ivy_memory_agent_doctor`
 - `ivy_memory_ingest`
 - `ivy_memory_build`
 - `ivy_memory_warm`
