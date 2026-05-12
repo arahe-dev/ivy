@@ -211,9 +211,9 @@ Naive retrieval had high recall but poor precision: it pulled stale and decoy re
 | Exact-anchor only | 119 | 3 | 1.0 | 0 | 0 | 0 |
 | Compact ACCA | 119 | 119 | 1.0 | 0 | 0 | 0 |
 
-### Speed Result
+### Historical CP9.1 Speed Result
 
-The Rust candidate backend was first correct but slow because Python spawned Rust and Rust rebuilt the corpus per query. CP9.1 added batch preload: Rust indexes the dataset once, then Python keeps proof/gate/packet authority.
+The CP9.1 Rust candidate backend was the first major latency breakthrough. Before that point, Python spawned Rust and Rust rebuilt the corpus per query. CP9.1 added batch preload: Rust indexed the dataset once, then Python kept proof/gate/packet authority. This is no longer the latest project state; the CP102-era context-memory plugin and daemon results are summarized in the next section.
 
 ![MoME/MoCE stress speed comparison](assets/mome-moce-speed.svg)
 

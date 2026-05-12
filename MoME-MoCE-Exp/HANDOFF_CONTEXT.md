@@ -1,22 +1,25 @@
 # MoME/MoCE Handoff Context
 
-Date: 2026-05-10
+Date: 2026-05-12
 
 ## Current Checkpoint
 
-The MoME/MoCE experiment is past the CP7/CP8/CP9 checkpoint and now includes the CP9.1 Rust backend integration, Ivy-real v2, taint/exposure packet ABI, and model-facing demo artifacts.
+The MoME/MoCE experiment is now in the CP102-era context-memory sidecar phase. CP9/CP9.1 are historical milestones, not the current frontier. The current build includes `ivy-context-memory`: a Codex/OpenCode-facing local memory sidecar with ACCA packets, route proofs, write barriers, MCP/API/daemon surfaces, session ingest, lifecycle hooks, batch ingest, freshness scan, long-session drill, readiness doctor, and answer-level A/B checks.
 
-- CP7 is complete: `out/context_stress_ivy_real` has 37 curated IVY evidence items and 30 labeled cases.
-- CP8 is complete: `--candidate-backend indexed` preserves exact quality and improves stress latency.
-- CP9 is complete as a candidate-index prototype: Rust candidate recall is verified.
-- CP9.1 is complete as an optional Rust candidate backend: `--candidate-backend rust` is routed through Python proof/gate/packet authority.
-- Ivy-real v2 is complete: `out/context_stress_ivy_real_v2` has 45 items and 119 cases.
-- Taint/exposure fields now survive into route proofs and frontier packets.
+Current state:
+
+- Core ACCA routing remains deterministic and authority-constrained: selected evidence, rejected evidence, route proof, answerability, taint/exposure labels, and stale/current conflict behavior.
+- CP9.1 Rust batch remains a useful historical speed result, but the active path is the plugin/daemon lifecycle around `plugins/ivy-context-memory`.
+- CP45-CP82 added real-conversation autoresearch, a 10M-token sharded-memory capacity rating, external generalization gates, no-exact-anchor ablations, paraphrase gates, negative controls, and source-removal sensitivity checks.
+- CP83-CP92 added agent session capture, memory deltas, packet v2, before/after hooks, daemon/MCP surfaces, and burn-in.
+- CP93-CP102 added adapter lifecycle, targeted answer-quality A/B, batch session ingest, freshness scan, long-session drill, readiness doctor, and refreshed usage docs.
 
 Primary status doc:
 
-- `docs/CP7_CP9_STATUS_2026-05-10.md`
-- `docs/AUTORESEARCH_TRACK_RECORD_2026-05-10.md`
+- `docs/AUTORESEARCH_LOOP_SCOREBOARD.md`
+- `docs/PLUGIN_BENCHMARK_SCOREBOARD.md`
+- `docs/PLUGIN_SUPERCHARGE_TRACK_RECORD_2026-05-11.md`
+- `plugins/ivy-context-memory/README.md`
 
 Primary continuation doc:
 
@@ -25,21 +28,30 @@ Primary continuation doc:
 ## Verified Results
 
 ```text
-ivy_real scan:     30/30, required-only precision 1.0, artifact_errors 0
-ivy_real indexed:  30/30, required-only precision 1.0, artifact_errors 0
-smoke indexed:     62/62, required-only precision 1.0, artifact_errors 0
-medium indexed:    62/62, required-only precision 1.0, artifact_errors 0
-stress indexed:    62/62, required-only precision 1.0, artifact_errors 0
-stress scan:       62/62, required-only precision 1.0, artifact_errors 0
-rust ivy_real:     recall@32 1.0, failed_cases 0
-rust stress:       recall@32 1.0, failed_cases 0
-ivy_real_v2 idx:   119/119, required-only precision 1.0, forbidden hits 0
-ivy_real_v2 rust:  119/119, required-only precision 1.0, forbidden hits 0
-stress rust batch: 62/62, required-only precision 1.0, route mean 1.694 ms, preload 4483.781 ms
-model demo:        ACCA 8/8, naive BM25 forbidden hits 1 in representative demo
-v2 naive BM25:     precision 0.2376, forbidden hits 12
-v2 ACCA compact:   precision 1.0, forbidden hits 0
-pytest:            13 passed
+Ivy-real v2 ACCA:             119/119, required-only precision 1.0, forbidden hits 0
+Stress Rust batch:            62/62, required-only precision 1.0, route mean 1.694 ms
+Plugin benchmark:             6/6 expected behaviors
+Plugin benchmark latency:     avg query wall 15.535 ms, avg router 2.478 ms
+Hot repeated plugin wall:     about 7.5-7.7 ms
+Regression gate:              passed
+Regression gate plugin wall:  19.351 ms
+Regression gate plugin route: 3.747 ms
+Daemon post-warm query wall:  10.142 ms
+Daemon post-warm router:      4.638 ms
+External generalization:      9/9 combined gate
+No-exact-anchor gate:         9/9
+Semantic paraphrase gate:     9/9
+Semantic + no-exact gate:     9/9
+Negative controls:            5/5 abstain, avg selected 0.0
+Source-removal gate:          8/8 abstain, avg selected 0.0
+Agent session ingest:         verified
+Agent hook packet v2:         verified
+Agent answer A/B:             packet-v2 memory 3/3, no-memory 0/3
+Batch session ingest:         verified, single rebuild
+Long-session drill:           1000 records -> 3 deltas, 3.179 ms packet wall
+Agent memory doctor:          verified
+Focused tests:                28 passed
+Capacity rating:              10M tokens as sharded external memory, not one prompt
 ```
 
 ## Litter / Phone Access Setup
@@ -116,8 +128,9 @@ Then force-close and reopen Litter on the phone so it does not reuse stale SSH b
 
 ## Next Engineering Steps
 
-1. Make CP9 a real optional backend: compile Rust once, call it directly, and compare Rust/Python candidate parity.
-2. Improve raw Rust/Python candidate parity. Selected evidence parity is 1.0, but candidate Jaccard is still low on stress.
-3. Replace benchmark batch preload with a persistent Rust process or library binding for arbitrary interactive queries.
-4. Expand Ivy-real v3 using actual sanitized run outputs and failure logs.
-5. Add answer-level model checks that consume only the frontier packet and cite selected evidence IDs.
+1. Run a fresh-machine replay: install plugin, ingest sources, warm daemon, query, remember, and compare packet hashes.
+2. Wire `ivy-context-memory` into the normal Codex/OpenCode pre-task and post-verification workflow.
+3. Expand answer-level A/B tests where the final model must use ACCA packets correctly, not just retrieve the right evidence.
+4. Grow external generalization corpora beyond IVY docs while keeping negative controls and source-removal gates.
+5. Lower plugin wall latency further without weakening authority, freshness, conflict, safety, or abstention behavior.
+6. Decide whether Rust should become a persistent service/library for larger corpora, or remain a historical benchmark backend while the Python plugin path is optimized.
