@@ -18,6 +18,8 @@ try:
         MoMEMoCERouter,
         RouteResult,
         load_corpus,
+        query_has_anchor,
+        requested_families,
         validate_route_artifacts,
         write_artifact_pair,
     )
@@ -26,6 +28,8 @@ except ModuleNotFoundError:
         MoMEMoCERouter,
         RouteResult,
         load_corpus,
+        query_has_anchor,
+        requested_families,
         validate_route_artifacts,
         write_artifact_pair,
     )
@@ -1013,14 +1017,15 @@ def helper_lazy_advice(case: dict[str, Any], router: MoMEMoCERouter | None) -> L
         fallback.strategy = "helper-lazy:fallback_spec_dd_lazy"
         return fallback
 
-    best_item = None
-    best_alias = ""
-    best_score = 0.0
+    scored_items: list[tuple[float, Any, str]] = []
     q_tokens = set(lower.split())
+    phrases = meaningful_query_phrases(query)
     for item in router.items:
         raw = item.raw
+        if item.authority == "decoy" or item.staleness == "stale":
+            continue
         aliases = [str(alias) for alias in raw.get("aliases", []) if str(alias).strip()]
-        helper_terms = aliases + [item.id, *item.tags]
+        helper_terms = aliases + [item.id, *item.tags, str(raw.get("helper_query") or ""), item.text]
         score = 0.0
         matched_alias = ""
         for alias in aliases:
@@ -1030,38 +1035,52 @@ def helper_lazy_advice(case: dict[str, Any], router: MoMEMoCERouter | None) -> L
                 matched_alias = alias
         item_tokens = set(token for term in helper_terms for token in norm_text(term).split())
         score += len(q_tokens & item_tokens) * 0.25
+        item_blob = norm_text(" ".join(helper_terms))
+        score += sum(0.45 for phrase in phrases if phrase in item_blob)
         if item.staleness == "current":
             score += 0.2
         if item.authority == "high":
             score += 0.2
-        if item.authority == "decoy" or item.staleness == "stale":
-            score -= 1.25
-        if score > best_score:
-            best_item = item
-            best_alias = matched_alias
-            best_score = score
+        if score >= 2.0:
+            scored_items.append((score, item, matched_alias))
 
-    if best_item is None or best_score < 2.0:
+    if not scored_items:
         fallback = spec_dd_lazy_advice(case, router)
         fallback.strategy = "helper-lazy:fallback_spec_dd_lazy"
         return fallback
 
-    raw = best_item.raw
-    helper_query = str(raw.get("helper_query") or "").strip()
-    if not helper_query:
-        helper_query = " ".join(unique([*best_item.tags, best_item.source_family, best_item.staleness], limit=8))
-    guards = normalize_model_entity_terms(
-        [str(term) for term in raw.get("guard_terms", [])]
-        or catalog_guard_terms_for_blob(" ".join([best_item.id, " ".join(best_item.tags), best_item.text]))
-    )
+    scored_items.sort(key=lambda row: row[0], reverse=True)
+    chosen = scored_items[:2]
+    queries: list[str] = []
+    guard_sets: list[list[str]] = []
+    matched_aliases: list[str] = []
+    for score, item, matched_alias in chosen:
+        raw = item.raw
+        helper_query = str(raw.get("helper_query") or "").strip()
+        if not helper_query:
+            helper_query = " ".join(unique([*item.tags, item.source_family, item.staleness], limit=8))
+        if not query_has_anchor(helper_query) and not requested_families(helper_query):
+            helper_query = f"ACCA {helper_query}"
+        queries.append(helper_query)
+        matched_aliases.append(matched_alias or item.id)
+        guard_sets.append(
+            normalize_model_entity_terms(
+                [str(term) for term in raw.get("guard_terms", [])]
+                or catalog_guard_terms_for_blob(" ".join([item.id, " ".join(item.tags), item.text]))
+            )
+        )
+
+    first_guards = guard_sets[0] if guard_sets else []
+    guards = first_guards if all(guards == first_guards for guards in guard_sets) else []
+    raw = chosen[0][1].raw
     risk_terms = {"latest", "current", "now", "right now", "price", "pricing", "charging", "ga", "public", "safety", "private", "secret", "write"}
     mode = "blocking_escalation" if any(term in lower for term in risk_terms) else "parallel_advisory"
     elapsed = (time.perf_counter() - started) * 1000
     return LibrarianAdvice(
         strategy="helper-lazy",
         escalation_mode=mode,
-        intent_summary=f"helper alias match: {best_alias or best_item.id}",
-        queries=[helper_query],
+        intent_summary=f"helper alias/profile matches: {', '.join(matched_aliases)}",
+        queries=unique(queries, limit=2),
         entity_terms=guards,
         negative_constraints=unique(
             [str(item) for item in raw.get("negative_constraints", [])]
@@ -1069,10 +1088,10 @@ def helper_lazy_advice(case: dict[str, Any], router: MoMEMoCERouter | None) -> L
             limit=6,
         ),
         side_tracks=[
-            f"helper_score={best_score:.3f}",
-            "Alias/profile helper drafted one query; final D-ACCA route verifies it.",
+            "helper_scores=" + ", ".join(f"{item.id}:{score:.3f}" for score, item, _alias in chosen),
+            "Alias/profile helper drafted deterministic query candidates; final D-ACCA routes verify them.",
         ],
-        rationale="Helper-lazy uses learned alias/profile metadata as a low-latency draft librarian.",
+        rationale="Helper-lazy uses learned alias/profile metadata as a low-latency deterministic draft librarian.",
         latency_ms=round(elapsed, 3),
     )
 
