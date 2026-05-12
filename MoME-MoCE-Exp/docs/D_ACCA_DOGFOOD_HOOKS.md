@@ -60,6 +60,14 @@ The React dashboard in `frontend/` should call only one local adapter layer:
 
 The more durable boundary is now `alexandria_harness/`: it validates raw hook responses, enforces packet/proof invariants, and emits `dashboard_view.json` for frontends to consume or replay. See `docs/ALEXANDRIA_HARNESS.md`.
 
+For immediate dogfooding without React/Vite, use `alexandria_simple/`:
+
+```powershell
+.\alexandria-simple.cmd start
+```
+
+It opens a plain static UI over the same hooks: health, hooks, memories, ingest, packet, proof, search, feedback, and forget.
+
 ## Ingest
 
 ```powershell
