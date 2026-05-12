@@ -242,3 +242,31 @@ References used for the analogy:
 - How much side-track output should be persisted into shadow logs?
 - Should answer verification happen before final answer emission or as post-turn critique?
 - Can a cheap local model handle intent compilation well enough, or should OpenCode Go/DeepSeek Flash be used for this role?
+
+## Session Audit 2026-05-12 17:40 IST
+
+Objective: supercharge D-ACCA/DD-ACCA with focused deterministic librarian/router improvements and DeepSeek-backed shadow/advisory workflows.
+
+Checklist:
+
+| requirement | artifact/evidence | status |
+|---|---|---|
+| DeepSeek-backed advisory workflow | `model-opencode-go` strategy in `scripts/run_librarian_advisor_harness.py`; strict live run documented above | complete |
+| deterministic quality improvement | `dd-rule` strategy distills DeepSeek canonical-query behavior | complete |
+| speculative/MTP-inspired sidecar | `spec-dd` and `spec-dd-lazy` strategies draft multi-head librarian queries | complete |
+| sub-ms draft-librarian candidate | nine-repeat matrix shows `spec-dd-lazy` mean `0.715 ms`, min `0.681 ms`, max `0.803 ms` | complete |
+| quality/precision gate | matrix shows `1.0000` quality, `0` harmed cases, `0` forbidden hits for `dd-rule`, `spec-dd`, and `spec-dd-lazy` | complete |
+| focused regression coverage | `tests/test_librarian_advisor_harness.py` covers fixture, DeepSeek parsing/fallback/guardrails, DD-rule, Spec-DD, and Spec-DD-lazy | complete |
+| repeated benchmark harness | `scripts/run_librarian_strategy_matrix.py` runs repeatable strategy comparisons | complete |
+| milestone commits | `bc52f61`, `c4507df`, `7ccb564`, `803d349`, `a323da8`, `212e567`, `e3f00dc` | complete |
+
+Final matrix evidence from `out/librarian_strategy_matrix_lazy_dedup/librarian_strategy_matrix.json`:
+
+| strategy | repeats | quality mean | harmed | forbidden | latency mean ms |
+|---|---:|---:|---:|---:|---:|
+| rule | 9 | 0.6000 | 0 | 0 | 0.494 |
+| dd-rule | 9 | 1.0000 | 0 | 0 | 1.543 |
+| spec-dd | 9 | 1.0000 | 0 | 0 | 1.334 |
+| spec-dd-lazy | 9 | 1.0000 | 0 | 0 | 0.715 |
+
+Conclusion: DeepSeek is valuable as a teacher/shadow librarian, not a hot-path runtime dependency. `spec-dd-lazy` is the best current hot-path candidate: it preserves the speculative draft/target-verifier shape while keeping latency below 1 ms on this focused harness.
