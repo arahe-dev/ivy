@@ -12,6 +12,7 @@ from scripts.run_librarian_advisor_harness import (
 )
 from scripts.generate_blackbox_packet_cases import main as generate_blackbox_cases_main
 from scripts.run_blackbox_packet_eval import main as blackbox_eval_main
+from scripts.run_real_replay_packet_eval import main as real_replay_eval_main
 
 
 def test_librarian_advisor_harness_smoke(tmp_path) -> None:
@@ -167,6 +168,74 @@ def test_helper_lazy_and_blackbox_packet_eval(tmp_path) -> None:
     assert summary["helper-lazy"]["cases"] == 60
     assert summary["helper-lazy"]["quality"] >= summary["d-acca"]["quality"]
     assert summary["helper-lazy"]["forbidden_hits"] <= summary["bm25"]["forbidden_hits"]
+
+
+def test_real_replay_packet_eval_from_codex_style_jsonl(tmp_path) -> None:
+    sessions_root = tmp_path / "sessions"
+    session_dir = sessions_root / "2026" / "05" / "12"
+    session_dir.mkdir(parents=True)
+    session_file = session_dir / "rollout-test.jsonl"
+    events = [
+        {
+            "timestamp": "2026-05-12T12:00:00Z",
+            "type": "response_item",
+            "payload": {
+                "type": "message",
+                "role": "user",
+                "content": [{"type": "input_text", "text": "what have we actually made here, a search engine or acca context memory engine?"}],
+            },
+        },
+        {
+            "timestamp": "2026-05-12T12:01:00Z",
+            "type": "response_item",
+            "payload": {
+                "type": "message",
+                "role": "user",
+                "content": [{"type": "input_text", "text": "how do we use the librarian and confidence gate without making DeepSeek the hot path?"}],
+            },
+        },
+        {
+            "timestamp": "2026-05-12T12:02:00Z",
+            "type": "response_item",
+            "payload": {
+                "type": "message",
+                "role": "user",
+                "content": [{"type": "input_text", "text": "can Signal ping the phone and Recall Board become the visual second brain?"}],
+            },
+        },
+    ]
+    session_file.write_text("\n".join(json.dumps(event) for event in events), encoding="utf-8")
+    out_dir = tmp_path / "real_replay_eval"
+    rc = real_replay_eval_main(
+        [
+            "--sessions-root",
+            str(sessions_root),
+            "--count",
+            "30",
+            "--seed",
+            "7",
+            "--dataset",
+            str(tmp_path / "real_replay_dataset"),
+            "--cases",
+            str(tmp_path / "real_replay_cases.json"),
+            "--out",
+            str(out_dir),
+            "--variants",
+            "helper-lazy",
+            "dd-rule",
+            "--candidate-backend",
+            "indexed",
+        ]
+    )
+    assert rc == 0
+    summary = json.loads((out_dir / "real_replay_packet_eval_summary.json").read_text(encoding="utf-8"))
+    results = json.loads((out_dir / "real_replay_packet_eval_results.json").read_text(encoding="utf-8"))
+    report = (out_dir / "real_replay_packet_eval_report.md").read_text(encoding="utf-8")
+    assert set(summary) == {"helper-lazy", "dd-rule"}
+    assert summary["helper-lazy"]["cases"] == 30
+    assert results["runner_version"] == "d_acca.real_replay_packet_eval.v0.1"
+    assert results["replay_generation"]["matched_user_turns"] == 3
+    assert "Fixed variation bank" in report
 
 
 def test_model_librarian_response_parsing() -> None:
