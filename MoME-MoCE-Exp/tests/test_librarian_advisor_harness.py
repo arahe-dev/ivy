@@ -47,6 +47,58 @@ def test_librarian_advisor_harness_smoke(tmp_path) -> None:
     assert all("direct_score" in row and "librarian_score" in row for row in results["results"])
 
 
+def test_dd_rule_distills_model_help_into_fast_deterministic_path(tmp_path) -> None:
+    out_dir = tmp_path / "dd_rule"
+    rc = main(
+        [
+            "--cases",
+            "eval/librarian_harness_cases.json",
+            "--strategy",
+            "dd-rule",
+            "--candidate-backend",
+            "indexed",
+            "--out",
+            str(out_dir),
+        ]
+    )
+    assert rc == 0
+
+    summary = json.loads((out_dir / "librarian_harness_summary.json").read_text(encoding="utf-8"))
+    assert summary["cases"] == 5
+    assert summary["librarian_quality"] == 1.0
+    assert summary["librarian_harmed_cases"] == []
+    assert summary["forbidden_hits"]["librarian"] == 0
+    assert set(summary["librarian_helped_cases"]) == {
+        "lib_cp27_recall_price_vague",
+        "lib_v2_hot_cache_footgun",
+    }
+
+
+def test_spec_dd_verifies_multi_head_draft_with_d_acca(tmp_path) -> None:
+    out_dir = tmp_path / "spec_dd"
+    rc = main(
+        [
+            "--cases",
+            "eval/librarian_harness_cases.json",
+            "--strategy",
+            "spec-dd",
+            "--candidate-backend",
+            "indexed",
+            "--out",
+            str(out_dir),
+        ]
+    )
+    assert rc == 0
+
+    summary = json.loads((out_dir / "librarian_harness_summary.json").read_text(encoding="utf-8"))
+    results = json.loads((out_dir / "librarian_harness_results.json").read_text(encoding="utf-8"))
+    assert summary["librarian_quality"] == 1.0
+    assert summary["forbidden_hits"]["librarian"] == 0
+    assert summary["librarian_harmed_cases"] == []
+    assert all(row["advice"]["strategy"].startswith("spec-dd") for row in results["results"])
+    assert any("Draft heads:" in track for row in results["results"] for track in row["advice"]["side_tracks"])
+
+
 def test_model_librarian_response_parsing() -> None:
     response = {
         "output": [

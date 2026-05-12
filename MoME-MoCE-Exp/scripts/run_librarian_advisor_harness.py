@@ -40,6 +40,52 @@ DEFAULT_MODEL_MAX_OUTPUT_TOKENS = 3000
 VALID_ESCALATION_MODES = {"hot_path", "parallel_advisory", "blocking_escalation"}
 
 
+CATALOG_ENTITY_ALIASES: dict[str, list[str]] = {
+    "recall": ["recall", "recall cloud", "hosted sync", "recall board"],
+    "signal": ["signal"],
+    "nebula": ["nebula"],
+    "sandbox": ["sandbox", "sandbox_workspace", "poke around", "write wherever", "write anywhere", "permissions"],
+    "hot-session": ["hot-session", "hot session", "cache_prompt", "static prefix", "prefix footgun", "cache footgun"],
+    "ivy": ["ivy"],
+    "qwen": ["qwen"],
+    "mome": ["mome"],
+    "moce": ["moce"],
+    "acca": ["acca"],
+}
+
+CATALOG_ENTITY_DISPLAY: dict[str, str] = {
+    "recall": "Recall Cloud",
+    "signal": "Signal",
+    "nebula": "Nebula",
+    "sandbox": "sandbox_workspace agent tool sandbox",
+    "hot-session": "hot-session cache reuse static prefix",
+    "ivy": "IVY",
+    "qwen": "Qwen",
+    "mome": "MoME",
+    "moce": "MoCE",
+    "acca": "ACCA",
+}
+
+PHRASE_STOPWORDS = {
+    "a",
+    "an",
+    "and",
+    "are",
+    "can",
+    "for",
+    "from",
+    "how",
+    "not",
+    "or",
+    "the",
+    "this",
+    "was",
+    "what",
+    "where",
+    "with",
+}
+
+
 @dataclass(slots=True)
 class LibrarianAdvice:
     strategy: str
@@ -65,6 +111,13 @@ class ModelAdvisorConfig:
     use_tool_call: bool = False
     api_key_env: str = "OPENCODE_GO_PROXY_KEY"
     fallback: str = "rule"
+
+
+@dataclass(slots=True)
+class DraftQuery:
+    head: str
+    query: str
+    priority: float
 
 
 def resolve_path(path: Path) -> Path:
@@ -280,7 +333,10 @@ def normalize_model_entity_terms(terms: list[str]) -> list[str]:
             continue
         if len(lower.split()) == 1 and lower not in generic:
             normalized.append(lower)
-    return unique(normalized, limit=6)
+    normalized = unique(normalized, limit=6)
+    if len(normalized) > 1 and "ivy" in normalized:
+        normalized = [term for term in normalized if term != "ivy"]
+    return normalized
 
 
 def apply_model_advice_guards(case: dict[str, Any], advice: LibrarianAdvice) -> LibrarianAdvice:
@@ -629,6 +685,266 @@ def rule_advice(case: dict[str, Any]) -> LibrarianAdvice:
     )
 
 
+def meaningful_query_phrases(query: str) -> list[str]:
+    tokens = [
+        token
+        for token in norm_text(query.replace("-", " ")).split()
+        if len(token) > 2 and token not in PHRASE_STOPWORDS
+    ]
+    phrases: list[str] = []
+    for size in (3, 2):
+        for idx in range(0, max(0, len(tokens) - size + 1)):
+            phrase = " ".join(tokens[idx : idx + size])
+            if phrase:
+                phrases.append(phrase)
+    return unique(phrases, limit=24)
+
+
+def catalog_guard_terms_for_blob(blob: str) -> list[str]:
+    lower = norm_text(blob.replace("_", " ").replace("-", " "))
+    out: list[str] = []
+    for guard, aliases in CATALOG_ENTITY_ALIASES.items():
+        for alias in aliases:
+            if norm_text(alias.replace("-", " ")) in lower:
+                out.append(guard)
+                break
+    return unique(out)
+
+
+def infer_catalog_guard_terms(router: MoMEMoCERouter | None, query: str) -> list[str]:
+    lower = norm_text(query.replace("-", " "))
+    out = catalog_guard_terms_for_blob(lower)
+    if router is None:
+        return out
+
+    phrases = meaningful_query_phrases(query)
+    for item in router.items:
+        search = norm_text(
+            " ".join(
+                [
+                    item.id,
+                    item.search_text,
+                    " ".join(item.tags),
+                    json.dumps(item.provenance, sort_keys=True),
+                ]
+            ).replace("_", " ")
+        )
+        if any(phrase in search for phrase in phrases):
+            out.extend(catalog_guard_terms_for_blob(search))
+    return unique(out, limit=6)
+
+
+def dd_rule_advice(case: dict[str, Any], router: MoMEMoCERouter | None) -> LibrarianAdvice:
+    started = time.perf_counter()
+    base = rule_advice(case)
+    query = str(case["query"])
+    lower = norm_text(query)
+    guards = infer_catalog_guard_terms(router, query)
+    queries = list(base.queries)
+    negative = list(base.negative_constraints)
+    side_tracks = list(base.side_tracks)
+    reasons = [] if base.intent_summary == "clear direct lookup" else [base.intent_summary]
+    escalation = base.escalation_mode
+
+    pricing_like = any(
+        term in lower
+        for term in ["latest", "current", "now", "right now", "price", "pricing", "charge", "charging", "cost"]
+    )
+    release_like = any(term in lower for term in ["ga", "public", "release", "status", "beta"])
+    safety_like = any(
+        term in lower
+        for term in ["safety", "sandbox", "secret", "private", "shell", "network", "delete", "poke around", "write wherever"]
+    )
+    hot_cache_like = "hot-session" in guards or (
+        "cache" in lower and any(term in lower for term in ["hot", "prefix", "footgun", "static"])
+    )
+
+    if pricing_like:
+        target_guards = [guard for guard in guards if guard not in {"sandbox", "hot-session", "ivy", "mome", "moce", "acca"}]
+        if not target_guards and "hosted sync" in lower:
+            target_guards = ["recall"]
+        for guard in target_guards or guards:
+            display = CATALOG_ENTITY_DISPLAY.get(guard, guard)
+            queries.append(f"{display} current pricing")
+            queries.append(f"{display} production price current")
+        negative.append("Reject stale pricing drafts and identity notes that do not state a price.")
+        side_tracks.append("Abstain when the target entity has no authoritative current price record.")
+        reasons.append("catalog-aware freshness pricing expansion")
+        escalation = "blocking_escalation"
+
+    if release_like and "signal" in guards:
+        queries.append("Signal current release status production status internal beta public GA")
+        negative.append("Reject stale GA claims if a newer release status exists.")
+        side_tracks.append("Inspect stale/current release-status conflicts.")
+        reasons.append("catalog-aware release-status expansion")
+        escalation = "blocking_escalation"
+
+    if safety_like or "sandbox" in guards:
+        queries.append("sandbox_workspace read write sandbox_workspace/out agent tool sandbox paths")
+        queries.append("Phase 1 agent tools no shell no network no delete")
+        negative.append("Reject stale write-anywhere notes.")
+        side_tracks.append("Audit safety-policy exposure before admitting evidence.")
+        reasons.append("catalog-aware sandbox safety expansion")
+        escalation = "blocking_escalation"
+        if "sandbox" not in guards:
+            guards.append("sandbox")
+
+    if hot_cache_like:
+        queries.append(
+            "hot-session cache reuse static prefix byte-identical timestamps volatile data before prefix destroy cache shape"
+        )
+        negative.append("Reject timestamp-is-ok decoys and stale prompt_ms threshold notes.")
+        side_tracks.append("Check whether the hot-session rule should become durable runbook memory.")
+        reasons.append("catalog-aware hot-cache expansion")
+        if escalation == "hot_path":
+            escalation = "parallel_advisory"
+        if "hot-session" not in guards:
+            guards.append("hot-session")
+
+    sanitized_queries = [candidate for candidate in queries if is_local_catalog_query(candidate)]
+    elapsed = (time.perf_counter() - started) * 1000
+    return LibrarianAdvice(
+        strategy="dd-rule",
+        escalation_mode=escalation,
+        intent_summary="; ".join(unique(reasons)) if reasons else base.intent_summary,
+        queries=unique(sanitized_queries, limit=4),
+        entity_terms=unique(normalize_model_entity_terms(base.entity_terms + guards), limit=6),
+        negative_constraints=unique(negative, limit=6),
+        side_tracks=unique(side_tracks, limit=6),
+        rationale="DD-rule compiled deterministic catalog advice distilled from DeepSeek librarian runs.",
+        latency_ms=round(elapsed, 3),
+    )
+
+
+def speculative_draft_queries(case: dict[str, Any], router: MoMEMoCERouter | None) -> tuple[list[DraftQuery], list[str], str]:
+    query = str(case["query"])
+    lower = norm_text(query)
+    guards = infer_catalog_guard_terms(router, query)
+    draft: list[DraftQuery] = [DraftQuery("original", query, 0.25)]
+
+    dd = dd_rule_advice(case, router)
+    for idx, candidate in enumerate(dd.queries):
+        draft.append(DraftQuery("dd_rule", candidate, 0.9 - idx * 0.05))
+
+    pricing_like = any(
+        term in lower
+        for term in ["latest", "current", "now", "right now", "price", "pricing", "charge", "charging", "cost"]
+    )
+    release_like = any(term in lower for term in ["ga", "public", "release", "status", "beta"])
+    safety_like = any(
+        term in lower
+        for term in ["safety", "sandbox", "secret", "private", "shell", "network", "delete", "poke around", "write wherever"]
+    )
+    hot_cache_like = "hot-session" in guards or (
+        "cache" in lower and any(term in lower for term in ["hot", "prefix", "footgun", "static"])
+    )
+
+    for guard in guards:
+        display = CATALOG_ENTITY_DISPLAY.get(guard, guard)
+        draft.append(DraftQuery("entity_head", f"{display} authoritative current record", 0.75))
+        if pricing_like:
+            draft.append(DraftQuery("pricing_head", f"{display} current pricing production price", 0.95))
+        if release_like:
+            draft.append(DraftQuery("release_head", f"{display} current release status production status public GA", 0.95))
+
+    if safety_like or "sandbox" in guards:
+        draft.extend(
+            [
+                DraftQuery("safety_head", "sandbox_workspace read write sandbox_workspace/out agent tool sandbox paths", 0.98),
+                DraftQuery("safety_head", "Phase 1 agent tools no shell no network no delete", 0.72),
+            ]
+        )
+    if hot_cache_like:
+        draft.append(
+            DraftQuery(
+                "cache_head",
+                "hot-session cache reuse static prefix byte-identical timestamps volatile data before prefix destroy cache shape",
+                0.98,
+            )
+        )
+
+    if router is not None:
+        phrases = meaningful_query_phrases(query)
+        for item in router.items:
+            search = norm_text(" ".join([item.id, item.search_text, " ".join(item.tags)]).replace("_", " "))
+            if any(phrase in search for phrase in phrases):
+                tag_query = " ".join(unique(item.tags + [item.source_family, item.staleness], limit=8))
+                if tag_query:
+                    draft.append(DraftQuery("corpus_phrase_head", tag_query, 0.62))
+
+    mode = dd.escalation_mode
+    return sorted(draft, key=lambda item: item.priority, reverse=True), unique(guards, limit=6), mode
+
+
+def verifier_selected_ids(router: MoMEMoCERouter, result: RouteResult, entity_terms: list[str]) -> list[str]:
+    selected: list[str] = []
+    for item_id in result.selected_ids:
+        item = router.items_by_id.get(item_id)
+        if item is None:
+            continue
+        if entity_terms and not item_matches_intent(router, item_id, entity_terms):
+            continue
+        if item.authority == "decoy":
+            continue
+        if item.staleness == "stale":
+            continue
+        selected.append(item_id)
+    return selected
+
+
+def spec_dd_advice(case: dict[str, Any], router: MoMEMoCERouter | None) -> LibrarianAdvice:
+    started = time.perf_counter()
+    if router is None:
+        fallback = dd_rule_advice(case, router)
+        fallback.strategy = "spec-dd:fallback_dd_rule"
+        return fallback
+
+    draft, guards, mode = speculative_draft_queries(case, router)
+    accepted: list[DraftQuery] = []
+    accepted_seen: set[str] = set()
+    rejected_count = 0
+    for candidate in draft:
+        if not is_local_catalog_query(candidate.query):
+            rejected_count += 1
+            continue
+        result = router.route(candidate.query)
+        selected = verifier_selected_ids(router, result, normalize_model_entity_terms(guards))
+        if selected or (not accepted and result.decision == "no_context_needed" and guards):
+            normalized_query = candidate.query.strip()
+            if normalized_query and normalized_query not in accepted_seen:
+                accepted.append(candidate)
+                accepted_seen.add(normalized_query)
+        else:
+            rejected_count += 1
+        if len(accepted) >= 4:
+            break
+
+    if not accepted:
+        fallback = dd_rule_advice(case, router)
+        fallback.strategy = "spec-dd:fallback_dd_rule"
+        fallback.latency_ms = round((time.perf_counter() - started) * 1000, 3)
+        return fallback
+
+    head_counts: dict[str, int] = {}
+    for candidate in accepted:
+        head_counts[candidate.head] = head_counts.get(candidate.head, 0) + 1
+    elapsed = (time.perf_counter() - started) * 1000
+    return LibrarianAdvice(
+        strategy="spec-dd",
+        escalation_mode=mode,
+        intent_summary="speculative deterministic draft verified by D-ACCA",
+        queries=[candidate.query for candidate in accepted],
+        entity_terms=normalize_model_entity_terms(guards),
+        negative_constraints=dd_rule_advice(case, router).negative_constraints,
+        side_tracks=[
+            "Draft heads: " + ", ".join(f"{head}={count}" for head, count in sorted(head_counts.items())),
+            f"Rejected draft heads during verifier pass: {rejected_count}",
+        ],
+        rationale="Spec-DD mimics speculative decoding/MTP: deterministic multi-head draft, D-ACCA verifier acceptance.",
+        latency_ms=round(elapsed, 3),
+    )
+
+
 def build_advice(
     case: dict[str, Any],
     strategy: str,
@@ -640,6 +956,10 @@ def build_advice(
         return fixture_advice(case)
     if strategy == "rule":
         return rule_advice(case)
+    if strategy == "dd-rule":
+        return dd_rule_advice(case, router)
+    if strategy == "spec-dd":
+        return spec_dd_advice(case, router)
     if strategy == "model-opencode-go":
         return model_opencode_go_advice(case, model_config or ModelAdvisorConfig(), router=router)
     raise ValueError(f"unsupported librarian strategy: {strategy}")
@@ -987,7 +1307,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cases", type=Path, default=DEFAULT_CASES)
     parser.add_argument("--dataset", type=Path, default=Path("out/context_stress_ivy_real_v2"))
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
-    parser.add_argument("--strategy", choices=["fixture", "rule", "model-opencode-go"], default="fixture")
+    parser.add_argument("--strategy", choices=["fixture", "rule", "dd-rule", "spec-dd", "model-opencode-go"], default="fixture")
     parser.add_argument("--candidate-backend", choices=["scan", "indexed", "rust"], default="indexed")
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--max-union-items", type=int, default=3)

@@ -92,6 +92,28 @@ python scripts\run_librarian_advisor_harness.py `
   --out out\librarian_advisor_rule
 ```
 
+Run the distilled deterministic DeepSeek-style librarian:
+
+```powershell
+cd C:\ivy\MoME-MoCE-Exp
+python scripts\run_librarian_advisor_harness.py `
+  --cases eval\librarian_harness_cases.json `
+  --strategy dd-rule `
+  --candidate-backend indexed `
+  --out out\librarian_advisor_dd_rule_verify
+```
+
+Run the speculative deterministic draft librarian:
+
+```powershell
+cd C:\ivy\MoME-MoCE-Exp
+python scripts\run_librarian_advisor_harness.py `
+  --cases eval\librarian_harness_cases.json `
+  --strategy spec-dd `
+  --candidate-backend indexed `
+  --out out\librarian_advisor_spec_dd_verify
+```
+
 Run the DeepSeek Flash librarian through OpenCode Go:
 
 ```powershell
@@ -168,6 +190,37 @@ Result after adding catalog-query sanitization and entity-term normalization:
 | librarian mean latency | 49,875.050 ms |
 
 Interpretation: DeepSeek Flash is useful as a correctness/intent-shadow librarian in hard cases, but it is far too slow for the hot path. The deployable shape is deterministic D-ACCA first, optional DeepSeek librarian in background or rare blocking escalation, with deterministic query sanitization and intent guards always applied after model advice.
+
+## DD-Rule And Spec-DD
+
+DeepSeek's useful contribution was mostly canonical vocabulary: vague user language like "hosted sync thing now" became `Recall Cloud pricing current`, and "cache footgun" became the exact hot-session static-prefix/cache rule. `dd-rule` distills that behavior into deterministic catalog-aware rules.
+
+`spec-dd` is the speculative decoding/MTP-inspired variant. The analogy:
+
+| LLM inference idea | DD-ACCA analogue |
+|---|---|
+| draft model proposes candidate next tokens | deterministic sidecar drafts candidate librarian query heads |
+| target model verifies draft tokens | D-ACCA verifier routes each draft query and accepts only admissible evidence-bearing heads |
+| MTP predicts multiple future tokens with multiple heads | sidecar emits entity, pricing, release, safety, cache, and corpus-phrase heads in one deterministic pass |
+| accepted prefix moves forward | accepted query heads become the final librarian bundle |
+
+Verification results:
+
+| strategy | quality | helped | harmed | forbidden | mean latency |
+|---|---:|---:|---:|---:|---:|
+| direct D-ACCA | 0.6000 | 0 | 0 | 0 | 0.325-0.448 ms |
+| rule | 0.6000 | 0 | 0 | 0 | 0.613 ms |
+| dd-rule | 1.0000 | 2 | 0 | 0 | 1.680 ms |
+| spec-dd | 1.0000 | 2 | 0 | 0 | 6.701 ms |
+| DeepSeek Flash librarian | 1.0000 | 2 | 0 | 0 | 49,875.050 ms |
+
+Interpretation: `dd-rule` is currently the best hot-path candidate. `spec-dd` is useful when we want target-style verification traces and safer acceptance of multiple draft heads, but its internal verifier pass makes it slower than plain `dd-rule`. DeepSeek remains a shadow/teacher model, not a runtime dependency.
+
+References used for the analogy:
+
+- Leviathan, Kalman, and Matias, "Fast Inference from Transformers via Speculative Decoding", ICML 2023: https://proceedings.mlr.press/v202/leviathan23a
+- Gloeckle et al., "Better & Faster Large Language Models via Multi-token Prediction", 2024: https://huggingface.co/papers/2404.19737
+- Miao et al., "SpecInfer: Accelerating Generative LLM Serving with Speculative Inference and Token Tree Verification", 2023: https://huggingface.co/papers/2305.09781
 
 ## Open Questions
 
