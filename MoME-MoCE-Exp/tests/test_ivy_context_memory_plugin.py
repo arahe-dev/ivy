@@ -62,6 +62,7 @@ def test_plugin_remember_build_query_roundtrip(tmp_path: Path) -> None:
     assert result["selected_count"] == 1
     assert result["prefilter"]["enabled"] is True
     assert result["prefilter"]["candidate_count"] == 1
+    assert result["router_candidate_k"] == 16
     assert "contradiction-aware" in result["packet_text"].lower()
     assert result["query"] == "What did CP28 show about final answer packet formats?"
     assert result["wall_ms"] >= result["latency_ms"]
@@ -82,6 +83,122 @@ def test_plugin_rejects_secret_like_note(tmp_path: Path) -> None:
         raise AssertionError("secret-like notes should be rejected")
     except ValueError as exc:
         assert "secret" in str(exc).lower()
+
+
+def test_session_ingest_derives_deltas_and_redacts_secret_text(tmp_path: Path) -> None:
+    plugin = load_plugin_module()
+    store = tmp_path / "store"
+    payload = {
+        "session_id": "cp83_session_capture",
+        "source": "codex",
+        "workspace": "C:\\ivy",
+        "task": "Build CP83-CP87 agent memory integration.",
+        "records": [
+            {"event_type": "message", "role": "user", "text": "Start the next memory integration checkpoint."},
+            {
+                "event_type": "decision",
+                "role": "assistant",
+                "text": "CP83 stores normalized Codex/OpenCode chat events as agent_session v0.1.",
+            },
+            {
+                "event_type": "test_result",
+                "role": "assistant",
+                "text": "CP84 session ingest roundtrip passed pytest coverage.",
+                "passed": True,
+            },
+            {"event_type": "message", "role": "user", "text": "api_key=sk-test-should-not-persist"},
+            {
+                "event_type": "outcome",
+                "role": "assistant",
+                "text": "CP85 memory deltas convert durable decisions and verification into retrievable notes.",
+            },
+        ],
+    }
+
+    result = plugin.ingest_session(store, payload)
+    current_status = plugin.status(store)
+    session_text = Path(result["session_path"]).read_text(encoding="utf-8")
+    queried = plugin.query_store(store, query="What does CP83 store for Codex OpenCode sessions?")
+
+    assert result["ok"] is True
+    assert result["delta_count"] == 3
+    assert result["remembered_notes"] == 3
+    assert current_status["sessions"] == 1
+    assert current_status["memory_deltas"] == 3
+    assert current_status["notes"] == 3
+    assert "sk-test-should-not-persist" not in session_text
+    assert "api_key=[REDACTED]" in session_text
+    assert queried["selected_count"] >= 1
+    assert "agent_session v0.1" in queried["packet_text"]
+
+
+def test_agent_hooks_return_packet_v2_and_remember_after_task(tmp_path: Path) -> None:
+    plugin = load_plugin_module()
+    store = tmp_path / "store"
+    plugin.ingest_session(
+        store,
+        {
+            "session_id": "cp87_agent_hooks",
+            "task": "Expose agent hook contracts.",
+            "records": [
+                {
+                    "event_type": "decision",
+                    "text": "CP87 exposes before_task, before_edit, after_test, after_task, remember, and supersede hooks.",
+                }
+            ],
+        },
+    )
+
+    before = plugin.agent_hook(store, hook="before_task", task="Which hooks does CP87 expose?")
+    after = plugin.agent_hook(
+        store,
+        hook="after_task",
+        task="Finish CP87 hook verification.",
+        payload={
+            "session_id": "cp87_after_task",
+            "records": [
+                {
+                    "event_type": "outcome",
+                    "text": "CP87 hook contract is verified through CLI, HTTP, and MCP-callable surfaces.",
+                }
+            ],
+        },
+    )
+    packet = plugin.context_packet_v2(store, query="What CP87 result mentions CLI HTTP MCP callable surfaces?", hook="before_edit")
+
+    assert before["schema_version"] == "ivy_context_memory.context_packet.v0.2"
+    assert before["hook"] == "before_task"
+    assert before["packet"]["selected_ids"]
+    assert before["policy"]["schema_version"] == "ivy_context_memory.agent_policy.v0.1"
+    assert after["delta_count"] == 1
+    assert packet["hook"] == "before_edit"
+    assert "CLI, HTTP, and MCP" in packet["packet"]["text"]
+
+
+def test_session_ingest_can_defer_rebuild(tmp_path: Path) -> None:
+    plugin = load_plugin_module()
+    store = tmp_path / "store"
+
+    result = plugin.ingest_session(
+        store,
+        {
+            "session_id": "cp92_deferred_build",
+            "records": [
+                {
+                    "event_type": "decision",
+                    "text": "CP92 can defer rebuilds while still writing session deltas and safe notes.",
+                }
+            ],
+        },
+        build=False,
+    )
+    current_status = plugin.status(store)
+
+    assert result["delta_count"] == 1
+    assert result["remembered_notes"] == 1
+    assert current_status["notes"] == 1
+    assert current_status["memory_deltas"] == 1
+    assert current_status["corpus_items"] == 0
 
 
 def test_plugin_remember_preserves_staleness_and_conflicts(tmp_path: Path) -> None:
@@ -218,8 +335,72 @@ def test_mcp_stdio_lists_and_calls_status(tmp_path: Path) -> None:
 
     assert messages[0]["result"]["serverInfo"]["name"] == "ivy-context-memory"
     tool_names = {tool["name"] for tool in messages[1]["result"]["tools"]}
-    assert {"ivy_memory_query", "ivy_memory_remember", "ivy_memory_warm", "ivy_memory_status"} <= tool_names
+    assert {
+        "ivy_memory_query",
+        "ivy_memory_remember",
+        "ivy_memory_session_ingest",
+        "ivy_memory_agent_hook",
+        "ivy_memory_warm",
+        "ivy_memory_status",
+    } <= tool_names
     assert messages[2]["result"]["structuredContent"]["ok"] is True
+
+
+def test_mcp_stdio_session_ingest_then_agent_hook(tmp_path: Path) -> None:
+    store = tmp_path / "store"
+    payload = b"".join(
+        [
+            framed({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+            framed(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "ivy_memory_session_ingest",
+                        "arguments": {
+                            "session_id": "cp88_policy_surface",
+                            "task": "Wire agent memory policy through MCP.",
+                            "records": [
+                                {
+                                    "event_type": "decision",
+                                    "text": "CP88 policy says verified memory is advisory and current repo state outranks memory.",
+                                }
+                            ],
+                        },
+                    },
+                }
+            ),
+            framed(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 3,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "ivy_memory_agent_hook",
+                        "arguments": {"hook": "before_task", "task": "What does CP88 say about memory precedence?"},
+                    },
+                }
+            ),
+        ]
+    )
+
+    proc = subprocess.run(
+        [sys.executable, str(PLUGIN_SCRIPT), "--store", str(store), "mcp"],
+        input=payload,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+    )
+    messages = parse_framed_messages(proc.stdout)
+    ingested = messages[1]["result"]["structuredContent"]
+    hooked = messages[2]["result"]["structuredContent"]
+
+    assert ingested["ok"] is True
+    assert ingested["delta_count"] == 1
+    assert hooked["schema_version"] == "ivy_context_memory.context_packet.v0.2"
+    assert hooked["packet"]["selected_ids"]
+    assert "current repo state outranks memory" in hooked["packet"]["text"]
 
 
 def test_mcp_stdio_remember_then_query(tmp_path: Path) -> None:

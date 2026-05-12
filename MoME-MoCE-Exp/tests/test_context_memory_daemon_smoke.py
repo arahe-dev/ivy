@@ -37,6 +37,14 @@ def sample_result() -> dict:
             "latency_ms": 2.5,
             "timings_ms": {"prefilter": 1.0, "route": 2.5},
         },
+        "agent_hook_summary": {
+            "selected_ids": ["note_1"],
+            "packet_mode": "proof_lite",
+        },
+        "packet_v2_summary": {
+            "selected_ids": ["note_2"],
+            "packet_mode": "contradiction_aware",
+        },
     }
 
 
@@ -60,4 +68,6 @@ def test_write_daemon_smoke_report(tmp_path: Path) -> None:
     text = out.read_text(encoding="utf-8")
     assert "Daemon Smoke Test" in text
     assert "note_1" in text
+    assert "/agent/hook" in text
+    assert "/packet/v2" in text
     assert "query_wall_under_budget" in text

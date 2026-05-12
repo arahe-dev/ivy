@@ -1,6 +1,6 @@
 # IVY Autoresearch Loop Scoreboard
 
-Last updated: `2026-05-11T20:07:37Z`
+Last updated: `2026-05-12T03:06:30Z`
 
 | Metric | Value |
 |---|---:|
@@ -13,15 +13,15 @@ Last updated: `2026-05-11T20:07:37Z`
 | Capacity rated | `True` |
 | Mined hard-case eval | `5 / 5` |
 | Regression gate | `passed` |
-| Regression gate feature router | `3.144 ms` |
-| Regression gate plugin router | `4.115 ms` |
-| Regression gate plugin wall | `19.1 ms` |
+| Regression gate feature router | `2.5 ms` |
+| Regression gate plugin router | `3.546 ms` |
+| Regression gate plugin wall | `19.061 ms` |
 | Hot repeated plugin wall | `~7.5-7.7 ms` |
 | MCP warmup contract | `verified` |
 | Process cache status | `visible` |
 | Daemon latency gate | `passed` |
-| Post-warm daemon query wall | `10.487 ms` |
-| Post-warm daemon router | `3.236 ms` |
+| Post-warm daemon query wall | `11.889 ms` |
+| Post-warm daemon router | `4.406 ms` |
 | Daemon bootstrap | `documented + tested` |
 | External generalization gate | `9 / 9 in combined gate` |
 | External gate mean latency | `0.492 ms` |
@@ -41,7 +41,13 @@ Last updated: `2026-05-11T20:07:37Z`
 | External semantic source-removal gate | `8 / 8` |
 | External semantic source-removal avg selected | `0.0` |
 | External semantic source-removal p95 | `0.623 ms` |
-| Focused test suite | `37 passed` |
+| Agent session ingest | `verified` |
+| Agent hook packet v2 | `verified` |
+| Agent memory burn-in | `passed, 399.67 ms cold one-shot` |
+| Daemon agent-hook smoke | `passed, /agent/hook + /packet/v2 selected evidence` |
+| Daemon query wall | `11.889 ms` |
+| Daemon router latency | `4.406 ms` |
+| Focused test suite | `21 passed` |
 
 ## Notes
 
@@ -62,3 +68,4 @@ Last updated: `2026-05-11T20:07:37Z`
 - CP80 added source-removal sensitivity; removing required external evidence now abstains `8/8`.
 - CP81 added semantic source-removal sensitivity; paraphrased missing-source cases abstain `8/8`.
 - CP82 exposed every external sub-gate check in the combined regression gate status.
+- CP83-CP92 add the Codex/OpenCode memory lifecycle: session capture, memory deltas, packet v2, agent hooks, daemon/MCP surfaces, and a burn-in loop.

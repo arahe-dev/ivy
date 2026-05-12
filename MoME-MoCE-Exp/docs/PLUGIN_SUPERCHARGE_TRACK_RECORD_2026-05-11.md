@@ -8,6 +8,7 @@ The important shift:
 
 - before: a shellable router wrapper
 - after: a tested Codex/OpenCode-facing memory plugin with MCP tools, persisted prefiltering, direct note priority, build caching, status observability, and a repeatable benchmark harness
+- now: an agent-memory lifecycle with session capture, durable memory deltas, packet v2, before/after hooks, and a reproducible burn-in
 
 ## Commit Ledger
 
@@ -57,6 +58,7 @@ The important shift:
 | `5c726be` | CP70 | Added PowerShell context-memory daemon bootstrap. | Parser check; bootstrap started, warmed, reported cache counts, then stopped. |
 | `6e5fc7e` | CP71 | Documented daemon warm bootstrap in plugin README and skill. | 16 focused tests. |
 | `2c28e86` | CP72 | Added bootstrap script contract tests. | 29 focused tests. |
+| `this commit` | CP83-CP92 | Added agent session capture, session ingest, memory deltas, packet v2, lifecycle hooks, daemon/MCP surfaces, router candidate cap, docs, and burn-in. | 21 focused tests; CP92 burn-in; daemon smoke passed with router `4.406 ms`; combined regression gate passed. |
 
 ## Latest Benchmark
 
@@ -358,6 +360,7 @@ flowchart LR
 - Full plugin benchmark router latency is now around `2.5 ms` with a `32` prefilter budget.
 - Repeated plugin query wall time is down to roughly `7.5-7.7 ms` in the hot-query benchmark.
 - MCP clients can explicitly warm the process before a task and inspect cache counts through status.
+- Agents can now ingest real chat/session records, derive safe memory deltas, and retrieve packet v2 through lifecycle hooks.
 - HTTP daemon path is now smoke-tested with cache and latency gates.
 - Windows bootstrap exists for starting, warming, and inspecting the daemon.
 - External Signal/Recall generalization is now a repeatable gate, not just a one-off CP23 note.
@@ -379,7 +382,7 @@ flowchart LR
 
 - Chunk cache is file-level, not section-level or semantic-delta-level.
 - Section-level cache is still not implemented; CP68 only removed repeated line-offset file reads.
-- MCP server is useful but still minimal compared with a full production MCP package.
+- MCP server now covers the main memory lifecycle, but packaging/authentication/installer polish are still minimal compared with a full production MCP package.
 - Ranking is still mostly sparse/token-based with policy gates; no learned reranker.
 - Benchmark set is useful but small; CP74 helps with non-IVY coverage but is still only one external product pair.
 - Section-level cache is still future work; current bootstrap makes the hot daemon path easy but does not change ingest granularity.
@@ -389,7 +392,7 @@ flowchart LR
 
 1. Add section-level chunk cache for large Markdown files.
 2. Add optional watcher mode for near-real-time memory freshness.
-3. Expand mined hard cases beyond IVY docs with external project corpora.
-4. Add an optional learned/advisory reranker only behind the deterministic gate.
-5. Add end-to-end answer-quality A/B runs using the hot memory sidecar.
+3. Add answer-quality A/B runs where Codex/OpenCode work with and without packet-v2 memory.
+4. Expand mined hard cases beyond IVY docs with external project corpora.
+5. Add an optional learned/advisory reranker only behind the deterministic gate.
 6. Expand CP74 into multiple external hard-case corpora instead of one Signal/Recall pair.

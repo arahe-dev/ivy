@@ -62,6 +62,8 @@ def daemon_checks(result: dict[str, Any], *, max_query_wall_ms: float, max_route
     warm = result.get("warm_summary", {})
     caches = result.get("status_process_caches", {})
     query = result.get("query_summary", {})
+    hook = result.get("agent_hook_summary", {})
+    packet = result.get("packet_v2_summary", {})
     ingest = result.get("ingest_summary", {})
     checks = {
         "health_ok": bool(result.get("health", {}).get("ok")),
@@ -71,6 +73,8 @@ def daemon_checks(result: dict[str, Any], *, max_query_wall_ms: float, max_route
         "item_feature_cache_warm": int(caches.get("item_feature_cache_entries", 0) or 0) >= 1,
         "corpus_item_cache_warm": int(caches.get("corpus_item_cache_entries", 0) or 0) >= 1,
         "query_selected_evidence": bool(query.get("selected_ids")),
+        "agent_hook_selected_evidence": bool(hook.get("selected_ids")),
+        "packet_v2_selected_evidence": bool(packet.get("selected_ids")),
         "query_wall_under_budget": float(query.get("wall_ms") or 0.0) <= max_query_wall_ms,
         "router_under_budget": float(query.get("latency_ms") or 0.0) <= max_router_ms,
     }
@@ -104,6 +108,16 @@ def run_daemon_smoke(store: Path, *, source_root: Path, port: int | None = None,
         warm = request_json(f"{base_url}/warm", payload={"queries": WARM_QUERIES}, timeout=60.0)
         status = request_json(f"{base_url}/status", timeout=10.0)
         query = request_json(f"{base_url}/query", payload={"query": "What did CP28 show about final answer packet formats?"}, timeout=20.0)
+        agent_hook = request_json(
+            f"{base_url}/agent/hook",
+            payload={"hook": "before_task", "task": "What did CP28 show about final answer packet formats?"},
+            timeout=20.0,
+        )
+        packet_v2 = request_json(
+            f"{base_url}/packet/v2",
+            payload={"query": "What MCP tools does ivy-context-memory expose?", "hook": "before_edit"},
+            timeout=20.0,
+        )
         caches = status.get("process_caches", {})
         result = {
             "schema_version": "ivy_context_memory.daemon_smoke.v0.1",
@@ -130,6 +144,18 @@ def run_daemon_smoke(store: Path, *, source_root: Path, port: int | None = None,
                 "latency_ms": query.get("latency_ms"),
                 "timings_ms": query.get("timings_ms", {}),
             },
+            "agent_hook_summary": {
+                "schema_version": agent_hook.get("schema_version"),
+                "hook": agent_hook.get("hook"),
+                "selected_ids": agent_hook.get("packet", {}).get("selected_ids", []),
+                "packet_mode": agent_hook.get("packet", {}).get("mode"),
+            },
+            "packet_v2_summary": {
+                "schema_version": packet_v2.get("schema_version"),
+                "hook": packet_v2.get("hook"),
+                "selected_ids": packet_v2.get("packet", {}).get("selected_ids", []),
+                "packet_mode": packet_v2.get("packet", {}).get("mode"),
+            },
         }
         result["status"] = daemon_checks(result, max_query_wall_ms=max_query_wall_ms, max_router_ms=max_router_ms)
         result["passed"] = result["status"]["passed"]
@@ -146,6 +172,8 @@ def run_daemon_smoke(store: Path, *, source_root: Path, port: int | None = None,
 def write_report(result: dict[str, Any], out: Path) -> None:
     warm = result["warm_summary"]
     query = result["query_summary"]
+    hook = result.get("agent_hook_summary", {})
+    packet = result.get("packet_v2_summary", {})
     lines = [
         "# IVY Context Memory Daemon Smoke Test",
         "",
@@ -185,6 +213,13 @@ def write_report(result: dict[str, Any], out: Path) -> None:
         f"| Packet mode | `{query.get('packet_mode')}` |",
         f"| Query wall | `{query.get('wall_ms')} ms` |",
         f"| Router latency | `{query.get('latency_ms')} ms` |",
+        "",
+        "## Agent Hooks",
+        "",
+        "| Surface | Hook | Selected | Packet mode |",
+        "|---|---|---:|---|",
+        f"| `/agent/hook` | `{hook.get('hook')}` | `{', '.join(hook.get('selected_ids', []))}` | `{hook.get('packet_mode')}` |",
+        f"| `/packet/v2` | `{packet.get('hook')}` | `{', '.join(packet.get('selected_ids', []))}` | `{packet.get('packet_mode')}` |",
         "",
         "## Timing Breakdown",
         "",

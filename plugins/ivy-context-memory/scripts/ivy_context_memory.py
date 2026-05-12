@@ -64,6 +64,7 @@ except ModuleNotFoundError:
 
 
 SECRET_RE = re.compile(r"\b(api[_ -]?key|password|private[_ -]?key|secret|token|bearer)\b", re.I)
+REDACT_RE = re.compile(r"\b(api[_ -]?key|password|private[_ -]?key|secret|token|bearer)\s*[:=]\s*\S+", re.I)
 _QUERY_INDEX_CACHE: dict[str, tuple[int, int, dict[str, Any]]] = {}
 _CORPUS_ITEM_CACHE: dict[tuple[str, str, int], CorpusItem] = {}
 _ITEM_FEATURE_CACHE: dict[tuple[str, str, int], dict[str, Any]] = {}
@@ -92,6 +93,14 @@ def state_path(store: Path) -> Path:
 
 def notes_path(store: Path) -> Path:
     return store / "notes.jsonl"
+
+
+def sessions_dir(store: Path) -> Path:
+    return store / "sessions"
+
+
+def deltas_path(store: Path) -> Path:
+    return store / "memory_deltas.jsonl"
 
 
 def dataset_path(store: Path) -> Path:
@@ -145,10 +154,12 @@ def init_store(store: Path) -> dict[str, Any]:
     store.mkdir(parents=True, exist_ok=True)
     (store / "datasets").mkdir(parents=True, exist_ok=True)
     (store / "packets").mkdir(parents=True, exist_ok=True)
+    sessions_dir(store).mkdir(parents=True, exist_ok=True)
     (store / "cache").mkdir(parents=True, exist_ok=True)
     state = load_state(store)
     save_state(store, state)
     notes_path(store).touch(exist_ok=True)
+    deltas_path(store).touch(exist_ok=True)
     return {"ok": True, "store": str(store), "dataset": str(dataset_path(store)), "source_roots": state["source_roots"]}
 
 
@@ -691,6 +702,7 @@ def remember(
     staleness: str = "current",
     supersedes: list[str] | None = None,
     conflicts_with: list[str] | None = None,
+    build: bool = True,
 ) -> dict[str, Any]:
     init_store(store)
     if not text.strip():
@@ -714,8 +726,238 @@ def remember(
     }
     with notes_path(store).open("a", encoding="utf-8", newline="\n") as handle:
         handle.write(json.dumps(note, sort_keys=True) + "\n")
-    build = build_store(store)
-    return {"ok": True, "store": str(store), "note": note, "build": build}
+    build_result = build_store(store) if build else {"ok": True, "skipped": True}
+    return {"ok": True, "store": str(store), "note": note, "build": build_result}
+
+
+AGENT_HOOKS = {"before_task", "before_edit", "after_test", "after_task", "remember", "supersede"}
+
+
+def redact_session_text(text: str) -> str:
+    return REDACT_RE.sub(lambda match: f"{match.group(1)}=[REDACTED]", text)
+
+
+def normalize_session_record(raw: dict[str, Any], index: int) -> dict[str, Any]:
+    role = str(raw.get("role") or raw.get("actor") or raw.get("type") or "event").lower()
+    event_type = str(raw.get("event_type") or raw.get("type") or role).lower()
+    text = raw.get("text", raw.get("content", raw.get("message", "")))
+    if isinstance(text, list):
+        text = "\n".join(str(item) for item in text)
+    record = {
+        "index": index,
+        "event_type": event_type,
+        "role": role,
+        "text": redact_session_text(str(text).strip()),
+        "created_at": str(raw.get("created_at", utc_now())),
+    }
+    for key in ["tool", "command", "path", "status", "passed", "commit", "files", "tags"]:
+        if key in raw:
+            record[key] = raw[key]
+    return record
+
+
+def normalize_session(payload: dict[str, Any]) -> dict[str, Any]:
+    raw_records = payload.get("records", payload.get("events", payload.get("messages", [])))
+    if not isinstance(raw_records, list):
+        raise ValueError("session payload must include records/messages/events list")
+    session_id = slug(str(payload.get("session_id") or payload.get("id") or content_hash(json.dumps(raw_records, sort_keys=True))[:16]), 96)
+    records = [normalize_session_record(raw if isinstance(raw, dict) else {"text": str(raw)}, idx) for idx, raw in enumerate(raw_records)]
+    return {
+        "schema_version": "ivy_context_memory.agent_session.v0.1",
+        "session_id": session_id,
+        "created_at": str(payload.get("created_at", utc_now())),
+        "source": str(payload.get("source", "agent_chat")),
+        "workspace": str(payload.get("workspace", "")),
+        "task": redact_session_text(str(payload.get("task", "")).strip()),
+        "records": records,
+    }
+
+
+def session_path(store: Path, session_id: str) -> Path:
+    return sessions_dir(store) / f"{slug(session_id, 96)}.json"
+
+
+def write_session_record(store: Path, session: dict[str, Any]) -> Path:
+    init_store(store)
+    path = session_path(store, str(session["session_id"]))
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(session, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(path)
+    return path
+
+
+def memory_delta_text(delta: dict[str, Any]) -> str:
+    prefix = {
+        "decision": "Decision",
+        "failure": "Failure",
+        "test_result": "Verification",
+        "outcome": "Outcome",
+        "preference": "Preference",
+        "command": "Command",
+    }.get(str(delta.get("delta_type")), "Memory")
+    return f"{prefix}: {delta['text']}"
+
+
+def derive_memory_deltas(session: dict[str, Any]) -> list[dict[str, Any]]:
+    deltas: list[dict[str, Any]] = []
+    task = session.get("task") or session["session_id"]
+    for record in session["records"]:
+        text = str(record.get("text", "")).strip()
+        if not text or SECRET_RE.search(text):
+            continue
+        event_type = str(record.get("event_type", ""))
+        lower = text.lower()
+        delta_type: str | None = None
+        authority = "medium"
+        tags = ["agent_session", f"session_{session['session_id']}"]
+        if event_type in {"decision", "design_decision"} or lower.startswith("decision:"):
+            delta_type = "decision"
+            tags.append("decision")
+            authority = "high"
+        elif event_type in {"failure", "error"} or lower.startswith("failure:"):
+            delta_type = "failure"
+            tags.append("failure")
+        elif event_type in {"test", "test_result"} or "passed" in lower or "failed" in lower:
+            delta_type = "test_result"
+            tags.append("verification")
+            authority = "high" if bool(record.get("passed", "passed" in lower and "failed" not in lower)) else "medium"
+        elif event_type in {"outcome", "final", "summary"}:
+            delta_type = "outcome"
+            tags.append("outcome")
+            authority = "high"
+        elif any(term in lower for term in ["prefer ", "always ", "never "]):
+            delta_type = "preference"
+            tags.append("preference")
+        elif event_type in {"tool", "command"} and record.get("command"):
+            delta_type = "command"
+            tags.append("command")
+            text = f"{record.get('command')}: {text}"
+        if delta_type is None:
+            continue
+        delta = {
+            "schema_version": "ivy_context_memory.memory_delta.v0.1",
+            "id": f"delta_{content_hash(session['session_id'] + str(record['index']) + text)[:16]}",
+            "session_id": session["session_id"],
+            "delta_type": delta_type,
+            "text": redact_session_text(text),
+            "source_path": f"root/ivy_context_memory/sessions/{session['session_id']}.json#{record['index']}",
+            "tags": tags,
+            "authority": authority,
+            "task": task,
+            "created_at": utc_now(),
+        }
+        deltas.append(delta)
+    return deltas
+
+
+def append_memory_deltas(store: Path, deltas: list[dict[str, Any]]) -> None:
+    if not deltas:
+        return
+    with deltas_path(store).open("a", encoding="utf-8", newline="\n") as handle:
+        for delta in deltas:
+            handle.write(json.dumps(delta, sort_keys=True) + "\n")
+
+
+def ingest_session(store: Path, payload: dict[str, Any], *, remember_deltas: bool = True, build: bool = True) -> dict[str, Any]:
+    session = normalize_session(payload)
+    path = write_session_record(store, session)
+    deltas = derive_memory_deltas(session)
+    append_memory_deltas(store, deltas)
+    notes: list[dict[str, Any]] = []
+    if remember_deltas:
+        for delta in deltas:
+            result = remember(
+                store,
+                text=memory_delta_text(delta),
+                source_path=str(delta["source_path"]),
+                tags=list(delta["tags"]),
+                authority=str(delta["authority"]),
+                build=build,
+            )
+            notes.append(result["note"])
+    elif build:
+        build_store(store)
+    return {
+        "ok": True,
+        "store": str(store),
+        "session": session,
+        "session_path": str(path),
+        "deltas": deltas,
+        "delta_count": len(deltas),
+        "remembered_notes": len(notes),
+    }
+
+
+def agent_memory_policy() -> dict[str, Any]:
+    return {
+        "schema_version": "ivy_context_memory.agent_policy.v0.1",
+        "precedence": ["system/developer/user instructions", "current repo state", "verified memory", "unverified traces"],
+        "before_task": "query memory for relevant decisions, failures, and current constraints before planning substantial work",
+        "before_edit": "query memory for file/module-specific context before editing unfamiliar areas",
+        "after_test": "remember verified test outcomes and failures with commands when useful",
+        "after_task": "write concise memory deltas for durable decisions, outcomes, stale facts, and follow-ups",
+        "safety": "memory is advisory; never store secrets; abstain when evidence is missing or stale",
+    }
+
+
+def context_packet_v2(store: Path, *, query: str, hook: str = "before_task") -> dict[str, Any]:
+    result = query_store(store, query=query)
+    return {
+        "ok": True,
+        "schema_version": "ivy_context_memory.context_packet.v0.2",
+        "hook": hook,
+        "query": query,
+        "policy": agent_memory_policy(),
+        "packet": {
+            "mode": result["packet_mode"],
+            "text": result["packet_text"],
+            "selected_ids": result["selected_ids"],
+            "decision": result["decision"],
+            "answerability": result["answerability"],
+            "route_proof": result["route_proof"],
+        },
+        "timings_ms": result["timings_ms"],
+        "packet_path": result["packet_path"],
+    }
+
+
+def agent_hook(store: Path, *, hook: str, task: str = "", payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    hook = hook.strip().lower()
+    if hook not in AGENT_HOOKS:
+        raise ValueError(f"unknown agent hook: {hook}")
+    payload = payload or {}
+    if hook in {"before_task", "before_edit"}:
+        query = task or str(payload.get("query", payload.get("task", "")))
+        return context_packet_v2(store, query=query, hook=hook)
+    if hook in {"after_task", "after_test"}:
+        session_payload = {
+            "session_id": payload.get("session_id", f"{hook}_{content_hash(task + utc_now())[:10]}"),
+            "source": payload.get("source", "agent_hook"),
+            "workspace": payload.get("workspace", ""),
+            "task": task or payload.get("task", ""),
+            "records": payload.get("records", []),
+        }
+        return ingest_session(store, session_payload, remember_deltas=True, build=True)
+    if hook == "remember":
+        return remember(
+            store,
+            text=str(payload.get("text", task)),
+            source_path=str(payload.get("source_path", "root/ivy_context_memory/agent_hook")),
+            tags=[str(tag) for tag in payload.get("tags", ["agent_hook"])],
+            authority=str(payload.get("authority", "medium")),
+            staleness=str(payload.get("staleness", "current")),
+            supersedes=[str(item) for item in payload.get("supersedes", [])],
+        )
+    if hook == "supersede":
+        return remember(
+            store,
+            text=str(payload.get("text", task)),
+            source_path=str(payload.get("source_path", "root/ivy_context_memory/agent_hook_supersede")),
+            tags=[str(tag) for tag in payload.get("tags", ["agent_hook", "supersede"])],
+            authority=str(payload.get("authority", "high")),
+            supersedes=[str(item) for item in payload.get("supersedes", [])],
+        )
+    raise AssertionError("unreachable")
 
 
 def auto_variant(result: Any) -> str:
@@ -748,6 +990,8 @@ def query_store(
     runtime_policy = load_runtime_policy(store)
     if max_prefilter_items is None:
         max_prefilter_items = int(runtime_policy.get("max_prefilter_items", 32))
+    router_candidate_k = int(runtime_policy.get("router_candidate_k", 16))
+    router_candidate_k = max(1, min(router_candidate_k, max_prefilter_items))
     prefilter_meta: dict[str, Any] = {"enabled": False, "reason": "disabled"}
     route_dataset = data
     prefilter_started = time.perf_counter()
@@ -766,7 +1010,7 @@ def query_store(
         items = load_corpus(data)
         corpus_ms = (time.perf_counter() - corpus_started) * 1000
     router_started = time.perf_counter()
-    router = MoMEMoCERouter(items, candidate_backend="indexed", dataset_path=route_dataset, top_k=top_k)
+    router = MoMEMoCERouter(items, candidate_backend="indexed", dataset_path=route_dataset, top_k=top_k, candidate_k=router_candidate_k)
     router_init_ms = (time.perf_counter() - router_started) * 1000
     started = time.perf_counter()
     result = router.route(query)
@@ -833,6 +1077,7 @@ def query_store(
         "wall_ms": round(total_wall_ms, 3),
         "timings_ms": timings_ms,
         "prefilter": prefilter_meta,
+        "router_candidate_k": router_candidate_k,
         "packet_words": rough_tokens(packet_text),
         "packet_text": packet_text,
         "route_proof": result.route_proof,
@@ -855,6 +1100,8 @@ def status(store: Path) -> dict[str, Any]:
         "dataset": str(data),
         "source_roots": state.get("source_roots", []),
         "notes": len(read_notes(store)),
+        "sessions": len(list(sessions_dir(store).glob("*.json"))) if sessions_dir(store).exists() else 0,
+        "memory_deltas": sum(1 for line in deltas_path(store).read_text(encoding="utf-8").splitlines() if line.strip()) if deltas_path(store).exists() else 0,
         "corpus_items": corpus_items,
         "index": {
             "items": index.get("items", 0) if index else 0,
@@ -940,8 +1187,31 @@ class ApiHandler(BaseHTTPRequestHandler):
                         staleness=str(payload.get("staleness", "current")),
                         supersedes=[str(item) for item in payload.get("supersedes", [])],
                         conflicts_with=[str(item) for item in payload.get("conflicts_with", [])],
+                        build=bool(payload.get("build", True)),
                     ),
                 )
+            elif self.path == "/session/ingest":
+                self._send(
+                    200,
+                    ingest_session(
+                        self.store,
+                        payload,
+                        remember_deltas=bool(payload.get("remember_deltas", True)),
+                        build=bool(payload.get("build", True)),
+                    ),
+                )
+            elif self.path == "/agent/hook":
+                self._send(
+                    200,
+                    agent_hook(
+                        self.store,
+                        hook=str(payload["hook"]),
+                        task=str(payload.get("task", "")),
+                        payload=dict(payload.get("payload", {})) if isinstance(payload.get("payload", {}), dict) else {},
+                    ),
+                )
+            elif self.path == "/packet/v2":
+                self._send(200, context_packet_v2(self.store, query=str(payload["query"]), hook=str(payload.get("hook", "before_task"))))
             elif self.path == "/ingest":
                 self._send(200, add_source(self.store, Path(str(payload["source_root"])), build=bool(payload.get("build", True))))
             elif self.path == "/build":
@@ -1011,6 +1281,37 @@ def mcp_tool_definitions() -> list[dict[str, Any]]:
                     "staleness": {"type": "string", "enum": ["current", "stale"]},
                     "supersedes": {"type": "array", "items": {"type": "string"}},
                     "conflicts_with": {"type": "array", "items": {"type": "string"}},
+                    "build": {"type": "boolean"},
+                },
+            },
+        },
+        {
+            "name": "ivy_memory_session_ingest",
+            "description": "Ingest a Codex/OpenCode chat/session transcript, derive memory deltas, and optionally remember them.",
+            "inputSchema": {
+                "type": "object",
+                "required": ["records"],
+                "properties": {
+                    "session_id": {"type": "string"},
+                    "source": {"type": "string"},
+                    "workspace": {"type": "string"},
+                    "task": {"type": "string"},
+                    "records": {"type": "array", "items": {"type": "object"}},
+                    "remember_deltas": {"type": "boolean"},
+                    "build": {"type": "boolean"},
+                },
+            },
+        },
+        {
+            "name": "ivy_memory_agent_hook",
+            "description": "Run a Codex/OpenCode memory hook: before_task, before_edit, after_test, after_task, remember, or supersede.",
+            "inputSchema": {
+                "type": "object",
+                "required": ["hook"],
+                "properties": {
+                    "hook": {"type": "string", "enum": sorted(AGENT_HOOKS)},
+                    "task": {"type": "string"},
+                    "payload": {"type": "object"},
                 },
             },
         },
@@ -1197,6 +1498,22 @@ def mcp_call_tool(store: Path, name: str, args: dict[str, Any]) -> dict[str, Any
             staleness=str(args.get("staleness", "current")),
             supersedes=[str(item) for item in args.get("supersedes", [])] if isinstance(args.get("supersedes", []), list) else [],
             conflicts_with=[str(item) for item in args.get("conflicts_with", [])] if isinstance(args.get("conflicts_with", []), list) else [],
+            build=bool(args.get("build", True)),
+        )
+    if name == "ivy_memory_session_ingest":
+        return ingest_session(
+            store,
+            args,
+            remember_deltas=bool(args.get("remember_deltas", True)),
+            build=bool(args.get("build", True)),
+        )
+    if name == "ivy_memory_agent_hook":
+        payload = args.get("payload", {})
+        return agent_hook(
+            store,
+            hook=str(args["hook"]),
+            task=str(args.get("task", "")),
+            payload=payload if isinstance(payload, dict) else {},
         )
     if name == "ivy_memory_ingest":
         return add_source(store, Path(str(args["source_root"])), build=bool(args.get("build", True)))
@@ -1349,6 +1666,21 @@ def main(argv: list[str] | None = None) -> int:
     remember_parser.add_argument("--staleness", choices=["current", "stale"], default="current")
     remember_parser.add_argument("--supersedes", action="append", default=[])
     remember_parser.add_argument("--conflicts-with", action="append", default=[])
+    remember_parser.add_argument("--no-build", action="store_true")
+
+    session_parser = sub.add_parser("session-ingest")
+    session_parser.add_argument("--json", type=Path, required=True)
+    session_parser.add_argument("--no-remember-deltas", action="store_true")
+    session_parser.add_argument("--no-build", action="store_true")
+
+    hook_parser = sub.add_parser("agent-hook")
+    hook_parser.add_argument("--hook", choices=sorted(AGENT_HOOKS), required=True)
+    hook_parser.add_argument("--task", default="")
+    hook_parser.add_argument("--payload-json", type=Path, default=None)
+
+    packet_parser = sub.add_parser("packet-v2")
+    packet_parser.add_argument("--query", required=True)
+    packet_parser.add_argument("--hook", default="before_task")
 
     query_parser = sub.add_parser("query")
     query_parser.add_argument("--query", required=True)
@@ -1388,8 +1720,24 @@ def main(argv: list[str] | None = None) -> int:
                     staleness=args.staleness,
                     supersedes=args.supersedes,
                     conflicts_with=args.conflicts_with,
+                    build=not args.no_build,
                 )
             )
+        elif args.command == "session-ingest":
+            payload = json.loads(args.json.read_text(encoding="utf-8"))
+            print_payload(
+                ingest_session(
+                    store,
+                    payload,
+                    remember_deltas=not args.no_remember_deltas,
+                    build=not args.no_build,
+                )
+            )
+        elif args.command == "agent-hook":
+            payload = json.loads(args.payload_json.read_text(encoding="utf-8")) if args.payload_json else {}
+            print_payload(agent_hook(store, hook=args.hook, task=args.task, payload=payload))
+        elif args.command == "packet-v2":
+            print_payload(context_packet_v2(store, query=args.query, hook=args.hook))
         elif args.command == "query":
             print_payload(
                 query_store(

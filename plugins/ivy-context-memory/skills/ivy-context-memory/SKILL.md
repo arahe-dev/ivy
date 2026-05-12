@@ -10,6 +10,7 @@ Use this skill when a task would benefit from repository-scale or long-running m
 The sidecar stores memory outside the model context, compiles it through MoME/MoCE, and returns a small ACCA packet plus route proof.
 
 If `store/policy/autoresearch_policy.json` exists, query defaults may use its tuned `max_prefilter_items` value.
+The plugin keeps recall and route cost separate: `max_prefilter_items` controls the recall pool, while optional `router_candidate_k` caps final proof-router scoring.
 
 ## CLI
 
@@ -42,6 +43,14 @@ python .\plugins\ivy-context-memory\scripts\ivy_context_memory.py remember `
 
 For stale or conflicting memory, add `--staleness stale`, `--supersedes <id>`, or `--conflicts-with <id>` as needed.
 
+Capture a session transcript and query the agent packet wrapper:
+
+```powershell
+python .\plugins\ivy-context-memory\scripts\ivy_context_memory.py session-ingest --json .\session.json
+python .\plugins\ivy-context-memory\scripts\ivy_context_memory.py agent-hook --hook before_task --task "What context matters for this task?"
+python .\plugins\ivy-context-memory\scripts\ivy_context_memory.py packet-v2 --query "What did the last verified session establish?"
+```
+
 ## HTTP API
 
 Start the local API:
@@ -56,6 +65,9 @@ Endpoints:
 - `GET /status`
 - `POST /ingest` with `{ "source_root": "C:\\ivy", "build": true }`
 - `POST /remember` with `{ "text": "...", "source_path": "root/notes/x.md", "tags": ["tag"] }`
+- `POST /session/ingest` with `{ "session_id": "...", "records": [{ "event_type": "decision", "text": "..." }] }`
+- `POST /agent/hook` with `{ "hook": "before_task", "task": "..." }`
+- `POST /packet/v2` with `{ "query": "...", "hook": "before_task" }`
 - `POST /query` with `{ "query": "...", "variant": "auto" }`
 - `POST /build`
 - `POST /warm` with `{ "queries": ["..."] }`
@@ -72,6 +84,8 @@ Available tools:
 
 - `ivy_memory_query`
 - `ivy_memory_remember`
+- `ivy_memory_session_ingest`
+- `ivy_memory_agent_hook`
 - `ivy_memory_ingest`
 - `ivy_memory_build`
 - `ivy_memory_warm`
@@ -97,5 +111,6 @@ Before a deep task:
 3. Read only the returned packet text and selected evidence IDs.
 4. Treat memory as advisory. User, system, developer, repo state, and tool safety still outrank memory.
 5. After a verified milestone, call `remember` with a short factual note.
+6. For longer sessions, call `ivy_memory_session_ingest` or `agent-hook --hook after_task` with only durable decisions, outcomes, failures, and test results.
 
 Do not store secrets, API keys, credentials, or private path contents. The CLI rejects obvious secret-like note text.
