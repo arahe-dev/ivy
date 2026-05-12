@@ -1,0 +1,189 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1260" viewBox="0 0 1800 1260">
+  <defs>
+    <style>
+      .wordmark {
+        font-family: Georgia, 'Times New Roman', serif;
+        font-weight: 700;
+        letter-spacing: -11px;
+      }
+      .label {
+        font-family: Inter, Arial, sans-serif;
+        font-weight: 700;
+        letter-spacing: .08em;
+      }
+      .ui {
+        font-family: Inter, Arial, sans-serif;
+      }
+    </style>
+  </defs>
+  
+  
+  <rect width="1800" height="1260" fill="#F6F4EF"/>
+  <line x1="20" y1="350" x2="1780" y2="350" stroke="#D8D4CC" stroke-width="2"/>
+  <line x1="20" y1="665" x2="1780" y2="665" stroke="#D8D4CC" stroke-width="2"/>
+  <line x1="20" y1="965" x2="1780" y2="965" stroke="#D8D4CC" stroke-width="2"/>
+  <line x1="1120" y1="20" x2="1120" y2="350" stroke="#D8D4CC" stroke-width="2"/>
+  <line x1="1508" y1="20" x2="1508" y2="350" stroke="#D8D4CC" stroke-width="2"/>
+  <line x1="900" y1="370" x2="900" y2="965" stroke="#D8D4CC" stroke-width="2"/>
+
+  <text class="label" x="22" y="45" font-size="18" fill="#121214">1. PRIMARY HORIZONTAL WORDMARK</text>
+  <text class="wordmark" x="120" y="270" font-size="190" fill="#121214">Alexandr&#305;a</text>
+  
+    <g transform="translate(928.00 106.00) scale(0.620)"
+       fill="none" stroke="#C98A2E" stroke-width="2.85" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M40 8 C26 8 16 17 16 31" />
+      <path d="M48 10 C63 15 72 29 69 45" />
+      <path d="M25 30 C27 18 39 14 49 19 C60 24 63 35 60 49" />
+      <path d="M34 35 C36 27 43 24 50 28 C57 32 58 41 55 52" />
+      <path d="M43 42 C43 36 49 35 51 40 C53 45 48 56 45 64" />
+      <path d="M19 43 C20 55 26 66 36 73" />
+      <path d="M67 55 C61 70 50 79 36 82" />
+      <path d="M30 50 C33 63 43 69 53 67" />
+    </g>
+    
+
+  <text class="label" x="1165" y="45" font-size="18" fill="#121214">2. APP ICON</text>
+  <rect x="1195" y="88" width="250" height="250" rx="50" fill="#121214"/>
+  <text class="wordmark" x="1272" y="268" font-size="160" fill="#F6F4EF">A</text>
+  
+    <g transform="translate(1359.00 126.00) scale(0.620)"
+       fill="none" stroke="#C98A2E" stroke-width="2.85" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M40 8 C26 8 16 17 16 31" />
+      <path d="M48 10 C63 15 72 29 69 45" />
+      <path d="M25 30 C27 18 39 14 49 19 C60 24 63 35 60 49" />
+      <path d="M34 35 C36 27 43 24 50 28 C57 32 58 41 55 52" />
+      <path d="M43 42 C43 36 49 35 51 40 C53 45 48 56 45 64" />
+      <path d="M19 43 C20 55 26 66 36 73" />
+      <path d="M67 55 C61 70 50 79 36 82" />
+      <path d="M30 50 C33 63 43 69 53 67" />
+    </g>
+    
+
+  <text class="label" x="1540" y="45" font-size="18" fill="#121214">3. FAVICON</text>
+  <rect x="1608" y="132" width="86" height="86" rx="16" fill="#121214"/>
+  <text class="wordmark" x="1632" y="198" font-size="58" fill="#F6F4EF">A</text>
+  
+    <g transform="translate(1673.00 149.00) scale(0.220)"
+       fill="none" stroke="#C98A2E" stroke-width="1.01" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M40 8 C26 8 16 17 16 31" />
+      <path d="M48 10 C63 15 72 29 69 45" />
+      <path d="M25 30 C27 18 39 14 49 19 C60 24 63 35 60 49" />
+      <path d="M34 35 C36 27 43 24 50 28 C57 32 58 41 55 52" />
+      <path d="M43 42 C43 36 49 35 51 40 C53 45 48 56 45 64" />
+      <path d="M19 43 C20 55 26 66 36 73" />
+      <path d="M67 55 C61 70 50 79 36 82" />
+      <path d="M30 50 C33 63 43 69 53 67" />
+    </g>
+    
+
+  <text class="label" x="22" y="395" font-size="18" fill="#121214">4. MONOCHROME VERSION</text>
+  <text class="wordmark" x="140" y="585" font-size="142" fill="#121214">Alexandr&#305;a</text>
+  
+    <g transform="translate(724.00 458.00) scale(0.430)"
+       fill="none" stroke="#2A2A2F" stroke-width="1.98" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M40 8 C26 8 16 17 16 31" />
+      <path d="M48 10 C63 15 72 29 69 45" />
+      <path d="M25 30 C27 18 39 14 49 19 C60 24 63 35 60 49" />
+      <path d="M34 35 C36 27 43 24 50 28 C57 32 58 41 55 52" />
+      <path d="M43 42 C43 36 49 35 51 40 C53 45 48 56 45 64" />
+      <path d="M19 43 C20 55 26 66 36 73" />
+      <path d="M67 55 C61 70 50 79 36 82" />
+      <path d="M30 50 C33 63 43 69 53 67" />
+    </g>
+    
+
+  <text class="label" x="925" y="395" font-size="18" fill="#121214">5. DARK-MODE VERSION</text>
+  <rect x="928" y="438" width="835" height="195" rx="12" fill="#121214"/>
+  <text class="wordmark" x="1068" y="575" font-size="130" fill="#F6F4EF">Alexandr&#305;a</text>
+  
+    <g transform="translate(1536.00 466.00) scale(0.420)"
+       fill="none" stroke="#C98A2E" stroke-width="1.93" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M40 8 C26 8 16 17 16 31" />
+      <path d="M48 10 C63 15 72 29 69 45" />
+      <path d="M25 30 C27 18 39 14 49 19 C60 24 63 35 60 49" />
+      <path d="M34 35 C36 27 43 24 50 28 C57 32 58 41 55 52" />
+      <path d="M43 42 C43 36 49 35 51 40 C53 45 48 56 45 64" />
+      <path d="M19 43 C20 55 26 66 36 73" />
+      <path d="M67 55 C61 70 50 79 36 82" />
+      <path d="M30 50 C33 63 43 69 53 67" />
+    </g>
+    
+
+  <text class="label" x="22" y="710" font-size="18" fill="#121214">6. COLOR PALETTE</text>
+  
+  <rect x="40" y="745" width="145" height="145" fill="#121214" stroke="#D8D4CC" stroke-width="1"/>
+  <text class="ui" x="40" y="920" font-size="17" fill="#121214">Ink Black</text>
+  <text class="ui" x="40" y="948" font-size="16" fill="#121214">#121214</text>
+
+  
+  <rect x="210" y="745" width="145" height="145" fill="#F6F4EF" stroke="#D8D4CC" stroke-width="1"/>
+  <text class="ui" x="210" y="920" font-size="17" fill="#121214">Warm Ivory</text>
+  <text class="ui" x="210" y="948" font-size="16" fill="#121214">#F6F4EF</text>
+
+  
+  <rect x="380" y="745" width="145" height="145" fill="#C98A2E" stroke="#D8D4CC" stroke-width="1"/>
+  <text class="ui" x="380" y="920" font-size="17" fill="#121214">Fingerprint Amber</text>
+  <text class="ui" x="380" y="948" font-size="16" fill="#121214">#C98A2E</text>
+
+  
+  <rect x="550" y="745" width="145" height="145" fill="#D8D4CC" stroke="#D8D4CC" stroke-width="1"/>
+  <text class="ui" x="550" y="920" font-size="17" fill="#121214">Mist Gray</text>
+  <text class="ui" x="550" y="948" font-size="16" fill="#121214">#D8D4CC</text>
+
+  
+  <rect x="720" y="745" width="145" height="145" fill="#2A2A2F" stroke="#D8D4CC" stroke-width="1"/>
+  <text class="ui" x="720" y="920" font-size="17" fill="#121214">Graphite</text>
+  <text class="ui" x="720" y="948" font-size="16" fill="#121214">#2A2A2F</text>
+
+
+  <text class="label" x="925" y="710" font-size="18" fill="#121214">7. TYPOGRAPHY PAIRINGS</text>
+  <text class="ui" x="925" y="750" font-size="17" fill="#121214">Display / Custom Alexandria Wordmark</text>
+  <text class="wordmark" x="925" y="858" font-size="72" fill="#121214">Alexandr&#305;a</text>
+  
+    <g transform="translate(1206.00 797.00) scale(0.220)"
+       fill="none" stroke="#C98A2E" stroke-width="1.01" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M40 8 C26 8 16 17 16 31" />
+      <path d="M48 10 C63 15 72 29 69 45" />
+      <path d="M25 30 C27 18 39 14 49 19 C60 24 63 35 60 49" />
+      <path d="M34 35 C36 27 43 24 50 28 C57 32 58 41 55 52" />
+      <path d="M43 42 C43 36 49 35 51 40 C53 45 48 56 45 64" />
+      <path d="M19 43 C20 55 26 66 36 73" />
+      <path d="M67 55 C61 70 50 79 36 82" />
+      <path d="M30 50 C33 63 43 69 53 67" />
+    </g>
+    
+  <text class="ui" x="1280" y="750" font-size="17" fill="#121214">UI Sans / Inter</text>
+  <text class="ui" x="1280" y="850" font-size="72" fill="#121214">Aa</text>
+  <text class="ui" x="1540" y="750" font-size="17" fill="#121214">Editorial Support / Source Serif 4</text>
+  <text x="1540" y="850" font-family="Georgia, serif" font-size="72" fill="#121214">Aa</text>
+
+  <text class="label" x="22" y="1010" font-size="18" fill="#121214">8. DASHBOARD HEADER EXAMPLE</text>
+  <rect x="22" y="1048" width="1756" height="118" rx="14" fill="#FFFFFF" stroke="#D8D4CC" stroke-width="1.5"/>
+  <text class="wordmark" x="60" y="1128" font-size="72" fill="#121214">Alexandr&#305;a</text>
+  
+    <g transform="translate(298.00 1076.00) scale(0.210)"
+       fill="none" stroke="#C98A2E" stroke-width="0.97" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M40 8 C26 8 16 17 16 31" />
+      <path d="M48 10 C63 15 72 29 69 45" />
+      <path d="M25 30 C27 18 39 14 49 19 C60 24 63 35 60 49" />
+      <path d="M34 35 C36 27 43 24 50 28 C57 32 58 41 55 52" />
+      <path d="M43 42 C43 36 49 35 51 40 C53 45 48 56 45 64" />
+      <path d="M19 43 C20 55 26 66 36 73" />
+      <path d="M67 55 C61 70 50 79 36 82" />
+      <path d="M30 50 C33 63 43 69 53 67" />
+    </g>
+    
+  <line x1="335" y1="1075" x2="335" y2="1140" stroke="#D8D4CC" stroke-width="2"/>
+  <rect x="386" y="1072" width="650" height="72" rx="16" fill="#FAFAFA" stroke="#D8D4CC" stroke-width="1.5"/>
+  <circle cx="424" cy="1108" r="12" fill="none" stroke="#2A2A2F" stroke-width="3"/>
+  <line x1="434" y1="1118" x2="445" y2="1129" stroke="#2A2A2F" stroke-width="3" stroke-linecap="round"/>
+  <text class="ui" x="470" y="1115" font-size="22" fill="#7A7770">Ask anything or search your memory...</text>
+  <rect x="1100" y="1072" width="138" height="72" rx="22" fill="#121214"/>
+  <text class="ui" x="1150" y="1115" font-size="21" font-weight="700" fill="#F6F4EF">Memory</text>
+  <text class="ui" x="1290" y="1115" font-size="21" fill="#121214">Context</text>
+  <text class="ui" x="1425" y="1115" font-size="21" fill="#121214">Sources</text>
+  <text class="ui" x="1560" y="1115" font-size="21" fill="#121214">Recall</text>
+  <circle cx="1717" cy="1108" r="30" fill="#121214"/>
+  <text class="wordmark" x="1699" y="1128" font-size="44" fill="#F6F4EF">A</text>
+
+</svg>
