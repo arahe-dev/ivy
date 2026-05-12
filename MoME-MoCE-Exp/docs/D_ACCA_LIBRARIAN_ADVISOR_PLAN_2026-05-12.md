@@ -210,8 +210,8 @@ Verification results:
 |---|---:|---:|---:|---:|---:|
 | direct D-ACCA | 0.6000 | 0 | 0 | 0 | 0.325-0.448 ms |
 | rule | 0.6000 | 0 | 0 | 0 | 0.613 ms |
-| dd-rule | 1.0000 | 2 | 0 | 0 | 1.680 ms |
-| spec-dd | 1.0000 | 2 | 0 | 0 | 1.756 ms |
+| dd-rule | 1.0000 | 2 | 0 | 0 | 1.444 ms |
+| spec-dd | 1.0000 | 2 | 0 | 0 | 1.284 ms |
 | DeepSeek Flash librarian | 1.0000 | 2 | 0 | 0 | 49,875.050 ms |
 
 Interpretation: `dd-rule` is currently the simplest hot-path candidate. `spec-dd` adds target-style verification traces and accepts the first useful draft head, so it now lands in the same low-ms latency band while preserving a speculative draft/verify structure. DeepSeek remains a shadow/teacher model, not a runtime dependency.

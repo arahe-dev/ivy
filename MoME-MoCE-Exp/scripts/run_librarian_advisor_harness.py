@@ -715,7 +715,7 @@ def catalog_guard_terms_for_blob(blob: str) -> list[str]:
 def infer_catalog_guard_terms(router: MoMEMoCERouter | None, query: str) -> list[str]:
     lower = norm_text(query.replace("-", " "))
     out = catalog_guard_terms_for_blob(lower)
-    if router is None:
+    if router is None or out:
         return out
 
     phrases = meaningful_query_phrases(query)
