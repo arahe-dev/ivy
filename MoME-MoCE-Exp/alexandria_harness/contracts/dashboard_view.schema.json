@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "alexandria.dashboard_view.schema.json",
+  "title": "Alexandria Dashboard View Model",
+  "type": "object",
+  "required": [
+    "view_version",
+    "harness_version",
+    "generated_at",
+    "api_base",
+    "command",
+    "status",
+    "model_packet",
+    "dashboard",
+    "raw_refs"
+  ],
+  "properties": {
+    "view_version": { "const": "alexandria.dashboard_view.v0.1" },
+    "harness_version": { "type": "string" },
+    "generated_at": { "type": "string" },
+    "api_base": { "type": "string" },
+    "command": { "type": "string" },
+    "status": {
+      "type": "object",
+      "required": ["connection", "valid", "errors", "warnings", "memory_count"],
+      "properties": {
+        "connection": { "enum": ["online", "offline"] },
+        "valid": { "type": "boolean" },
+        "errors": { "type": "array", "items": { "type": "string" } },
+        "warnings": { "type": "array", "items": { "type": "string" } },
+        "memory_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "model_packet": {
+      "anyOf": [
+        { "type": "object" },
+        { "type": "null" }
+      ]
+    },
+    "dashboard": {
+      "type": "object",
+      "required": ["metrics", "memory_overview", "context_packet", "proof_timeline", "sources", "source_rows", "memory_rows", "api_preview"]
+    },
+    "raw_refs": {
+      "type": "object",
+      "required": ["route_id", "selected_ids", "proof_available"]
+    }
+  }
+}

@@ -58,6 +58,8 @@ The React dashboard in `frontend/` should call only one local adapter layer:
 - `VITE_ALEXANDRIA_API_BASE` can override the default `http://127.0.0.1:8766`.
 - Empty live corpora must render as empty live state, not synthetic product examples.
 
+The more durable boundary is now `alexandria_harness/`: it validates raw hook responses, enforces packet/proof invariants, and emits `dashboard_view.json` for frontends to consume or replay. See `docs/ALEXANDRIA_HARNESS.md`.
+
 ## Ingest
 
 ```powershell
