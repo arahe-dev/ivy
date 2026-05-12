@@ -6,6 +6,7 @@
   "additionalProperties": false,
   "required": [
     "packet_version",
+    "packet_mode",
     "role",
     "query",
     "answerability",
@@ -21,6 +22,15 @@
     "packet_version": {
       "type": "string",
       "const": "acca.frontier_context_packet.v0.1"
+    },
+    "packet_mode": {
+      "type": "string",
+      "enum": [
+        "compact_default",
+        "proof_lite",
+        "contradiction_aware",
+        "abstain_notice"
+      ]
     },
     "role": {
       "type": "string",

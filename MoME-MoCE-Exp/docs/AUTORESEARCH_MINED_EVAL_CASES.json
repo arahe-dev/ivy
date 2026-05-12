@@ -1,0 +1,133 @@
+{
+  "schema_version": "context_stress_eval_cases.v0.1",
+  "created_at": "2026-05-11T17:33:19Z",
+  "generator": "scripts/mine_autoresearch_failures.py",
+  "cases": [
+    {
+      "id": "autoresearch_mined_001",
+      "category": "autoresearch_failure_mining",
+      "query": "What did CP28 show about final answer packet formats?",
+      "should_retrieve": true,
+      "retrieval_ratio_target": [
+        0.0,
+        0.05
+      ],
+      "required_source_ids": [
+        "ing_mome_moce_exp_cp30_adaptive_packet_and_not_5_0106f9889745"
+      ],
+      "forbidden_source_ids": [],
+      "expected_terms": [
+        "cp28",
+        "final-answer"
+      ],
+      "forbidden_terms": [],
+      "must_abstain": false,
+      "requires_conflict_resolution": false,
+      "requires_safety_priority": false,
+      "provenance_required": true,
+      "max_evidence_items": 1,
+      "answer_contract": "answer",
+      "notes": "Mined from autoresearch loop because latency_sensitive_to_prefilter_depth; severity=medium; latency_spread_ms=10.078."
+    },
+    {
+      "id": "autoresearch_mined_002",
+      "category": "autoresearch_failure_mining",
+      "query": "What MCP tools does ivy-context-memory expose?",
+      "should_retrieve": true,
+      "retrieval_ratio_target": [
+        0.0,
+        0.05
+      ],
+      "required_source_ids": [
+        "ing_mome_moce_exp_codex_opencode_memory_plugin_2_f2a68a0e6fb4"
+      ],
+      "forbidden_source_ids": [],
+      "expected_terms": [
+        "mcp",
+        "ivy_memory_query"
+      ],
+      "forbidden_terms": [],
+      "must_abstain": false,
+      "requires_conflict_resolution": false,
+      "requires_safety_priority": false,
+      "provenance_required": true,
+      "max_evidence_items": 1,
+      "answer_contract": "answer",
+      "notes": "Mined from autoresearch loop because selection_changes_with_prefilter_depth; severity=medium; latency_spread_ms=5.66."
+    },
+    {
+      "id": "autoresearch_mined_003",
+      "category": "autoresearch_failure_mining",
+      "query": "What is the latest CP42 rebuild policy versus stale memory?",
+      "should_retrieve": true,
+      "retrieval_ratio_target": [
+        0.0,
+        0.05
+      ],
+      "required_source_ids": [
+        "ing_mome_moce_exp_cp42_stale_conflict_plugin_b_1_407aa2f80601",
+        "ing_mome_moce_exp_cp42_stale_conflict_plugin_b_2_2bce0c1ce39e"
+      ],
+      "forbidden_source_ids": [],
+      "expected_terms": [
+        "cp42",
+        "stale"
+      ],
+      "forbidden_terms": [],
+      "must_abstain": false,
+      "requires_conflict_resolution": false,
+      "requires_safety_priority": false,
+      "provenance_required": true,
+      "max_evidence_items": 2,
+      "answer_contract": "answer",
+      "notes": "Mined from autoresearch loop because latency_sensitive_to_prefilter_depth; severity=medium; latency_spread_ms=11.147."
+    },
+    {
+      "id": "autoresearch_mined_004",
+      "category": "autoresearch_failure_mining",
+      "query": "What is today's Bitcoin price?",
+      "should_retrieve": false,
+      "retrieval_ratio_target": [
+        0.0,
+        0.05
+      ],
+      "required_source_ids": [],
+      "forbidden_source_ids": [],
+      "expected_terms": [],
+      "forbidden_terms": [],
+      "must_abstain": true,
+      "requires_conflict_resolution": false,
+      "requires_safety_priority": false,
+      "provenance_required": false,
+      "max_evidence_items": 0,
+      "answer_contract": "abstain",
+      "notes": "Mined from autoresearch loop because latency_sensitive_to_prefilter_depth; severity=medium; latency_spread_ms=5.621."
+    },
+    {
+      "id": "autoresearch_mined_005",
+      "category": "autoresearch_failure_mining",
+      "query": "What do real conversations ask us to build for IVY memory?",
+      "should_retrieve": true,
+      "retrieval_ratio_target": [
+        0.0,
+        0.05
+      ],
+      "required_source_ids": [
+        "ing_stash_real_conversation_context_23_ce1a92964a61"
+      ],
+      "forbidden_source_ids": [],
+      "expected_terms": [
+        "memory",
+        "context"
+      ],
+      "forbidden_terms": [],
+      "must_abstain": false,
+      "requires_conflict_resolution": false,
+      "requires_safety_priority": false,
+      "provenance_required": true,
+      "max_evidence_items": 1,
+      "answer_contract": "answer",
+      "notes": "Mined from autoresearch loop because latency_sensitive_to_prefilter_depth; severity=medium; latency_spread_ms=6.835."
+    }
+  ]
+}

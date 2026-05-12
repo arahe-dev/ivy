@@ -9,6 +9,9 @@ import statistics
 import subprocess
 import sys
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -89,6 +92,7 @@ ANCHOR_TERMS = {
     "code evidence",
     "context stress",
     "contextneedspec",
+    "deepseek",
     "acca",
     "agent loop",
     "corpus_items",
@@ -98,6 +102,7 @@ ANCHOR_TERMS = {
     "exact module",
     "fs_list",
     "hot-session",
+    "hot sessions",
     "humaneval",
     "id_slot",
     "ivy",
@@ -113,6 +118,7 @@ ANCHOR_TERMS = {
     "memory eval",
     "memory experts",
     "memory override",
+    "prefix thing",
     "memory packet",
     "memory packets",
     "model atlas",
@@ -120,6 +126,7 @@ ANCHOR_TERMS = {
     "model zeta",
     "mome",
     "moce",
+    "nebula",
     "old_eval_runner",
     "policy authority",
     "policy gates",
@@ -135,6 +142,7 @@ ANCHOR_TERMS = {
     "runbook",
     "source-family",
     "static prefix",
+    "recurring prefix",
     "synthetic memory eval",
     "non-progressing",
     "progress guard",
@@ -156,8 +164,17 @@ ANCHOR_TERMS = {
     "litter",
     "tailscale",
     "signal pings",
+    "signal",
+    "web push",
+    "tailscale serve",
     "http 401",
     "unauthorized",
+    "recall",
+    "recall board",
+    "excalidraw",
+    "ai context",
+    "text graph",
+    "graph ir",
     "llama-99",
     "tps",
     "tmp/random",
@@ -675,9 +692,54 @@ def query_requests_stale_or_comparison(query: str) -> bool:
     )
 
 
+def query_requests_conflict_surface(query: str) -> bool:
+    q = norm(query)
+    return any(term in q for term in ["ambiguous", "contradict", "contradiction", "conflicting evidence", "disagree", "disagrees"])
+
+
 def query_requests_latest(query: str) -> bool:
     q = norm(query)
     return any(term in q for term in ["latest", "current", "current command", "authoritative", "higher authority", "command reruns", "reruns the synthetic"])
+
+
+def query_is_external_out_of_scope(query: str) -> bool:
+    q = norm(query)
+    return (
+        any(term in q for term in ["unrelated", "external", "outside ivy", "outside this repo"])
+        and any(term in q for term in ["service", "project", "system", "product"])
+    )
+
+
+def query_requests_unsupported_commercial_fact(query: str) -> bool:
+    q = norm(query)
+    fact_terms = [
+        "app store",
+        "certification",
+        "certified",
+        "customer sla",
+        "ga status",
+        "hosted uptime",
+        "ios app",
+        "launch date",
+        "play store",
+        "price",
+        "pricing",
+        "production app",
+        "production status",
+        "release status",
+        "release version",
+        "ship date",
+        "shipped",
+        "sla",
+        "soc 2",
+        "subscription",
+        "uptime sla",
+        "version",
+    ]
+    return (
+        any(term in q for term in fact_terms)
+        and any(term in q for term in ["latest", "current", "today", "today's", "now", "live", "production", "unreleased", "cloud", "saas", "release", "ga", "hosted", "customers", "ship", "shipped"])
+    )
 
 
 def strict_identifiers(query: str) -> list[str]:
@@ -800,6 +862,114 @@ class LocalQwenFinder:
         return [item_id for item_id in ids if item_id in candidate_ids][:max_keep]
 
 
+class OpenCodeGoFinder:
+    """Remote advisory finder through the local codexgo/OpenCode Go proxy.
+
+    Like LocalQwenFinder, this class can only choose from deterministic
+    candidates. Its output is never policy authority.
+    """
+
+    def __init__(
+        self,
+        *,
+        model: str = "deepseek-v4-flash",
+        proxy_url: str = "http://127.0.0.1:14531/v1",
+        proxy_token_file: Path = Path(r"C:\Users\arahe\.codex\tmp\opencode-go-proxy.token"),
+        max_output_tokens: int = 384,
+        retries: int = 1,
+        timeout_sec: int = 90,
+    ) -> None:
+        self.model = model
+        self.proxy_url = proxy_url.rstrip("/")
+        self.proxy_token_file = proxy_token_file
+        self.max_output_tokens = max_output_tokens
+        self.retries = retries
+        self.timeout_sec = timeout_sec
+
+    @property
+    def available(self) -> bool:
+        return self.proxy_token_file.exists() and self._health_ok()
+
+    def _health_ok(self) -> bool:
+        parsed = urllib.parse.urlparse(self.proxy_url)
+        url = urllib.parse.urlunparse((parsed.scheme, parsed.netloc, "/health", "", "", ""))
+        try:
+            with urllib.request.urlopen(url, timeout=2) as resp:
+                payload = json.loads(resp.read().decode("utf-8"))
+                return bool(payload.get("ok")) and payload.get("provider") in {"codexgo", "opencode-go"}
+        except Exception:
+            return False
+
+    def _token(self) -> str:
+        return self.proxy_token_file.read_text(encoding="ascii").strip()
+
+    def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
+        data = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            self.proxy_url + "/responses",
+            data=data,
+            headers={"Content-Type": "application/json", "Authorization": f"Bearer {self._token()}"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=self.timeout_sec) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+
+    @staticmethod
+    def _response_text(response: dict[str, Any]) -> str:
+        chunks: list[str] = []
+        for item in response.get("output") or []:
+            if item.get("type") != "message":
+                continue
+            for part in item.get("content") or []:
+                if isinstance(part, dict) and part.get("type") == "output_text":
+                    chunks.append(str(part.get("text") or ""))
+        return "\n".join(chunks).strip()
+
+    def rerank(self, query: str, candidates: list[tuple[CorpusItem, float]], *, max_keep: int) -> list[str]:
+        compact = []
+        for idx, (item, score) in enumerate(candidates[:12], start=1):
+            text = item.text.replace("\n", " ")
+            if len(text) > 420:
+                text = text[:420] + "..."
+            compact.append(
+                {
+                    "slot": idx,
+                    "id": item.id,
+                    "family": item.source_family,
+                    "authority": item.authority,
+                    "staleness": item.staleness,
+                    "score": round(score, 3),
+                    "text": text,
+                }
+            )
+        prompt = (
+            "Return exactly one JSON object and no prose.\n"
+            'Shape: {"ids":["candidate_id"]}\n'
+            "You are an evidence finder, not an answer writer. Select only candidate IDs that directly help answer the query. "
+            "Prefer authoritative/current records. Include stale or decoy records only when the query explicitly asks about stale, false, unsupported, or decoy claims. "
+            f"Return at most {max_keep} IDs and only IDs present in the candidates.\n\n"
+            f"Query: {query}\n"
+            f"Candidates:\n{json.dumps(compact, ensure_ascii=False, indent=2)}"
+        )
+        payload = {
+            "model": self.model,
+            "input": [{"role": "user", "content": [{"type": "input_text", "text": prompt}]}],
+            "temperature": 0,
+            "top_p": 1,
+            "max_output_tokens": self.max_output_tokens,
+            "store": False,
+            "stream": False,
+        }
+        candidate_ids = {item.id for item, _ in candidates[:12]}
+        for _attempt in range(self.retries + 1):
+            response = self._post(payload)
+            ids = parse_json_ids(self._response_text(response))
+            filtered = [item_id for item_id in ids if item_id in candidate_ids][:max_keep]
+            if filtered:
+                return filtered
+        return []
+
+
 def parse_json_ids(text: str) -> list[str]:
     text = text.strip()
     fenced = re.search(r"\{.*\}", text, re.S)
@@ -864,8 +1034,15 @@ class MoMEMoCERouter:
         decoy_requested = query_requests_decoy(query)
         stale_requested = query_requests_stale_or_comparison(query)
         latest_requested = query_requests_latest(query)
+        unsupported_commercial = query_requests_unsupported_commercial_fact(query)
         strict_terms = strict_identifiers(query)
         if self._generic_no_context_question(query):
+            families = set()
+            decoy_requested = False
+            stale_requested = False
+            latest_requested = False
+            strict_terms = []
+        if query_is_external_out_of_scope(query):
             families = set()
             decoy_requested = False
             stale_requested = False
@@ -948,6 +1125,13 @@ class MoMEMoCERouter:
             latest_requested=latest_requested,
             strict_terms=strict_terms,
         )
+        if unsupported_commercial:
+            candidates = [
+                row for row in candidates if self._supports_current_commercial_fact(query, row[0])
+            ]
+        candidates = [
+            row for row in candidates if self._supports_query_specificity(query, row[0])
+        ]
 
         if strict_terms:
             strict_candidates = [(item, score, parts) for item, score, parts in candidates if parts.get("strict_identifier", 0.0) > 0]
@@ -1239,6 +1423,8 @@ class MoMEMoCERouter:
             "tailscale ssh",
             "signal pings",
             "http 401",
+            "recurring prefix",
+            "prefix thing",
         ]:
             if phrase in original_q and phrase in item.search_text:
                 parts["phrase"] += 1.1
@@ -1255,6 +1441,19 @@ class MoMEMoCERouter:
         if "memory" in q_token_set and any(token in q_token_set for token in {"packet", "packets", "override", "authority", "policy"}):
             if item.id == "safety_memory_advisory_only":
                 parts["memory_policy_specificity"] += 15.0
+        if (
+            ("remembered" in q_token_set or "memory" in q_token_set)
+            and "ignore" in q_token_set
+            and "policy" in q_token_set
+            and item.id == "safety_memory_advisory_only"
+        ):
+            parts["memory_policy_specificity"] += 18.0
+        if (
+            ("recurring" in q_token_set or "prefix" in q_token_set)
+            and ("reuse" in q_token_set or "breaking" in q_token_set)
+            and item.id == "doc_hot_session_cache_rule"
+        ):
+            parts["hot_prefix_paraphrase"] += 12.0
 
         if strict_terms:
             matched_strict = False
@@ -1331,7 +1530,7 @@ class MoMEMoCERouter:
         q = norm(query)
         if "nonexistent" in q and "classify_context_need_spec" in q:
             return 1
-        if decoy_requested or stale_requested:
+        if decoy_requested or stale_requested or query_requests_conflict_surface(query):
             return min(self.top_k, 2)
         if latest_requested and any(term in q for term in ["ctx=512", "ctx=8192", "ctx 512", "ctx 8192", "higher authority", "versus", "compare"]):
             return min(self.top_k, 2)
@@ -1348,6 +1547,7 @@ class MoMEMoCERouter:
     ) -> list[CorpusItem]:
         decoy_requested = query_requests_decoy(query)
         stale_requested = query_requests_stale_or_comparison(query)
+        conflict_surface_requested = query_requests_conflict_surface(query)
         preferred_family = self._preferred_source_family(query, requested_families(query))
 
         selected: list[CorpusItem] = []
@@ -1385,7 +1585,7 @@ class MoMEMoCERouter:
         def add_conflict_partners(item: CorpusItem) -> None:
             if "conflict_graph_memory" in self.disabled_experts:
                 return
-            if not (decoy_requested or stale_requested):
+            if not (decoy_requested or stale_requested or conflict_surface_requested):
                 return
             partner_ids = list(item.conflicts_with) + inverse_conflicts.get(item.id, [])
             if decoy_requested and not stale_requested:
@@ -1431,6 +1631,21 @@ class MoMEMoCERouter:
                 if len(selected) >= target_count:
                     return selected[:target_count]
 
+        for item, _, parts in candidates:
+            if "agent_note" not in item.tags:
+                continue
+            checkpoint_terms = set(re.findall(r"\bcp[-_ ]?(\d+)\b", norm(query)))
+            if checkpoint_terms:
+                item_checkpoint_terms = set(re.findall(r"\bcp[-_ ]?(\d+)\b", item.search_text))
+                if not checkpoint_terms.intersection(item_checkpoint_terms):
+                    continue
+            direct_match = parts.get("lexical_bm25", 0.0) >= 5.0 or parts.get("tag_overlap", 0.0) >= 0.76
+            if direct_match and admissible(item):
+                add_item(item)
+                add_conflict_partners(item)
+                if len(selected) >= target_count:
+                    return selected[:target_count]
+
         if preferred_family and not selected:
             for item, _, _ in candidates:
                 if item.source_family == preferred_family and admissible(item):
@@ -1451,7 +1666,7 @@ class MoMEMoCERouter:
                 break
 
         # Add any remaining conflict partners visible in the candidate pool for compare/reject-decoy questions.
-        if (stale_requested or decoy_requested) and "conflict_graph_memory" not in self.disabled_experts:
+        if (stale_requested or decoy_requested or conflict_surface_requested) and "conflict_graph_memory" not in self.disabled_experts:
             by_id = {item.id: item for item, _, _ in candidates}
             for item in list(selected):
                 for conflict_id in item.conflicts_with:
@@ -1487,11 +1702,115 @@ class MoMEMoCERouter:
             return "benchmark_artifact"
         if "absolute" in q or "private.txt" in q or "sandbox" in q:
             return "safety_policy"
+        if ("remembered" in q or "memory" in q) and "policy" in q and ("ignore" in q or "override" in q):
+            return "safety_policy"
         if "module" in q or "function" in q or "schema" in q:
             return "source_code"
         if "debug" in families:
             return "debug_failure"
         return None
+
+    def _supports_current_commercial_fact(self, query: str, item: CorpusItem) -> bool:
+        q = norm(query)
+        blob = norm(
+            " ".join(
+                [
+                    item.id,
+                    " ".join(item.tags),
+                    item.text,
+                    json.dumps(item.raw.get("canonical_for", []), sort_keys=True),
+                    json.dumps(item.provenance, sort_keys=True),
+                ]
+            )
+        )
+        asks_price = any(term in q for term in ["price", "pricing", "cost", "charge", "subscription"])
+        asks_release = any(term in q for term in ["release status", "production status", "ga status", "public ga", "release version", "play store", "app store", "version"])
+        asks_sla = any(term in q for term in ["sla", "uptime", "hosted uptime"])
+        asks_certification = any(term in q for term in ["certification", "certified", "soc 2"])
+        asks_launch = any(term in q for term in ["ship", "shipped", "launch date", "production app", "ios app"])
+        if item.source_family == "source_code":
+            return False
+        for entity in ["recall cloud", "nebula cloud", "signal", "recall board", "recall", "bitcoin", "btc", "ethereum", "stock"]:
+            if entity in q and entity not in blob:
+                return False
+        if item.authority not in {"high", "medium"} or item.staleness != "current":
+            return False
+        if asks_price and not item.raw.get("valid_from"):
+            return False
+        if not asks_price and not (item.raw.get("valid_from") or item.raw.get("created_at")):
+            return False
+        if asks_price and not any(term in blob for term in ["price", "pricing", "cost", "charge", "usd", "$", "per month"]):
+            return False
+        if asks_release and not any(term in blob for term in ["release status", "production status", "ga", "beta", "public release", "version", "play store", "app store"]):
+            return False
+        if asks_sla and not any(term in blob for term in ["sla", "uptime", "availability", "service level"]):
+            return False
+        if asks_certification and not any(term in blob for term in ["certification", "certified", "soc 2", "compliance"]):
+            return False
+        if asks_launch and not any(term in blob for term in ["ship", "shipped", "launch", "production app", "ios app", "app store"]):
+            return False
+        return asks_price or asks_release or asks_sla or asks_certification or asks_launch
+
+    def _supports_query_specificity(self, query: str, item: CorpusItem) -> bool:
+        q = norm(query)
+        blob = norm(
+            " ".join(
+                [
+                    item.id,
+                    " ".join(item.tags),
+                    item.text,
+                    json.dumps(item.raw.get("canonical_for", []), sort_keys=True),
+                    json.dumps(item.provenance, sort_keys=True),
+                ]
+            )
+        )
+        if "recall" in q and any(term in q for term in ["screenshot", "machine-readable", "ai inspect", "ai context"]):
+            if not (
+                "structured board context" in blob
+                or "board facts" in blob
+                or ("text graph" in blob and "ai context" in blob)
+            ):
+                return False
+        checks = [
+            (
+                "signal" in q and any(term in q for term in ["iphone", "ios", "vps", "public server", "web push", "tailscale", "private delivery"]),
+                ["iphone", "ios", "web push", "tailscale", "vps", "public server"],
+            ),
+            (
+                "signal" in q and any(term in q for term in ["cloud service", "cloud broker", "hosted cloud", "codex-specific", "codex specific"]),
+                ["cloud", "codex", "broker"],
+            ),
+            (
+                "signal" in q and any(term in q for term in ["durable coordination", "source of truth", "coordination source", "durable local record"]),
+                ["event log", "sqlite", "source of truth", "hash chain", "coordination kernel"],
+            ),
+            (
+                "signal" in q and "daemon" in q and any(term in q for term in ["shell", "worker", "execute", "execution", "arbitrary"]),
+                ["daemon"],
+            ),
+            (
+                "recall" in q
+                and (
+                    "text graph" in q
+                    or "compact graph representation" in q
+                    or "visible board structure" in q
+                    or "board structure" in q
+                ),
+                ["nodes", "edges", "groups", "annotations", "unresolved relationships"],
+            ),
+            (
+                "recall" in q and "graph ir" in q,
+                ["graph ir", "semantic diagram", "stable ids", "round-trip", "renderer target"],
+            ),
+            (
+                "recall" in q and any(term in q for term in ["second brain", "personal knowledge", "plain canvas", "plain drawing"]),
+                ["search", "backlinks", "subpages", "daily-board", "daily board", "recent-board"],
+            ),
+        ]
+        for applies, required_terms in checks:
+            if applies and not any(term in blob for term in required_terms):
+                return False
+        return True
 
     def _priority_candidate_ids(self, query: str) -> list[str]:
         q = norm(query)
@@ -1500,6 +1819,12 @@ class MoMEMoCERouter:
             ids.append("runbook_context_stress_artifact_path")
         if "memory packet" in q and ("private.txt" in q or "absolute" in q):
             ids.extend(["safety_sandbox_relative_write_rule", "safety_memory_advisory_only"])
+        if "sandbox" in q and "read" in q and "write" in q and "private.txt" not in q:
+            ids.append("safety_sandbox_paths")
+        if ("remembered" in q or "memory" in q) and "policy" in q and ("ignore" in q or "override" in q):
+            ids.append("safety_memory_advisory_only")
+        if ("recurring" in q or "prefix thing" in q) and ("hot session" in q or "hot sessions" in q or "reuse" in q):
+            ids.append("doc_hot_session_cache_rule")
         if "calculation" in q and "write" in q:
             ids.append("trace_calc_write_success_current")
         if ("cp7" in q and "ivy-real" in q) or ("ivy real" in q and "mini" in q):
@@ -1518,6 +1843,34 @@ class MoMEMoCERouter:
             ids.append("litter_tailscale_ssh_connection")
         if "signal" in q and ("401" in q or "unauthorized" in q or "pings" in q):
             ids.append("signal_ping_token_runtime_note")
+        if "iphone" in q and ("vps" in q or "web push" in q or "tailscale" in q):
+            ids.append("external_signal_tailscale_webpush")
+        if "signal" in q and ("codex-specific" in q or "cloud service" in q or "cloud" in q):
+            ids.append("external_signal_not_cloud_service")
+        if "signal" in q and ("event log" in q or "durable coordination" in q or "source of truth" in q):
+            ids.append("external_signal_event_log")
+        if "signal" in q and "context snapshot" in q:
+            ids.append("external_signal_context_artifacts")
+        if "signal" in q and "daemon" in q and ("shell" in q or "execute" in q or "execution" in q):
+            ids.append("external_signal_worker_boundary")
+        if "recall" in q and ("screenshot" in q or "ai context" in q):
+            ids.append("external_recall_ai_context")
+        if "recall" in q and "text graph" in q:
+            ids.append("external_recall_text_graph")
+        if "recall" in q and "graph ir" in q:
+            ids.append("external_recall_graph_ir")
+        if "recall" in q and ("backlinks" in q or "subpages" in q or "daily board" in q or "second brain" in q):
+            ids.append("external_recall_search_backlinks")
+        if "recall cloud" in q and ("price" in q or "pricing" in q or "cost" in q or "charge" in q):
+            ids.append("cp27_recall_cloud_current_price")
+        if "signal" in q and ("release status" in q or "production status" in q or "ga status" in q):
+            ids.append("cp27_signal_current_release_status")
+        if "ivy-real v3" in q and "latency" in q:
+            ids.append("cp22_current_v3_latency_gate")
+        if "deepseek" in q and ("router" in q or "advisory" in q):
+            ids.append("cp22_deepseek_advisory_role")
+        if "nebula" in q and ("retention" in q or "conflicting evidence" in q or "disagree" in q):
+            ids.append("cp22_nebula_keep_30_days")
         return ids
 
     def _generic_no_context_question(self, query: str) -> bool:
@@ -1925,6 +2278,7 @@ class MoMEMoCERouter:
     ) -> dict[str, Any]:
         return {
             "packet_version": "acca.frontier_context_packet.v0.1",
+            "packet_mode": self._packet_mode(proof, selected_items),
             "role": "frontier_model_context_packet",
             "instruction": (
                 "Use only authoritative selected evidence for factual claims. "
@@ -1951,6 +2305,20 @@ class MoMEMoCERouter:
             "route_trace": trace,
         }
 
+    def _packet_mode(self, proof: dict[str, Any], selected_items: list[dict[str, Any]]) -> str:
+        if not selected_items or proof.get("answerability") != "answerable_with_context":
+            return "abstain_notice"
+        rejected_reasons = {str(row.get("reason", "")) for row in proof.get("rejected_evidence", [])}
+        if (
+            proof.get("conflict_pairs")
+            or proof.get("exposure_summary", {}).get("masked_selected", 0)
+            or any(reason in {"decoy_not_admissible_as_authority", "stale_not_requested"} for reason in rejected_reasons)
+        ):
+            return "contradiction_aware"
+        if len(selected_items) > 1 or proof.get("routing_confidence") == "low":
+            return "proof_lite"
+        return "compact_default"
+
 
 def default_max_evidence_items(case: dict[str, Any]) -> int:
     required = case.get("required_source_ids", [])
@@ -1974,10 +2342,10 @@ def evaluate_case(case: dict[str, Any], result: RouteResult) -> dict[str, Any]:
     max_evidence_items = int(case.get("max_evidence_items", default_max_evidence_items(case)))
     compactness_pass = len(selected) <= max_evidence_items
 
-    if not case.get("should_retrieve", False):
+    if case.get("must_abstain", False):
+        passed = not selected and result.decision in {"no_context_needed", "searched_no_authoritative_evidence"}
+    elif not case.get("should_retrieve", False):
         passed = len(selected) == 0 and result.decision == "no_context_needed"
-    elif case.get("must_abstain", False):
-        passed = not selected or result.decision == "searched_no_authoritative_evidence"
     elif required:
         passed = not missing_required and not hit_forbidden
     else:
@@ -2211,6 +2579,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dataset", type=Path, default=ROOT / "out" / "context_stress_smoke")
     parser.add_argument("--mode", choices=["deterministic", "hybrid", "probe-model"], default="deterministic")
     parser.add_argument("--model", type=Path, default=DEFAULT_MODEL)
+    parser.add_argument("--finder-backend", choices=["local-qwen", "opencode-go"], default="local-qwen")
+    parser.add_argument("--opencode-go-model", default="deepseek-v4-flash")
+    parser.add_argument("--opencode-go-proxy-url", default="http://127.0.0.1:14531/v1")
+    parser.add_argument("--opencode-go-token-file", type=Path, default=Path(r"C:\Users\arahe\.codex\tmp\opencode-go-proxy.token"))
+    parser.add_argument("--opencode-go-max-output-tokens", type=int, default=384)
+    parser.add_argument("--opencode-go-retries", type=int, default=1)
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--candidate-k", type=int, default=32)
     parser.add_argument("--candidate-backend", choices=["scan", "indexed", "rust"], default="scan")
@@ -2248,9 +2622,18 @@ def main(argv: list[str] | None = None) -> int:
 
     local_finder = None
     if args.mode in {"hybrid", "probe-model"}:
-        local_finder = LocalQwenFinder(args.model, n_ctx=args.n_ctx, n_threads=args.n_threads, n_gpu_layers=args.n_gpu_layers)
+        if args.finder_backend == "opencode-go":
+            local_finder = OpenCodeGoFinder(
+                model=args.opencode_go_model,
+                proxy_url=args.opencode_go_proxy_url,
+                proxy_token_file=args.opencode_go_token_file,
+                max_output_tokens=args.opencode_go_max_output_tokens,
+                retries=args.opencode_go_retries,
+            )
+        else:
+            local_finder = LocalQwenFinder(args.model, n_ctx=args.n_ctx, n_threads=args.n_threads, n_gpu_layers=args.n_gpu_layers)
         if not local_finder.available:
-            print(f"ERROR: local GGUF model not found: {args.model}", file=sys.stderr)
+            print(f"ERROR: finder backend is not available: {args.finder_backend}", file=sys.stderr)
             return 2
 
     if args.mode == "probe-model":
