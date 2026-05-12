@@ -37,6 +37,7 @@ DEFAULT_OUT = ROOT / "out" / "librarian_advisor_harness"
 DEFAULT_OPENCODE_GO_BASE_URL = "http://127.0.0.1:14531/v1"
 DEFAULT_OPENCODE_GO_MODEL = "deepseek-v4-flash"
 DEFAULT_MODEL_MAX_OUTPUT_TOKENS = 3000
+SPEC_DD_ACCEPTED_QUERY_LIMIT = 1
 VALID_ESCALATION_MODES = {"hot_path", "parallel_advisory", "blocking_escalation"}
 
 
@@ -916,7 +917,7 @@ def spec_dd_advice(case: dict[str, Any], router: MoMEMoCERouter | None) -> Libra
                 accepted_seen.add(normalized_query)
         else:
             rejected_count += 1
-        if len(accepted) >= 4:
+        if len(accepted) >= SPEC_DD_ACCEPTED_QUERY_LIMIT:
             break
 
     if not accepted:
@@ -938,6 +939,7 @@ def spec_dd_advice(case: dict[str, Any], router: MoMEMoCERouter | None) -> Libra
         negative_constraints=dd_rule_advice(case, router).negative_constraints,
         side_tracks=[
             "Draft heads: " + ", ".join(f"{head}={count}" for head, count in sorted(head_counts.items())),
+            f"Accepted draft query limit: {SPEC_DD_ACCEPTED_QUERY_LIMIT}",
             f"Rejected draft heads during verifier pass: {rejected_count}",
         ],
         rationale="Spec-DD mimics speculative decoding/MTP: deterministic multi-head draft, D-ACCA verifier acceptance.",
