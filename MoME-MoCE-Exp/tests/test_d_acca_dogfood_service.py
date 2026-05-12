@@ -107,6 +107,12 @@ def test_dogfood_http_hooks_smoke(tmp_path) -> None:
     thread.start()
     base_url = f"http://127.0.0.1:{server.server_port}"
     try:
+        options = urllib.request.Request(f"{base_url}/packet", method="OPTIONS")
+        with urllib.request.urlopen(options, timeout=5) as response:
+            assert response.status == 204
+            assert response.headers["Access-Control-Allow-Origin"] == "*"
+            assert "POST" in response.headers["Access-Control-Allow-Methods"]
+
         spec = http_get_json(f"{base_url}/hooks")
         assert spec["service_version"] == "d_acca.dogfood_hooks.v0.1"
 

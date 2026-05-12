@@ -578,6 +578,8 @@ class DogfoodHooks:
             "id": record["id"],
             "source_family": record.get("source_family"),
             "authority": record.get("authority"),
+            "created_at": record.get("created_at"),
+            "claim_type": record.get("claim_type"),
             "staleness": record.get("staleness"),
             "safety_label": record.get("safety_label"),
             "exposure_policy": record.get("exposure_policy"),
@@ -636,6 +638,10 @@ def write_json(handler: BaseHTTPRequestHandler, status: int, payload: dict[str, 
     data = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
     handler.send_response(status)
     handler.send_header("Content-Type", "application/json; charset=utf-8")
+    handler.send_header("Access-Control-Allow-Origin", "*")
+    handler.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    handler.send_header("Access-Control-Allow-Headers", "Content-Type")
+    handler.send_header("Access-Control-Max-Age", "600")
     handler.send_header("Content-Length", str(len(data)))
     handler.end_headers()
     handler.wfile.write(data)
@@ -644,6 +650,15 @@ def write_json(handler: BaseHTTPRequestHandler, status: int, payload: dict[str, 
 def make_handler(hooks: DogfoodHooks) -> type[BaseHTTPRequestHandler]:
     class DogfoodHttpHandler(BaseHTTPRequestHandler):
         server_version = "DAccaDogfoodHooks/0.1"
+
+        def do_OPTIONS(self) -> None:  # noqa: N802
+            self.send_response(204)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Max-Age", "600")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
 
         def do_GET(self) -> None:  # noqa: N802
             try:

@@ -47,6 +47,17 @@ Invoke-RestMethod http://127.0.0.1:8766/hooks
 | `POST` | `/feedback` | mark route useful/wrong/stale/missed/private |
 | `POST` | `/forget` | remove memory records by id |
 
+The HTTP server sends permissive local CORS headers and handles `OPTIONS` preflight so a local dashboard such as `http://localhost:5173` can call these hooks directly during dogfood work.
+
+## Alexandria Frontend Hook Points
+
+The React dashboard in `frontend/` should call only one local adapter layer:
+
+- `src/hooks/useAlexandriaHooks.ts` owns `/health`, `/hooks`, `/memories`, `/packet`, `/proof/{route_id}`, and `/feedback`.
+- UI components receive a derived view model instead of calling `fetch` directly.
+- `VITE_ALEXANDRIA_API_BASE` can override the default `http://127.0.0.1:8766`.
+- Empty live corpora must render as empty live state, not synthetic product examples.
+
 ## Ingest
 
 ```powershell
