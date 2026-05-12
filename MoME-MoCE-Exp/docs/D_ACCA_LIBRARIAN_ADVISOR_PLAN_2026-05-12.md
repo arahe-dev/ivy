@@ -114,6 +114,18 @@ python scripts\run_librarian_advisor_harness.py `
   --out out\librarian_advisor_spec_dd_verify
 ```
 
+Run repeated deterministic strategy comparisons:
+
+```powershell
+cd C:\ivy\MoME-MoCE-Exp
+python scripts\run_librarian_strategy_matrix.py `
+  --cases eval\librarian_harness_cases.json `
+  --strategies rule dd-rule spec-dd `
+  --repeats 5 `
+  --candidate-backend indexed `
+  --out out\librarian_strategy_matrix
+```
+
 Run the DeepSeek Flash librarian through OpenCode Go:
 
 ```powershell
