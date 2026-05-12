@@ -120,7 +120,7 @@ Run repeated deterministic strategy comparisons:
 cd C:\ivy\MoME-MoCE-Exp
 python scripts\run_librarian_strategy_matrix.py `
   --cases eval\librarian_harness_cases.json `
-  --strategies rule dd-rule spec-dd `
+  --strategies rule dd-rule spec-dd spec-dd-lazy `
   --repeats 5 `
   --candidate-backend indexed `
   --out out\librarian_strategy_matrix
@@ -224,9 +224,10 @@ Verification results:
 | rule | 0.6000 | 0 | 0 | 0 | 0.613 ms |
 | dd-rule | 1.0000 | 2 | 0 | 0 | 1.444 ms |
 | spec-dd | 1.0000 | 2 | 0 | 0 | 1.284 ms |
+| spec-dd-lazy | 1.0000 | 2 | 0 | 0 | 0.706 ms |
 | DeepSeek Flash librarian | 1.0000 | 2 | 0 | 0 | 49,875.050 ms |
 
-Interpretation: `dd-rule` is currently the simplest hot-path candidate. `spec-dd` adds target-style verification traces and accepts the first useful draft head, so it now lands in the same low-ms latency band while preserving a speculative draft/verify structure. DeepSeek remains a shadow/teacher model, not a runtime dependency.
+Interpretation: `dd-rule` is currently the simplest hot-path candidate. `spec-dd` adds target-style verification traces and accepts the first useful draft head, so it lands in the same low-ms latency band while preserving a speculative draft/verify structure. `spec-dd-lazy` defers verification to the normal final D-ACCA bundle route and is the first sub-ms draft-librarian candidate on this harness. DeepSeek remains a shadow/teacher model, not a runtime dependency.
 
 References used for the analogy:
 

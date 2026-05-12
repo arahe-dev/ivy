@@ -947,6 +947,33 @@ def spec_dd_advice(case: dict[str, Any], router: MoMEMoCERouter | None) -> Libra
     )
 
 
+def spec_dd_lazy_advice(case: dict[str, Any], router: MoMEMoCERouter | None) -> LibrarianAdvice:
+    started = time.perf_counter()
+    draft, guards, mode = speculative_draft_queries(case, router)
+    accepted = next((candidate for candidate in draft if is_local_catalog_query(candidate.query)), None)
+    if accepted is None:
+        fallback = dd_rule_advice(case, router)
+        fallback.strategy = "spec-dd-lazy:fallback_dd_rule"
+        fallback.latency_ms = round((time.perf_counter() - started) * 1000, 3)
+        return fallback
+
+    elapsed = (time.perf_counter() - started) * 1000
+    return LibrarianAdvice(
+        strategy="spec-dd-lazy",
+        escalation_mode=mode,
+        intent_summary="lazy speculative deterministic draft; final D-ACCA route is the verifier",
+        queries=[accepted.query],
+        entity_terms=normalize_model_entity_terms(guards),
+        negative_constraints=dd_rule_advice(case, router).negative_constraints,
+        side_tracks=[
+            f"Accepted draft head without internal route: {accepted.head}",
+            "Verifier is deferred to the final D-ACCA bundle route.",
+        ],
+        rationale="Spec-DD-lazy mimics speculative draft-first execution without the pre-route verifier pass.",
+        latency_ms=round(elapsed, 3),
+    )
+
+
 def build_advice(
     case: dict[str, Any],
     strategy: str,
@@ -962,6 +989,8 @@ def build_advice(
         return dd_rule_advice(case, router)
     if strategy == "spec-dd":
         return spec_dd_advice(case, router)
+    if strategy == "spec-dd-lazy":
+        return spec_dd_lazy_advice(case, router)
     if strategy == "model-opencode-go":
         return model_opencode_go_advice(case, model_config or ModelAdvisorConfig(), router=router)
     raise ValueError(f"unsupported librarian strategy: {strategy}")
@@ -1309,7 +1338,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cases", type=Path, default=DEFAULT_CASES)
     parser.add_argument("--dataset", type=Path, default=Path("out/context_stress_ivy_real_v2"))
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
-    parser.add_argument("--strategy", choices=["fixture", "rule", "dd-rule", "spec-dd", "model-opencode-go"], default="fixture")
+    parser.add_argument(
+        "--strategy",
+        choices=["fixture", "rule", "dd-rule", "spec-dd", "spec-dd-lazy", "model-opencode-go"],
+        default="fixture",
+    )
     parser.add_argument("--candidate-backend", choices=["scan", "indexed", "rust"], default="indexed")
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--max-union-items", type=int, default=3)
