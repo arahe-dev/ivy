@@ -47,3 +47,10 @@ def ensure_generated_datasets() -> None:
             "--seed",
             "778",
         )
+
+    if not dataset_exists("context_stress_freshness_authority_cp27"):
+        run_script(
+            "scripts/generate_freshness_authority_dataset.py",
+            "--output",
+            "out/context_stress_freshness_authority_cp27",
+        )

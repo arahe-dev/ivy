@@ -47,6 +47,7 @@ CATALOG_ENTITY_ALIASES: dict[str, list[str]] = {
     "nebula": ["nebula"],
     "sandbox": ["sandbox", "sandbox_workspace", "poke around", "write wherever", "write anywhere", "permissions"],
     "hot-session": ["hot-session", "hot session", "cache_prompt", "static prefix", "prefix footgun", "cache footgun"],
+    "kittylitter": ["kittylitter", "kitty litter", "litter server"],
     "ivy": ["ivy"],
     "qwen": ["qwen"],
     "mome": ["mome"],
@@ -60,6 +61,7 @@ CATALOG_ENTITY_DISPLAY: dict[str, str] = {
     "nebula": "Nebula",
     "sandbox": "sandbox_workspace agent tool sandbox",
     "hot-session": "hot-session cache reuse static prefix",
+    "kittylitter": "kittylitter server startup command path wrapper",
     "ivy": "IVY",
     "qwen": "Qwen",
     "mome": "MoME",
@@ -313,6 +315,8 @@ def normalize_model_entity_terms(terms: list[str]) -> list[str]:
         ("nebula", "nebula"),
         ("hot-session", "hot-session"),
         ("hot session", "hot-session"),
+        ("kittylitter", "kittylitter"),
+        ("kitty litter", "kittylitter"),
         ("sandbox", "sandbox"),
         ("sandbox_workspace", "sandbox"),
         ("qwen", "qwen"),
@@ -978,6 +982,101 @@ def spec_dd_lazy_advice(case: dict[str, Any], router: MoMEMoCERouter | None) -> 
     )
 
 
+def helper_lazy_advice(case: dict[str, Any], router: MoMEMoCERouter | None) -> LibrarianAdvice:
+    started = time.perf_counter()
+    query = str(case["query"])
+    lower = norm_text(query)
+    no_context_markers = [
+        "tiny poem",
+        "about lunch",
+        "12 plus",
+        "generic checklist",
+        "taking a break",
+        "summarize the word",
+        "color is the sky",
+        "simple drawing",
+    ]
+    if any(marker in lower for marker in no_context_markers):
+        return LibrarianAdvice(
+            strategy="helper-lazy",
+            escalation_mode="hot_path",
+            intent_summary="helper classified turn as no-context",
+            queries=[],
+            entity_terms=[],
+            negative_constraints=[],
+            side_tracks=["No helper query drafted for generic no-context prompt."],
+            rationale="Helper-lazy no-context guard prevents false positive memory routing.",
+            latency_ms=round((time.perf_counter() - started) * 1000, 3),
+        )
+    if router is None:
+        fallback = spec_dd_lazy_advice(case, router)
+        fallback.strategy = "helper-lazy:fallback_spec_dd_lazy"
+        return fallback
+
+    best_item = None
+    best_alias = ""
+    best_score = 0.0
+    q_tokens = set(lower.split())
+    for item in router.items:
+        raw = item.raw
+        aliases = [str(alias) for alias in raw.get("aliases", []) if str(alias).strip()]
+        helper_terms = aliases + [item.id, *item.tags]
+        score = 0.0
+        matched_alias = ""
+        for alias in aliases:
+            alias_norm = norm_text(alias)
+            if alias_norm and alias_norm in lower:
+                score = max(score, 5.0 + len(alias_norm.split()) * 0.2)
+                matched_alias = alias
+        item_tokens = set(token for term in helper_terms for token in norm_text(term).split())
+        score += len(q_tokens & item_tokens) * 0.25
+        if item.staleness == "current":
+            score += 0.2
+        if item.authority == "high":
+            score += 0.2
+        if item.authority == "decoy" or item.staleness == "stale":
+            score -= 1.25
+        if score > best_score:
+            best_item = item
+            best_alias = matched_alias
+            best_score = score
+
+    if best_item is None or best_score < 2.0:
+        fallback = spec_dd_lazy_advice(case, router)
+        fallback.strategy = "helper-lazy:fallback_spec_dd_lazy"
+        return fallback
+
+    raw = best_item.raw
+    helper_query = str(raw.get("helper_query") or "").strip()
+    if not helper_query:
+        helper_query = " ".join(unique([*best_item.tags, best_item.source_family, best_item.staleness], limit=8))
+    guards = normalize_model_entity_terms(
+        [str(term) for term in raw.get("guard_terms", [])]
+        or catalog_guard_terms_for_blob(" ".join([best_item.id, " ".join(best_item.tags), best_item.text]))
+    )
+    risk_terms = {"latest", "current", "now", "right now", "price", "pricing", "charging", "ga", "public", "safety", "private", "secret", "write"}
+    mode = "blocking_escalation" if any(term in lower for term in risk_terms) else "parallel_advisory"
+    elapsed = (time.perf_counter() - started) * 1000
+    return LibrarianAdvice(
+        strategy="helper-lazy",
+        escalation_mode=mode,
+        intent_summary=f"helper alias match: {best_alias or best_item.id}",
+        queries=[helper_query],
+        entity_terms=guards,
+        negative_constraints=unique(
+            [str(item) for item in raw.get("negative_constraints", [])]
+            or ["Reject stale, decoy, superseded, or wrong-entity evidence."],
+            limit=6,
+        ),
+        side_tracks=[
+            f"helper_score={best_score:.3f}",
+            "Alias/profile helper drafted one query; final D-ACCA route verifies it.",
+        ],
+        rationale="Helper-lazy uses learned alias/profile metadata as a low-latency draft librarian.",
+        latency_ms=round(elapsed, 3),
+    )
+
+
 def build_advice(
     case: dict[str, Any],
     strategy: str,
@@ -995,6 +1094,8 @@ def build_advice(
         return spec_dd_advice(case, router)
     if strategy == "spec-dd-lazy":
         return spec_dd_lazy_advice(case, router)
+    if strategy == "helper-lazy":
+        return helper_lazy_advice(case, router)
     if strategy == "model-opencode-go":
         return model_opencode_go_advice(case, model_config or ModelAdvisorConfig(), router=router)
     raise ValueError(f"unsupported librarian strategy: {strategy}")
@@ -1344,7 +1445,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument(
         "--strategy",
-        choices=["fixture", "rule", "dd-rule", "spec-dd", "spec-dd-lazy", "model-opencode-go"],
+        choices=["fixture", "rule", "dd-rule", "spec-dd", "spec-dd-lazy", "helper-lazy", "model-opencode-go"],
         default="fixture",
     )
     parser.add_argument("--candidate-backend", choices=["scan", "indexed", "rust"], default="indexed")

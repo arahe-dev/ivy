@@ -10,6 +10,8 @@ from scripts.run_librarian_advisor_harness import (
     model_opencode_go_advice,
     parse_model_librarian_payload,
 )
+from scripts.generate_blackbox_packet_cases import main as generate_blackbox_cases_main
+from scripts.run_blackbox_packet_eval import main as blackbox_eval_main
 
 
 def test_librarian_advisor_harness_smoke(tmp_path) -> None:
@@ -122,6 +124,49 @@ def test_spec_dd_lazy_defers_verification_to_final_route(tmp_path) -> None:
     assert summary["librarian_harmed_cases"] == []
     assert all(row["advice"]["strategy"] == "spec-dd-lazy" for row in results["results"])
     assert any("final D-ACCA bundle route" in track for row in results["results"] for track in row["advice"]["side_tracks"])
+
+
+def test_helper_lazy_and_blackbox_packet_eval(tmp_path) -> None:
+    dataset = tmp_path / "blackbox_dataset"
+    cases = tmp_path / "blackbox_cases.json"
+    out_dir = tmp_path / "blackbox_eval"
+    rc = generate_blackbox_cases_main(
+        [
+            "--count",
+            "60",
+            "--edge-ratio",
+            "0.3",
+            "--seed",
+            "99",
+            "--dataset",
+            str(dataset),
+            "--cases-out",
+            str(cases),
+        ]
+    )
+    assert rc == 0
+
+    rc = blackbox_eval_main(
+        [
+            "--cases",
+            str(cases),
+            "--variants",
+            "d-acca",
+            "helper-lazy",
+            "bm25",
+            "--candidate-backend",
+            "indexed",
+            "--out",
+            str(out_dir),
+        ]
+    )
+    assert rc == 0
+
+    summary = json.loads((out_dir / "blackbox_packet_eval_summary.json").read_text(encoding="utf-8"))
+    assert set(summary) == {"d-acca", "helper-lazy", "bm25"}
+    assert summary["helper-lazy"]["cases"] == 60
+    assert summary["helper-lazy"]["quality"] >= summary["d-acca"]["quality"]
+    assert summary["helper-lazy"]["forbidden_hits"] <= summary["bm25"]["forbidden_hits"]
 
 
 def test_model_librarian_response_parsing() -> None:

@@ -15,7 +15,7 @@ except ModuleNotFoundError:
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MATRIX_OUT = ROOT / "out" / "librarian_strategy_matrix"
-DEFAULT_STRATEGIES = ["rule", "dd-rule", "spec-dd", "spec-dd-lazy"]
+DEFAULT_STRATEGIES = ["rule", "dd-rule", "spec-dd", "spec-dd-lazy", "helper-lazy"]
 
 
 def write_json(path: Path, payload: Any) -> None:
