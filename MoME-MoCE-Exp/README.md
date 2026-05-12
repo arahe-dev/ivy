@@ -23,16 +23,15 @@ flowchart LR
 
 ## Current Checkpoint
 
-The latest completed work is CP9.1 plus Ivy-real v2:
+The experiment has moved past CP102 into the Alexandria dogfood layer:
 
-- direct Rust candidate backend behind `--candidate-backend rust`;
-- batch-preloaded Rust mode for benchmark/eval runs;
-- Ivy-real v2 dataset generator with 45 items and 119 labeled cases;
-- first-class taint/exposure metadata in route proofs and frontier packets;
-- extracted `TaintExposureGate` and `PacketCompiler`;
-- backend parity report runner;
-- model-facing no-memory vs naive BM25 vs ACCA packet demo;
-- full test pass: `pytest` 13 passed, `cargo test` ok.
+- D-ACCA/helper-lazy remains the deterministic engine for admissible memory packets and route proofs;
+- 1000-case plus edge-case black-box packet tests have compared D-ACCA, rule, DD-rule, speculative DD, lazy speculative DD, helper-lazy, and BM25 variants;
+- Alexandria harnesses now validate the engine/frontend boundary and emit stable dashboard view models;
+- `alexandria_simple/` provides a no-build local console over the dogfood hooks;
+- `scripts/alexandria_mcp_server.py` exposes Alexandria as a private MCP bridge for Codex and ChatGPT Developer Mode;
+- runtime memory data, logs, secrets, and tunnel URL are stored outside git under `C:\ivy-data\alexandria`;
+- current focused verification: `pytest` 34 passed for MoME/MoCE, dogfood hooks, harness, and MCP bridge.
 
 ## Why This Is Not Just RAG
 

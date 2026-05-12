@@ -1,17 +1,19 @@
 # MoME/MoCE Handoff Context
 
-Date: 2026-05-10
+Date: 2026-05-13
 
 ## Current Checkpoint
 
-The MoME/MoCE experiment is past the CP7/CP8/CP9 checkpoint and now includes the CP9.1 Rust backend integration, Ivy-real v2, taint/exposure packet ABI, and model-facing demo artifacts.
+The MoME/MoCE experiment is now in the Alexandria dogfood layer, well past CP102-era engine work. CP7/CP8/CP9/CP9.1 remain historical milestones, but they are no longer the current state.
 
-- CP7 is complete: `out/context_stress_ivy_real` has 37 curated IVY evidence items and 30 labeled cases.
-- CP8 is complete: `--candidate-backend indexed` preserves exact quality and improves stress latency.
-- CP9 is complete as a candidate-index prototype: Rust candidate recall is verified.
-- CP9.1 is complete as an optional Rust candidate backend: `--candidate-backend rust` is routed through Python proof/gate/packet authority.
-- Ivy-real v2 is complete: `out/context_stress_ivy_real_v2` has 45 items and 119 cases.
-- Taint/exposure fields now survive into route proofs and frontier packets.
+- D-ACCA/helper-lazy is the current deterministic memory-to-context engine.
+- The dogfood hook service exposes health, memory import, packet build, route proof, search, feedback, and local forget hooks.
+- Alexandria harnesses validate raw engine responses and emit stable dashboard/frontend view models.
+- A no-build `alexandria_simple/` console exists for local use.
+- `scripts/alexandria_mcp_server.py` now exposes Alexandria over MCP for Codex and ChatGPT Developer Mode.
+- Runtime state for the MCP/app setup is outside git at `C:\ivy-data\alexandria`.
+- Current MCP ports: D-ACCA hooks on `127.0.0.1:8767`, MCP bridge on `127.0.0.1:8790`.
+- ChatGPT tunnel URL, when active, is stored at `C:\ivy-data\alexandria\chatgpt_mcp_url.txt`.
 
 Primary status doc:
 
@@ -21,6 +23,7 @@ Primary status doc:
 Primary continuation doc:
 
 - `docs/NEXT_CHAT_HANDOFF.md`
+- `docs/ALEXANDRIA_MCP_APP_SETUP.md`
 
 ## Verified Results
 
@@ -39,7 +42,7 @@ stress rust batch: 62/62, required-only precision 1.0, route mean 1.694 ms, prel
 model demo:        ACCA 8/8, naive BM25 forbidden hits 1 in representative demo
 v2 naive BM25:     precision 0.2376, forbidden hits 12
 v2 ACCA compact:   precision 1.0, forbidden hits 0
-pytest:            13 passed
+pytest current:    34 passed
 ```
 
 ## Litter / Phone Access Setup
