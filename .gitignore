@@ -29,6 +29,13 @@ raw_outputs/
 __pycache__/
 .venv/
 
+# Generated README export artifacts.
+artifacts/ivy_github_readme.pdf
+artifacts/ivy_github_readme_render.html
+
+# Generated MoME/MoCE study packet artifacts.
+MoME-MoCE-Exp/docs/study_packet/
+
 # --- Local benchmark/scratch folders (top-level) ---
 baseline_confirm/
 benchmarks/

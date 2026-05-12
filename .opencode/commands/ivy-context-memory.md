@@ -2,6 +2,8 @@
 
 Use this command pattern before large OpenCode tasks to fetch a small ACCA packet from the local memory sidecar.
 
+Paths below assume the IVY lab checkout lives at `C:\ivy`, matching this repo's local Windows convention.
+
 ## Query
 
 ```powershell
@@ -32,6 +34,16 @@ Then call `POST http://127.0.0.1:8768/query` with:
 { "query": "<task or question>", "variant": "auto" }
 ```
 
+Useful local API calls:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8768/status
+Invoke-RestMethod http://127.0.0.1:8768/warm -Method Post -ContentType application/json -Body '{"queries":["<task or question>"]}'
+Invoke-RestMethod http://127.0.0.1:8768/agent/hook -Method Post -ContentType application/json -Body '{"hook":"before_task","task":"<task or question>"}'
+Invoke-RestMethod http://127.0.0.1:8768/freshness -Method Post -ContentType application/json -Body '{}'
+Invoke-RestMethod http://127.0.0.1:8768/agent/doctor -Method Post -ContentType application/json -Body '{}'
+```
+
 ## MCP Mode
 
 The plugin also exposes native MCP tools through:
@@ -44,8 +56,14 @@ Tools:
 
 - `ivy_memory_query`
 - `ivy_memory_remember`
+- `ivy_memory_session_ingest`
+- `ivy_memory_session_batch_ingest`
+- `ivy_memory_agent_hook`
+- `ivy_memory_freshness_scan`
+- `ivy_memory_agent_doctor`
 - `ivy_memory_ingest`
 - `ivy_memory_build`
+- `ivy_memory_warm`
 - `ivy_memory_status`
 
 Prefer MCP mode when the client supports local tool discovery; use CLI/API mode as a fallback.
