@@ -2449,6 +2449,1079 @@ CP102-era system: The current plugin/daemon/agent-lifecycle sidecar.
 ]
 
 
+DEEP_DIVE_SECTIONS: list[tuple[str, str]] = [
+    (
+        "Before You Read The Code",
+        """
+This project is mostly plain Python. You do not need deep ML math to understand it. You need four programming ideas:
+
+1. Records: dictionaries and dataclasses that carry fields such as `id`, `authority`, `staleness`, and `text`.
+2. Indexes: maps from tokens to item IDs, used to avoid scanning every memory item.
+3. Scoring: a candidate gets points from lexical overlap, authority, source family, exact identifiers, staleness, and conflict behavior.
+4. Gates: hard rules that can reject a candidate even when the score is high.
+
+The project name can make it sound neural, but the current hot path is deterministic software. MoME/MoCE borrows the idea of "experts" from mixture-of-experts systems, but here the experts are routing modules and memory families, not neural subnetworks.
+
+The most important code-reading habit:
+
+> Track one query from text input to selected IDs to route proof to packet text.
+
+If you can follow one query through `query_store`, `select_prefilter_items`, `MoMEMoCERouter.route`, `_score_item`, `_select_evidence`, `_route_proof`, and `render_variant`, you understand the system.
+""",
+    ),
+    (
+        "Codebase Orientation",
+        """
+The current system is split across four layers.
+
+| Layer | Files | What To Learn |
+|---|---|---|
+| Core ACCA router | `MoME-MoCE-Exp/scripts/mome_moce_harness.py` | Corpus item loading, tokenization, scoring, evidence selection, route proof, frontier packet |
+| Shared packet/safety helpers | `MoME-MoCE-Exp/scripts/routing_components.py` | Taint/exposure gate and text masking/truncation |
+| External ingestion | `MoME-MoCE-Exp/scripts/ingest_external_corpus.py` | Turning files/docs/repos into ACCA-shaped corpus records |
+| Agent sidecar/plugin | `plugins/ivy-context-memory/scripts/ivy_context_memory.py` | Store layout, build cache, query prefilter, notes, session ingest, hooks, HTTP, MCP |
+| Evaluation/gates | `MoME-MoCE-Exp/scripts/run_*` and `MoME-MoCE-Exp/tests/*` | Regression methodology and pass/fail criteria |
+
+The root idea:
+
+```text
+raw files / notes / sessions
+  -> corpus items
+  -> query index
+  -> prefilter candidate items
+  -> MoMEMoCERouter
+  -> selected evidence + rejected evidence
+  -> route proof
+  -> model-facing packet
+```
+
+The plugin is not a separate brain. It wraps the existing ACCA router with a persistent store, faster prefiltering, agent hooks, and interfaces that Codex/OpenCode can call.
+""",
+    ),
+    (
+        "Core Data Model",
+        """
+The core dataclass is `CorpusItem` in `mome_moce_harness.py`.
+
+Conceptually:
+
+```python
+CorpusItem(
+    id="note_abc123",
+    source_family="doc_memory",
+    authority="high",
+    staleness="current",
+    safety_label="normal",
+    taint_labels=["normal"],
+    exposure_policy="frontier_ok",
+    tags=["agent_note", "cp102"],
+    text="The durable fact...",
+    provenance={...},
+    conflicts_with=[...],
+    raw={...},
+    tokens=[...],
+    token_counts=Counter(...),
+    search_text="..."
+)
+```
+
+Field meanings:
+
+| Field | Meaning |
+|---|---|
+| `id` | Stable evidence ID. This is what eval cases require or forbid. |
+| `source_family` | Evidence type: docs, source code, runbook, benchmark, safety policy, debug failure, workflow trace, etc. |
+| `authority` | How strongly this record can support a claim: high, medium, low, decoy. |
+| `staleness` | Whether the record is current, stale, unknown, or decoy-like. |
+| `safety_label` | Safety classification such as normal or secret_like. |
+| `taint_labels` | Derived warning labels: stale_claim, benchmark_claim, private_path, policy_memory, etc. |
+| `exposure_policy` | Whether text can enter a frontier packet: frontier_ok, metadata_only, contrastive_ok, forbidden. |
+| `tags` | Useful routing hints such as `agent_note`, `verification`, `cp102`. |
+| `text` | The evidence text. This is not always allowed to be shown verbatim. |
+| `provenance` | Where the evidence came from: path, line, generator, hash, record key. |
+| `conflicts_with` | IDs that disagree with this item or are superseded by this item. |
+| `tokens` / `token_counts` | Precomputed lexical representation for scoring. |
+| `search_text` | ID, tags, provenance, source family, and body text joined for retrieval. |
+
+The second core dataclass is `RouteResult`. It contains the user query, selected IDs, selected packet items, decision, confidence, route trace, route proof, local model usage flag, latency, and frontier packet.
+
+Important distinction:
+
+- `CorpusItem` is internal evidence.
+- `RouteResult` is the full routing decision.
+- `frontier_packet` is the small object the model may see.
+- `route_proof` is for audit and debugging.
+""",
+    ),
+    (
+        "Corpus Item Lifecycle",
+        """
+A file, note, or session record becomes memory through a deterministic conversion path.
+
+For source files and docs, `ingest_external_corpus.py` does this:
+
+```text
+iter_files
+  -> markdown_sections
+  -> split_long_chunk
+  -> classify_family
+  -> classify_staleness
+  -> authority_for
+  -> tags_for
+  -> item_from_chunk
+  -> write_dataset
+```
+
+Important functions:
+
+- `iter_files`: walks source roots, skips generated dirs, keeps only allowed extensions.
+- `markdown_sections`: splits markdown by headings so records are semantically smaller.
+- `split_long_chunk`: prevents huge chunks from entering the corpus unchanged.
+- `classify_family`: labels a chunk as runbook, source_code, safety_policy, benchmark_artifact, debug_failure, workflow_trace, or doc_memory.
+- `classify_staleness`: marks deprecated/stale/obsolete content as stale.
+- `authority_for`: source code, safety policy, docs, and README content usually get higher authority.
+- `item_from_chunk`: creates the ACCA-shaped JSON record with IDs, tags, provenance, staleness, taint, exposure, and text.
+
+For agent-written notes, `ivy_context_memory.py` does this:
+
+```text
+remember(...)
+  -> SECRET_RE check
+  -> append note JSONL
+  -> note_to_corpus_item during build
+  -> build query index
+```
+
+For sessions, the path is:
+
+```text
+raw session records
+  -> normalize_session
+  -> derive_memory_deltas
+  -> append memory_deltas.jsonl
+  -> remember_delta_notes
+  -> build_store
+```
+
+That means raw chats are not thrown into the prompt. They are normalized, redacted, distilled into durable deltas, passed through the note path, and only later retrieved as small evidence.
+""",
+    ),
+    (
+        "Store Layout",
+        """
+The plugin store defaults to:
+
+```text
+C:\\ivy\\.ivy-context-memory
+```
+
+Generated store layout:
+
+| Path | Purpose |
+|---|---|
+| `state.json` | Source roots and latest build metadata |
+| `notes.jsonl` | Human/agent verified notes |
+| `memory_deltas.jsonl` | Durable facts distilled from sessions |
+| `sessions/*.json` | Redacted normalized session records |
+| `datasets/context_memory_live/corpus/corpus_items.jsonl` | Live ACCA corpus generated from roots and notes |
+| `datasets/context_memory_live/eval/cases.json` | Empty eval holder for compatibility with the harness |
+| `index/corpus_index.json` | Persisted token -> document index for prefiltering |
+| `cache/build_fingerprint.json` | Build fingerprint and cached build payload |
+| `cache/chunks/*.json` | Per-file ingest chunk cache |
+| `policy/autoresearch_policy.json` | Optional runtime policy, including prefilter width |
+| `query_subset/` | Temporary subset dataset for a query path when needed |
+| `packets/*.json` | Persisted packet records emitted by `query_store` |
+
+Why this matters:
+
+- The model context stays small because the store is outside the prompt.
+- Builds can cache unchanged source roots.
+- Queries can use a persisted index instead of reading all files.
+- Packet JSON gives you an audit trail for what was shown to the agent.
+- Sessions are kept separate from durable memory deltas.
+""",
+    ),
+    (
+        "Tokenization And Search Text",
+        """
+The router uses deterministic lexical retrieval. Tokenization is in `mome_moce_harness.py`.
+
+The tokenizer extracts:
+
+- alphabetic words;
+- numbers, including decimals;
+- Windows-ish paths;
+- command flags like `--ctx-size`;
+- split pieces from identifiers with underscores, dashes, slashes, dots, and colons.
+
+Then it removes stopwords.
+
+Why split identifiers?
+
+The repo contains names like:
+
+```text
+run_context_memory_regression_gate.py
+ivy_memory_session_batch_ingest
+CP93_CP102_AGENT_MEMORY_USAGE
+Qwen3.6-35B-A3B
+```
+
+A normal whitespace tokenizer would treat those as opaque. Splitting identifiers lets queries such as "session batch ingest" find `ivy_memory_session_batch_ingest`.
+
+The router does not search only `item.text`. `load_corpus` builds `search_text` by joining:
+
+- item ID;
+- split item ID;
+- source family;
+- authority;
+- staleness;
+- tags;
+- split tags;
+- provenance JSON;
+- evidence text.
+
+This is why path/provenance questions can find the right record even when the body text is short.
+""",
+    ),
+    (
+        "Router Pipeline",
+        """
+The central method is `MoMEMoCERouter.route(query)`.
+
+High-level pseudocode:
+
+```python
+def route(query):
+    q_tokens = tokenize(query)
+    families = requested_families(query)
+    decoy_requested = query_requests_decoy(query)
+    stale_requested = query_requests_stale_or_comparison(query)
+    latest_requested = query_requests_latest(query)
+    strict_terms = strict_identifiers(query)
+
+    anchored = query_has_anchor(query) or families or strict_terms
+    if no anchor:
+        return no_context_needed packet
+
+    candidates = _candidate_rows(...)
+    candidates = filter unsupported commercial/current facts
+    candidates = filter query specificity
+
+    if strict terms exist:
+        keep strict matches or abstain
+
+    optionally ask advisory local/OpenCode finder
+    selected = _select_evidence(candidates, target_count)
+    proof = _route_proof(...)
+    packet = _frontier_packet(...)
+    return RouteResult(...)
+```
+
+Key early gates:
+
+- Generic no-context queries skip retrieval.
+- External out-of-scope queries skip retrieval.
+- Unsupported commercial/live facts are not answered from local memory.
+- Strict identifiers either find authoritative exact evidence or abstain.
+
+This is a big difference from naive BM25. BM25 always returns top-k if any text overlaps. ACCA is allowed to return no context.
+""",
+    ),
+    (
+        "Candidate Generation",
+        """
+There are three candidate backend ideas in the code:
+
+| Backend | Where | Purpose |
+|---|---|---|
+| scan | Core harness | Score all items. Simple but slow for large corpora. |
+| indexed | `CorpusIndex` | Use token postings to probe likely items before scoring. |
+| rust | `RustCandidateIndex` | Historical CP9.1 speed path for large stress corpora. |
+
+The active plugin path uses its own persisted query index first, then calls the router with `candidate_backend="indexed"`.
+
+`CorpusIndex.candidates` does these things:
+
+1. Sort query tokens by how rare they are in postings.
+2. Probe only the first few rare tokens.
+3. Add candidates containing strict identifier tokens.
+4. Add priority IDs when the query has known checkpoint/tool patterns.
+5. Fall back to source-family indices if needed.
+6. Add conflict neighbors for selected candidate IDs.
+
+The plugin prefilter is even earlier:
+
+```text
+select_prefilter_items
+  -> load index/corpus_index.json
+  -> tokenize query plus "mome moce acca context memory"
+  -> score item IDs by inverse document frequency-like token weights
+  -> add feature bonuses
+  -> keep top max_prefilter_items, usually 32
+```
+
+Then the router scores only those raw items converted into `CorpusItem` objects. This is why full wall latency improved.
+""",
+    ),
+    (
+        "Scoring Algorithm",
+        """
+The scoring method is `_score_item` in `mome_moce_harness.py`. It returns:
+
+```python
+(total_score, parts)
+```
+
+`parts` is important because it explains where the score came from.
+
+Main scoring components:
+
+| Part | Meaning |
+|---|---|
+| `lexical_bm25` | BM25-ish sparse lexical overlap over query tokens |
+| `id_overlap` | Query tokens overlapping item ID tokens |
+| `tag_overlap` | Query tokens overlapping tags |
+| `phrase` | Boost for important multi-token phrases such as `context stress`, `json validation`, `rust backend` |
+| `context_stress_specificity` | Strong boost/penalty for context-stress-specific queries |
+| `path_artifact_specificity` | Boost for artifact/path queries when item is tagged as exact path/artifact |
+| `memory_policy_specificity` | Special boost for advisory-memory safety policy questions |
+| `hot_prefix_paraphrase` | Special boost for cache/prefix paraphrase questions |
+| `strict_identifier` | Big positive for exact identifier match, big negative if strict identifier is missing |
+| `family` | Boost requested source family, penalize wrong family |
+| `authority` | Prefer high/medium authority; penalize decoy unless decoy is requested |
+| `staleness` | Prefer current for latest queries; allow stale only when stale/comparison is requested |
+| `numeric` | Helps benchmark values like 512, 8192, 32, 10M |
+| `conflict_resolution` | Helps include false/stale counterpart evidence when the query asks about contradictions |
+| `filler_penalty` / `support_penalty` | Suppress generated filler/support rows |
+
+BM25-ish formula in words:
+
+```text
+score += idf(token) * (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * doc_len / avg_doc_len))
+```
+
+This rewards rare query tokens that appear in the item but normalizes for long documents. It is only one part of the final score. Authority, staleness, exact IDs, tags, and gates matter too.
+
+Why this matters:
+
+- A stale note can have high lexical overlap but still lose.
+- A decoy can be retrieved but rejected unless the query asks about the false claim.
+- An exact ID query should not pull adjacent broad matches into context.
+- A source-code question should prefer source-code records.
+""",
+    ),
+    (
+        "Evidence Selection Algorithm",
+        """
+Scoring ranks candidates, but selection is where admissibility happens.
+
+`_target_evidence_count` decides how many items to include:
+
+- no anchor -> 0;
+- compact mode default -> 1;
+- decoy/stale/conflict/comparison -> usually 2;
+- latest comparison with ctx=512/8192 -> usually 2;
+- private path memory packet question -> usually 2.
+
+`_select_evidence` then chooses items in priority order:
+
+1. If the query asks about a decoy, prefer decoy rows with visible conflict partners.
+2. If the query asks about stale/comparison, include stale rows and partners.
+3. Include priority candidate IDs for known query patterns.
+4. Prefer direct `agent_note` matches, especially checkpoint-specific matches.
+5. Prefer the requested source family if no item has been selected.
+6. Fall back to top scored admissible candidates.
+
+The `admissible` inner function rejects:
+
+- filler/support rows;
+- records blocked by `TaintExposureGate`;
+- decoys unless decoy evidence is explicitly requested;
+- stale records unless stale/comparison evidence is explicitly requested.
+
+Conflict partners are included only when conflict behavior is relevant and `conflict_graph_memory` is enabled.
+
+This is the heart of ACCA:
+
+> Retrieval can propose evidence, but only admissible evidence enters the packet.
+""",
+    ),
+    (
+        "Taint, Exposure, And Masking",
+        """
+`routing_components.py` is short but important.
+
+`TaintExposureGate.allows_selection` blocks:
+
+- `exposure_policy == "forbidden"`;
+- any item with `secret_like` taint;
+- decoy records with `contrastive_ok` unless the query explicitly asks for decoy/false evidence.
+
+`TaintExposureGate.rejection_reason` explains why blocked evidence was rejected.
+
+`PacketCompiler.evidence_item` controls what text can enter the frontier packet:
+
+- `frontier_ok`: include verbatim excerpt, truncated to 900 characters if needed.
+- `metadata_only`: replace text with `[masked by exposure_policy:metadata_only]`.
+- `forbidden`: replace text with `[masked by exposure_policy:forbidden]`.
+
+This is important because a record can exist in the memory system without being safe to show to the model. The route proof can still mention that evidence was rejected or masked without leaking the content.
+""",
+    ),
+    (
+        "Route Proof Structure",
+        """
+`_route_proof` returns the audit object.
+
+Important fields:
+
+| Field | Purpose |
+|---|---|
+| `proof_version` | Schema identity |
+| `query` | Original query |
+| `decision` | Whether a context packet is ready or retrieval should abstain |
+| `answerability` | Whether selected evidence can answer the query |
+| `router_scores` | Scores for context route/expert activation |
+| `router_margin` / `routing_confidence` | How separated the routing decision is |
+| `activated_experts` | Which memory/context experts were active |
+| `shared_experts` | Always-on gates: authority, freshness, safety, provenance, answerability, packet budget |
+| `disabled_experts` | Ablation switch list |
+| `expert_claims` | High-level claims from activated experts |
+| `expert_outputs` | Candidate outputs by expert/source family |
+| `selected_evidence` | Evidence allowed into packet |
+| `rejected_evidence` | Evidence rejected and why |
+| `overflowed_evidence` | Good but budget-overflowed evidence |
+| `conflict_pairs` | Evidence pairs that conflict |
+| `authority_chain` | Source authority chain for selected evidence |
+| `exposure_summary` | Counts of exposed/masked/forbidden selected items |
+| `context_depth` | Approximate depth/complexity of context |
+| `frontier_packet_tokens` | Size of selected evidence |
+| `tokens_avoided` | Corpus tokens not stuffed into the prompt |
+| `latency_ms` | Router latency |
+
+The route proof is why this is not just retrieval. It tells you not only what was selected, but what was rejected, why, and under which gates.
+""",
+    ),
+    (
+        "Frontier Packet Structure",
+        """
+`_frontier_packet` returns the compact model-facing object.
+
+It contains:
+
+- packet version;
+- packet mode;
+- role;
+- instruction;
+- query;
+- answerability;
+- selected evidence;
+- exposure summary;
+- context budget;
+- constraints;
+- rejected evidence summary;
+- route trace.
+
+The instruction says:
+
+```text
+Use only authoritative selected evidence for factual claims.
+Treat decoy/stale packets as contrastive evidence unless explicitly asked to identify a false claim.
+If selected evidence does not answer the query, abstain.
+```
+
+The packet mode is chosen by `_packet_mode`:
+
+- `abstain_notice` when no selected evidence or answerability is not answerable.
+- `contradiction_aware` when conflicts, masking, decoys, or stale rejections matter.
+- `proof_lite` when selected evidence exists and proof context is useful.
+- compact/default modes for simpler cases.
+
+The plugin then renders these packet objects into prompt text through `render_variant`.
+""",
+    ),
+    (
+        "Plugin Query Path In Detail",
+        """
+The most important plugin function is `query_store` in `ivy_context_memory.py`.
+
+Pseudocode:
+
+```python
+def query_store(store, query, variant="auto", top_k=5, prefilter=True):
+    if dataset missing:
+        build_store(store)
+
+    runtime_policy = load_runtime_policy(store)
+    max_prefilter_items = policy.get("max_prefilter_items", 32)
+    router_candidate_k = min(policy.get("router_candidate_k", 16), max_prefilter_items)
+
+    if prefilter:
+        subset_items, meta = select_prefilter_items(store, query, max_items=max_prefilter_items)
+        items = raw_items_to_corpus(subset_items) if subset_items else load_corpus(data)
+    else:
+        items = load_corpus(data)
+
+    router = MoMEMoCERouter(items, candidate_backend="indexed", top_k=top_k, candidate_k=router_candidate_k)
+    result = router.route(query)
+
+    if no selected IDs:
+        retry with "mome context memory query: {query}"
+
+    chosen_variant = auto_variant(result)
+    packet_text = render_variant(chosen_variant, case, result)
+    write packet record to store/packets
+    return packet, timings, selected IDs, proof, text
+```
+
+Timing fields:
+
+- `prefilter`: time to choose subset IDs from persisted index.
+- `corpus`: time to convert raw items into `CorpusItem` objects.
+- `router_init`: time to initialize the router.
+- `route`: actual ACCA routing time.
+- `render`: packet text rendering.
+- `packet_write`: JSON packet write.
+- `total`: full wall clock time.
+
+This is why the scoreboard separates router latency from plugin wall latency. The router can be very fast while total wall time is dominated by prefilter/corpus/IO.
+""",
+    ),
+    (
+        "Build Store And Cache",
+        """
+`build_store` creates the live dataset.
+
+Steps:
+
+1. Initialize the store folders.
+2. Load source roots from `state.json`.
+3. Compute a source fingerprint using file size, mtime, source roots, extensions, max file count, and notes hash.
+4. If fingerprint matches and dataset/index exist, return a cache hit.
+5. Otherwise, ingest source roots through `cached_ingest`.
+6. Convert notes from `notes.jsonl` through `note_to_corpus_item`.
+7. Write the live ACCA dataset.
+8. Build the query index.
+9. Save the build cache and update `state.last_build`.
+
+There are two caches:
+
+- Build fingerprint cache: skips whole rebuilds when source roots and notes are unchanged.
+- Per-file chunk cache: skips re-chunking unchanged files during ingest.
+
+The cache key includes file size and nanosecond mtime. This is pragmatic and fast, but a future more exact cache could include content hashes for files whose mtime behavior is suspect.
+""",
+    ),
+    (
+        "Prefilter Index Details",
+        """
+The persisted query index is intentionally simple.
+
+`build_query_index` writes:
+
+```json
+{
+  "schema_version": "ivy_context_memory.query_index.v0.1",
+  "items": 123,
+  "tokens": 456,
+  "docs": {"item_id": {...}},
+  "postings": {"token": ["item_id", "..."]},
+  "token_df": {"token": 3}
+}
+```
+
+`select_prefilter_items`:
+
+1. Loads the index.
+2. Tokenizes the query plus a fixed context phrase: `mome moce acca context memory`.
+3. For each token, finds posting IDs.
+4. Adds a weight based on how rare the token is.
+5. Applies feature bonuses:
+   - `agent_note` boost;
+   - checkpoint match boost;
+   - checkpoint mismatch penalty for agent notes;
+   - source-code penalty for non-code queries.
+6. Sorts by score, match count, authority, and text length.
+7. Keeps the top `max_prefilter_items`.
+
+Why add the fixed context phrase?
+
+It biases retrieval toward the memory-system corpus vocabulary, which helps generic user queries that omit "MoME", "ACCA", or "context memory".
+
+Why feature bonuses?
+
+Pure lexical matching was too easy to fool. For example, a generic plugin note could answer the wrong checkpoint query. Checkpoint-specific feature handling fixes that class of error.
+""",
+    ),
+    (
+        "Notes And The Write Barrier",
+        """
+`remember` is the explicit write path for durable memory.
+
+A note has:
+
+- text;
+- source path;
+- tags;
+- authority;
+- staleness;
+- supersedes;
+- conflicts_with.
+
+`SECRET_RE` rejects obvious secret-like text before it becomes a note. `note_to_corpus_item` also marks notes as `secret_like` if secret terms appear.
+
+Notes become corpus records with:
+
+- `source_family` default `doc_memory`;
+- `authority` default `medium`;
+- `tags` always including `agent_note`;
+- `staleness` default `current`;
+- `exposure_policy` `forbidden` if secret-like, otherwise `frontier_ok`;
+- provenance pointing back to the note source path.
+
+The design rule:
+
+> Only verified, durable, non-secret, non-private results should be remembered.
+
+Do not remember raw transcripts, speculative plans, credentials, private contents, or unverified claims.
+""",
+    ),
+    (
+        "Session Ingest And Memory Deltas",
+        """
+Session ingest turns raw agent history into compact memory.
+
+`normalize_session` accepts records/messages/events. Each record gets:
+
+- index;
+- event type;
+- role;
+- redacted text;
+- created timestamp;
+- optional tool/command/path/status/passed/commit/files/tags.
+
+`derive_memory_deltas` scans records and keeps only durable categories:
+
+| Delta Type | Trigger |
+|---|---|
+| `decision` | event_type decision/design_decision or text starts with `Decision:` |
+| `failure` | event_type failure/error or text starts with `Failure:` |
+| `test_result` | event_type test/test_result or text mentions passed/failed |
+| `outcome` | event_type outcome/final/summary |
+| `preference` | text contains prefer/always/never |
+| `command` | tool/command event with a command field |
+
+Secret-like text is skipped. Each delta gets:
+
+- deterministic-ish ID;
+- source session ID;
+- delta type;
+- redacted text;
+- source path back into sessions JSON;
+- tags;
+- authority;
+- task;
+- timestamp.
+
+Then `remember_delta_notes` converts deltas into notes without rebuilding every time. Batch ingest calls `ingest_session(..., build=False)` repeatedly, then one final `build_store`.
+
+This is the mechanism behind the "1000 records -> 3 deltas" result.
+""",
+    ),
+    (
+        "Agent Hooks",
+        """
+`agent_hook` is the agent lifecycle API.
+
+Hooks:
+
+| Hook | Behavior |
+|---|---|
+| `before_task` | Query memory and return packet v2 for planning. |
+| `before_edit` | Query memory and return packet v2 before editing. |
+| `after_test` | Ingest test result payload as memory candidate. |
+| `after_task` | Ingest durable task outcome payload as memory candidate. |
+| `remember` | Explicitly remember a verified note. |
+| `supersede` | Record that a note supersedes older evidence. |
+
+`context_packet_v2` wraps `query_store` and returns:
+
+- schema version;
+- hook name;
+- query;
+- agent memory policy;
+- packet mode/text/selected IDs/decision/answerability/route proof;
+- timings;
+- packet path.
+
+The policy says memory is lower precedence than current instructions and repo state. This matters because an agent should never use memory to override the current task.
+""",
+    ),
+    (
+        "HTTP And MCP Interfaces",
+        """
+The same plugin capabilities are exposed through CLI, HTTP, and MCP.
+
+HTTP uses `ThreadingHTTPServer` and `ApiHandler`.
+
+Important endpoints:
+
+- `GET /status`
+- `POST /query`
+- `POST /warm`
+- `POST /remember`
+- `POST /agent/hook`
+- `POST /session/ingest`
+- `POST /session/batch-ingest`
+- `POST /freshness`
+- `POST /agent/doctor`
+
+MCP exposes tools such as:
+
+- `ivy_memory_query`
+- `ivy_memory_remember`
+- `ivy_memory_session_ingest`
+- `ivy_memory_session_batch_ingest`
+- `ivy_memory_agent_hook`
+- `ivy_memory_freshness_scan`
+- `ivy_memory_agent_doctor`
+- `ivy_memory_ingest`
+- `ivy_memory_build`
+- `ivy_memory_warm`
+- `ivy_memory_status`
+
+MCP also exposes resources:
+
+- `ivy-memory://status`
+- `ivy-memory://latest-packet`
+- `ivy-memory://track-record`
+
+And prompts:
+
+- `query_ivy_memory_before_task`
+- `remember_verified_milestone`
+
+Why MCP matters:
+
+It lets an agent discover and call the memory sidecar as a native tool instead of shelling out manually.
+""",
+    ),
+    (
+        "Freshness And Doctor Checks",
+        """
+Two operational tools make long-running use safer.
+
+`source_freshness_scan`:
+
+- loads source roots from state;
+- reads `state.last_build.at`;
+- walks source files;
+- skips generated dirs and unsupported extensions;
+- reports files modified after the last build;
+- returns `fresh: true/false`.
+
+This does not prove semantic freshness. It is an operational tripwire: "sources changed after memory was built."
+
+`agent_memory_doctor` checks:
+
+- store initialized;
+- dataset exists;
+- index exists;
+- lifecycle hooks are available;
+- required MCP tools exist;
+- secret write barrier is enabled.
+
+Doctor output is designed for agent startup. It answers: "Is this sidecar ready enough to trust as advisory memory?"
+""",
+    ),
+    (
+        "Evaluation Methodology",
+        """
+The project deliberately moved through stronger evaluation layers.
+
+Layer 1: Recall-only retrieval.
+
+- Early benchmarks could pass if required evidence appeared anywhere.
+- This was too forgiving.
+
+Layer 2: Required-only precision and forbidden hits.
+
+- The system must retrieve required evidence.
+- It must avoid forbidden/decoy/stale extra evidence.
+
+Layer 3: Route proof and packet schema validation.
+
+- The artifacts must be valid JSON.
+- Selected/rejected evidence must be explainable.
+
+Layer 4: Latency gates.
+
+- Routing must remain interactive.
+- Later gates measure full plugin wall time, not only router time.
+
+Layer 5: Ablations.
+
+- Disable exact anchors.
+- Use paraphrases.
+- Remove source evidence.
+- Add negative controls.
+
+Layer 6: Answer-level A/B.
+
+- Compare no-memory final answers against packet-memory final answers.
+- The CP96-CP97 targeted result was packet-v2 memory 3/3 vs no-memory 0/3.
+
+Layer 7: Agent lifecycle drills.
+
+- Session ingest.
+- Hooks.
+- Batch ingest.
+- Freshness scan.
+- Long-session drill.
+- Doctor.
+
+This methodology is the main reason the results are more credible than "we built a RAG demo."
+""",
+    ),
+    (
+        "Important Tests To Read",
+        """
+Read tests as documentation.
+
+Suggested order:
+
+| Test File | What It Teaches |
+|---|---|
+| `tests/test_context_stress_contract.py` | Core dataset and route artifact contracts |
+| `tests/test_cp7_cp9_contract.py` | Ivy-real and Rust/index backend expectations |
+| `tests/test_cp26_cp28_contract.py` | External ingestion and plugin birth |
+| `tests/test_ivy_context_memory_plugin.py` | Plugin store, query, remember, MCP, warm, benchmark assumptions |
+| `tests/test_agent_memory_burn_in.py` | Agent lifecycle burn-in |
+| `tests/test_agent_memory_cp93_cp102.py` | Adapter, answer A/B, batch ingest, freshness, doctor |
+| `tests/test_context_memory_daemon_smoke.py` | Persistent daemon path |
+
+How to read a test:
+
+1. Find the fixture store/dataset.
+2. Find what memory records are seeded.
+3. Find the query.
+4. Find required selected IDs.
+5. Find forbidden IDs or abstention expectation.
+6. Find latency and wall-time assertions.
+7. Compare the test's expectation with the route proof fields.
+
+When a future change fails tests, inspect whether it broke recall, precision, abstention, conflict handling, safety, or latency.
+""",
+    ),
+    (
+        "Debugging A Bad Query",
+        """
+When a query returns the wrong packet, debug in this order.
+
+1. Check whether the store is built:
+
+```powershell
+python .\\plugins\\ivy-context-memory\\scripts\\ivy_context_memory.py status
+python .\\plugins\\ivy-context-memory\\scripts\\ivy_context_memory.py agent-doctor
+```
+
+2. Query with JSON output, not only text:
+
+```powershell
+python .\\plugins\\ivy-context-memory\\scripts\\ivy_context_memory.py query --query "<query>"
+```
+
+3. Inspect:
+
+- `selected_ids`;
+- `decision`;
+- `answerability`;
+- `prefilter.top_ids`;
+- `timings_ms`;
+- `route_proof.selected_evidence`;
+- `route_proof.rejected_evidence`;
+- `route_proof.conflict_pairs`;
+- `packet_path`.
+
+4. If the right item is not in prefilter top IDs:
+
+- improve tags;
+- improve source family;
+- add checkpoint-specific terms;
+- adjust prefilter feature policy;
+- rebuild the index.
+
+5. If the right item is in candidates but rejected:
+
+- check authority;
+- check staleness;
+- check exposure policy;
+- check taint labels;
+- check whether the query explicitly asks about stale/decoy/conflict evidence.
+
+6. If selected evidence is correct but final answer is wrong:
+
+- improve packet rendering;
+- add answer-level tests;
+- make the model cite selected IDs;
+- shorten or clarify packet text.
+""",
+    ),
+    (
+        "How To Add A New Memory Capability",
+        """
+Use this checklist for future checkpoints.
+
+1. Define the behavior in plain English.
+
+Example:
+
+```text
+The sidecar should abstain when the source required for an external fact is removed.
+```
+
+2. Add or seed corpus evidence.
+
+- Add source docs.
+- Add notes.
+- Add external corpus items.
+- Add stale/decoy/conflict counterparts if relevant.
+
+3. Add an eval case.
+
+- required IDs;
+- forbidden IDs;
+- must abstain;
+- conflict requirement;
+- safety requirement;
+- latency budget.
+
+4. Run the current route and inspect the proof.
+
+5. Change the smallest relevant layer:
+
+- ingestion if evidence is missing;
+- prefilter if candidate not found;
+- scoring if candidate is under-ranked;
+- selection/gate if candidate is found but not admissible;
+- packet renderer if final answer needs better wording;
+- tests/gates if the behavior needs permanence.
+
+6. Commit with docs.
+
+7. Add the result to the scoreboard or track record.
+
+This is the "Karpathy-style autoresearch" loop in practical form: make a hypothesis, build a small test, inspect failure, make a minimal change, verify, record the result.
+""",
+    ),
+    (
+        "Concepts You Should Know",
+        """
+BM25:
+
+A sparse lexical ranking formula. It rewards rare query terms and normalizes for document length. IVY uses a BM25-ish part, but not BM25 alone.
+
+Inverted index:
+
+A map from token to documents containing that token. Used to avoid scanning the whole corpus.
+
+Authority:
+
+A record's right to support a claim. Source code and safety policy outrank informal notes. Decoys have negative authority unless the query asks about false claims.
+
+Staleness:
+
+Whether a record is current or old. Latest/current queries should prefer current evidence and reject stale evidence unless comparison is requested.
+
+Provenance:
+
+Where evidence came from. Includes path, hash, generator, record key, sometimes line numbers.
+
+Taint:
+
+A warning label attached to evidence: secret-like, private path, benchmark claim, stale claim, source code path, policy memory.
+
+Exposure policy:
+
+Whether text can enter a model-facing packet. Some records can be known to the system but masked from the model.
+
+Abstention:
+
+Returning no evidence when local memory should not answer. This is a feature, not a failure.
+
+Route proof:
+
+The audit trail explaining routing, selection, rejection, conflicts, budgets, and latency.
+
+Packet:
+
+The compact context sent to the model. It is evidence, not final prose.
+""",
+    ),
+    (
+        "What You Personally Need To Learn Next",
+        """
+Since you gave the architecture idea but not the code details, study in this order:
+
+Day 1: Understand the objects.
+
+- Read `CorpusItem`.
+- Read `RouteResult`.
+- Read `note_to_corpus_item`.
+- Read `context_packet_v2`.
+- Draw the data shape by hand.
+
+Day 2: Understand retrieval.
+
+- Read `tokenize`.
+- Read `build_query_index`.
+- Read `select_prefilter_items`.
+- Read `CorpusIndex.candidates`.
+- Run a query and inspect `prefilter.top_ids`.
+
+Day 3: Understand routing.
+
+- Read `MoMEMoCERouter.route`.
+- Read `_score_item`.
+- Read `_select_evidence`.
+- Run one query and inspect score parts.
+
+Day 4: Understand proof/packet.
+
+- Read `_route_proof`.
+- Read `_frontier_packet`.
+- Read `render_variant`.
+- Compare route proof JSON to packet text.
+
+Day 5: Understand memory writes.
+
+- Read `remember`.
+- Read `derive_memory_deltas`.
+- Read `ingest_session_batch`.
+- Run the long-session drill.
+
+Day 6: Understand tests.
+
+- Read plugin tests.
+- Read answer A/B script.
+- Read regression gate.
+- Make one tiny eval case yourself.
+
+Day 7: Change one thing.
+
+- Add a new negative control.
+- Add a new source-removal case.
+- Add one packet rendering variant.
+- Measure whether quality and latency stayed good.
+""",
+    ),
+]
+
+
+ALL_SECTIONS = LATEST_SECTIONS + DEEP_DIVE_SECTIONS
+
+
 def build_markdown() -> str:
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     parts = [
@@ -2463,10 +3536,10 @@ def build_markdown() -> str:
         "## Table Of Contents",
         "",
     ]
-    for index, (title, _) in enumerate(LATEST_SECTIONS, start=1):
+    for index, (title, _) in enumerate(ALL_SECTIONS, start=1):
         parts.append(f"{index}. {title}")
     parts.append("")
-    for title, body in LATEST_SECTIONS:
+    for title, body in ALL_SECTIONS:
         parts.append(f"## {title}")
         parts.append("")
         parts.append(body.strip())
