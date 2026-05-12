@@ -24,10 +24,20 @@ interface DashboardProps {
   query: string;
   setQuery: (query: string) => void;
   runPacket: (query?: string) => void;
+  seedDogfoodMemory: () => void;
   isRunning: boolean;
 }
 
-export default function Dashboard({ mode, setMode, data, query, setQuery, runPacket, isRunning }: DashboardProps) {
+export default function Dashboard({
+  mode,
+  setMode,
+  data,
+  query,
+  setQuery,
+  runPacket,
+  seedDogfoodMemory,
+  isRunning,
+}: DashboardProps) {
   return (
     <div className="space-y-4">
       {/* Mode toggle */}
@@ -53,7 +63,14 @@ export default function Dashboard({ mode, setMode, data, query, setQuery, runPac
       {mode === "simple" ? (
         <SimpleDashboard query={query} setQuery={setQuery} runPacket={runPacket} isRunning={isRunning} />
       ) : (
-        <AdvancedDashboard data={data} query={query} setQuery={setQuery} runPacket={runPacket} isRunning={isRunning} />
+        <AdvancedDashboard
+          data={data}
+          query={query}
+          setQuery={setQuery}
+          runPacket={runPacket}
+          seedDogfoodMemory={seedDogfoodMemory}
+          isRunning={isRunning}
+        />
       )}
     </div>
   );
@@ -124,12 +141,14 @@ function AdvancedDashboard({
   query,
   setQuery,
   runPacket,
+  seedDogfoodMemory,
   isRunning,
 }: {
   data: AlexandriaDashboardData;
   query: string;
   setQuery: (query: string) => void;
   runPacket: (query?: string) => void;
+  seedDogfoodMemory: () => void;
   isRunning: boolean;
 }) {
   return (
@@ -171,6 +190,23 @@ function AdvancedDashboard({
           ))}
         </div>
         {data.error && <p className="mt-3 text-xs font-medium text-warning">{data.error}</p>}
+        {data.actionMessage && <p className="mt-3 text-xs font-medium text-success">{data.actionMessage}</p>}
+        {data.connection === "online" && data.memoryOverview.total === 0 && (
+          <div className="mt-3 rounded-lg border border-amber bg-amber/5 p-3">
+            <p className="text-xs font-semibold text-ink">No memory is loaded yet.</p>
+            <p className="mt-1 text-xs text-ink-secondary">
+              Load a small Alexandria/D-ACCA dogfood seed so packet generation, proof, sources, and feedback are testable.
+            </p>
+            <button
+              onClick={seedDogfoodMemory}
+              disabled={isRunning}
+              className="mt-3 inline-flex items-center gap-1 rounded-md bg-ink px-3 py-1.5 text-xs font-medium text-white hover:bg-graphite disabled:opacity-60"
+            >
+              {isRunning && <Loader2 className="h-3 w-3 animate-spin" />}
+              Load dogfood memory
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 2. Metrics Row */}
@@ -256,8 +292,8 @@ function AdvancedDashboard({
           <h3 className="text-sm font-semibold text-ink">Sources Provenance</h3>
         </div>
         <div className="mt-3 space-y-2">
-            {data.sources.map((s) => (
-            <div key={s.name} className="flex items-center gap-3 rounded-md border border-mist-light px-3 py-2">
+          {data.sources.map((s, index) => (
+            <div key={`${s.name}-${s.type}-${index}`} className="flex items-center gap-3 rounded-md border border-mist-light px-3 py-2">
               <FileText className="h-4 w-4 text-ink-secondary shrink-0" />
               <span className="text-sm font-medium text-ink flex-1 truncate">{s.name}</span>
               <span className="text-xs text-ink-secondary hidden sm:inline">{s.type}</span>

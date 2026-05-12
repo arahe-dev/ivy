@@ -19,7 +19,7 @@ import {
   type SourceTableRow,
 } from "../data/mockData";
 
-export const DEFAULT_COMMAND = "Ship the v2 analytics dashboard for our AI agent product.";
+export const DEFAULT_COMMAND = "How should Alexandria connect to D-ACCA hooks?";
 
 export type ConnectionState = "loading" | "online" | "offline";
 
@@ -64,6 +64,7 @@ export interface AlexandriaDashboardData {
   connection: ConnectionState;
   serviceLabel: string;
   error?: string;
+  actionMessage?: string;
   routeId?: string;
   metrics: DashboardMetrics;
   memoryOverview: MemoryOverview;
@@ -184,6 +185,7 @@ export function useAlexandriaHooks() {
   const [packet, setPacket] = useState<DogfoodPacketResponse | null>(null);
   const [proof, setProof] = useState<DogfoodRouteProof | null>(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [actionMessage, setActionMessage] = useState<string | undefined>();
 
   const refresh = useCallback(async () => {
     setConnection((current) => (current === "online" ? "online" : "loading"));
@@ -210,6 +212,7 @@ export function useAlexandriaHooks() {
       setQuery(command);
       setIsRunning(true);
       setError(undefined);
+      setActionMessage(undefined);
 
       try {
         const response = await postPacket(command);
@@ -227,6 +230,7 @@ export function useAlexandriaHooks() {
         }
 
         await refresh();
+        setActionMessage(`Packet ${response.route_id} built with ${response.selected_ids.length} admitted item${response.selected_ids.length === 1 ? "" : "s"}.`);
       } catch (err) {
         setConnection("offline");
         setError(errorMessage(err));
@@ -250,9 +254,34 @@ export function useAlexandriaHooks() {
           note: note || `Dashboard marked route ${rating}`,
         }),
       });
+      setActionMessage(`Saved ${rating} feedback for ${packet.route_id}.`);
     },
     [packet?.route_id],
   );
+
+  const seedDogfoodMemory = useCallback(async () => {
+    setIsRunning(true);
+    setError(undefined);
+    setActionMessage(undefined);
+    try {
+      const result = await requestJson<{ ingested: number; memory_count: number }>("/ingest", {
+        method: "POST",
+        body: JSON.stringify({
+          source: "alexandria_frontend_seed",
+          project: "alexandria",
+          items: ALEXANDRIA_SEED_ITEMS,
+        }),
+      });
+      await refresh();
+      setActionMessage(`Loaded ${result.ingested} Alexandria memories. Corpus now has ${result.memory_count}.`);
+      await runPacket(query);
+    } catch (err) {
+      setConnection("offline");
+      setError(errorMessage(err));
+    } finally {
+      setIsRunning(false);
+    }
+  }, [query, refresh, runPacket]);
 
   useEffect(() => {
     let active = true;
@@ -304,8 +333,9 @@ export function useAlexandriaHooks() {
         snapshot,
         packet,
         proof,
+        actionMessage,
       }),
-    [connection, error, packet, proof, query, snapshot],
+    [actionMessage, connection, error, packet, proof, query, snapshot],
   );
 
   return {
@@ -315,6 +345,7 @@ export function useAlexandriaHooks() {
     runPacket,
     refresh,
     sendFeedback,
+    seedDogfoodMemory,
     isRunning,
   };
 }
@@ -365,6 +396,7 @@ function buildDashboardData(args: {
   snapshot: DogfoodSnapshot | null;
   packet: DogfoodPacketResponse | null;
   proof: DogfoodRouteProof | null;
+  actionMessage?: string;
 }): AlexandriaDashboardData {
   const memories = args.snapshot?.memories.items || [];
   const evidence = args.packet?.packet.evidence || [];
@@ -389,6 +421,7 @@ function buildDashboardData(args: {
     connection: args.connection,
     serviceLabel: serviceLabel(args.connection, args.snapshot),
     error: args.error,
+    actionMessage: args.actionMessage,
     routeId: args.packet?.route_id,
     metrics: {
       admissiblePacket: packetSize,
@@ -632,3 +665,58 @@ function asString(value: unknown) {
 function errorMessage(err: unknown) {
   return err instanceof Error ? err.message : String(err);
 }
+
+const ALEXANDRIA_SEED_ITEMS = [
+  {
+    id: "alexandria_d_acca_hooks",
+    text: "Alexandria connects to the local D-ACCA dogfood service through frontend/src/hooks/useAlexandriaHooks.ts. Keep network calls centralized in that hook. It calls /health, /hooks, /memories, /packet, /proof/{route_id}, /feedback, and /ingest at http://127.0.0.1:8766, then passes a derived view model into presentation components.",
+    source_family: "source_code",
+    authority: "high",
+    claim_type: "fact",
+    tags: ["alexandria", "hooks", "d-acca", "frontend"],
+    aliases: ["connect to D-ACCA hooks", "hook up hooks", "Alexandria hooks", "dashboard hook path"],
+    helper_query: "Alexandria frontend D-ACCA hooks useAlexandriaHooks packet proof feedback ingest",
+    guard_terms: ["alexandria", "hooks"],
+    replay_match_terms: ["connect to D-ACCA hooks", "hook up hooks", "Alexandria hooks"],
+    distillation_patterns: [["alexandria", "hooks"], ["d-acca", "hooks"]],
+  },
+  {
+    id: "alexandria_ingest_memory",
+    text: "To make Alexandria useful, ingest memories through POST /ingest with items containing text, source_family, authority, tags, aliases, helper_query, guard_terms, replay_match_terms, and optional distillation_patterns. After ingesting, call POST /packet with strategy helper-lazy to build an admissible context packet.",
+    source_family: "runbook",
+    authority: "high",
+    claim_type: "workflow",
+    tags: ["alexandria", "ingest", "memory", "packet"],
+    aliases: ["ingest memory", "load memory", "add memory into Alexandria", "seed memory"],
+    helper_query: "Alexandria ingest memory POST /ingest helper-lazy packet",
+    guard_terms: ["alexandria", "ingest"],
+    replay_match_terms: ["ingest memory", "load memory", "add memory"],
+    distillation_patterns: [["ingest", "memory"], ["load", "memory"]],
+  },
+  {
+    id: "alexandria_route_proof",
+    text: "Alexandria should show route proof separately from model-visible context. The model gets only the /packet packet by default. The dashboard may fetch /proof/{route_id} for route details, helper-lazy advice, selected ids, rejected candidates, and latency.",
+    source_family: "doc_memory",
+    authority: "high",
+    claim_type: "policy",
+    tags: ["alexandria", "proof", "packet", "model_visible"],
+    aliases: ["why was this included", "route proof", "proof details", "evidence included"],
+    helper_query: "Alexandria route proof why evidence included packet model visible proof",
+    guard_terms: ["proof", "packet"],
+    replay_match_terms: ["why included", "route proof", "evidence included"],
+    distillation_patterns: [["why", "included"], ["route", "proof"]],
+  },
+  {
+    id: "alexandria_feedback_controls",
+    text: "Alexandria feedback controls map Use, Reject, and Stale to POST /feedback ratings useful, wrong, and stale. Feedback should never mutate packet evidence directly; it records route quality so later distillation or librarian learning can improve routing.",
+    source_family: "workflow_trace",
+    authority: "medium",
+    claim_type: "fact",
+    tags: ["alexandria", "feedback", "learning", "recall"],
+    aliases: ["use reject stale", "feedback controls", "mark stale", "reject packet"],
+    helper_query: "Alexandria feedback controls use reject stale POST /feedback route quality",
+    guard_terms: ["feedback"],
+    replay_match_terms: ["feedback controls", "use reject stale", "mark stale"],
+    distillation_patterns: [["feedback", "controls"], ["use", "reject", "stale"]],
+  },
+];

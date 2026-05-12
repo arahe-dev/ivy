@@ -46,6 +46,7 @@ export default function App() {
               query={alexandria.query}
               setQuery={alexandria.setQuery}
               runPacket={alexandria.runPacket}
+              seedDogfoodMemory={alexandria.seedDogfoodMemory}
               isRunning={alexandria.isRunning}
             />
           </div>

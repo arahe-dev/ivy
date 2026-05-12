@@ -36,8 +36,8 @@ export default function SourcesSection({ rows }: { rows: SourceTableRow[] }) {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr key={row.name} className="border-b border-mist-light last:border-b-0 hover:bg-ivory/50 transition-colors">
+              {rows.map((row, index) => (
+                <tr key={`${row.name}-${row.type}-${index}`} className="border-b border-mist-light last:border-b-0 hover:bg-ivory/50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <FileText className="h-4 w-4 text-ink-secondary shrink-0" />

@@ -19,6 +19,11 @@ export default function Header({
   onSearchSubmit,
   serviceLabel,
 }: HeaderProps) {
+  function selectNav(item: string) {
+    setActiveNav(item);
+    document.getElementById(item.toLowerCase())?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   return (
     <header className="sticky top-4 z-50 mx-4 lg:mx-auto max-w-6xl">
       <div className="flex items-center rounded-xl border border-mist bg-white px-4 py-2.5 shadow-sm">
@@ -64,7 +69,7 @@ export default function Header({
           {navItems.map((item) => (
             <button
               key={item}
-              onClick={() => setActiveNav(item)}
+              onClick={() => selectNav(item)}
               className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
                 activeNav === item
                   ? "bg-ink text-white"

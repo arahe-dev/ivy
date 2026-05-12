@@ -96,8 +96,8 @@ export default function MobilePreview({
           <div className="rounded-md border border-mist bg-white p-2.5">
             <p className="text-[10px] font-semibold text-ink">Sources</p>
             <div className="mt-2 space-y-1.5">
-              {data.sources.slice(0, 3).map((s) => (
-                <div key={s.name} className="flex items-center gap-1.5">
+              {data.sources.slice(0, 3).map((s, index) => (
+                <div key={`${s.name}-${index}`} className="flex items-center gap-1.5">
                   <FileText className="h-3 w-3 text-ink-secondary" />
                   <span className="text-[10px] text-ink truncate flex-1">{s.name}</span>
                   <span className="text-[9px] text-success">{s.status}</span>

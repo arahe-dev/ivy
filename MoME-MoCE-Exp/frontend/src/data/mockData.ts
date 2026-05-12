@@ -47,9 +47,9 @@ export interface ApiEndpoint {
 }
 
 export const commandChips = [
-  "What did we decide about auth?",
-  "Show recent decisions",
-  "Why was this included?",
+  "How should Alexandria connect to D-ACCA hooks?",
+  "How do I ingest memory into Alexandria?",
+  "Why was this evidence included?",
 ];
 
 export const metrics = {
