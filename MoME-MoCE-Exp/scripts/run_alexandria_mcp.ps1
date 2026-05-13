@@ -1,5 +1,5 @@
 param(
-    [ValidateSet("setup", "start", "stop", "status", "tunnel", "stop-tunnel", "print-chatgpt", "codex-config")]
+    [ValidateSet("setup", "start", "stop", "status", "tunnel", "ngrok", "stop-tunnel", "print-chatgpt", "codex-config")]
     [string]$Command = "start",
     [string]$RepoRoot = (Split-Path -Parent $PSScriptRoot),
     [string]$DataRoot = "C:\ivy-data\alexandria",
@@ -63,6 +63,17 @@ function Test-PortOpen {
     }
 }
 
+function Get-FreeLoopbackPort {
+    $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Parse("127.0.0.1"), 0)
+    try {
+        $listener.Start()
+        return ([System.Net.IPEndPoint]$listener.LocalEndpoint).Port
+    }
+    finally {
+        $listener.Stop()
+    }
+}
+
 function Get-HookHealthRoot {
     param([int]$Port)
     try {
@@ -116,6 +127,41 @@ function Resolve-Cloudflared {
     return ""
 }
 
+function Resolve-Ngrok {
+    $cmd = Get-Command ngrok -ErrorAction SilentlyContinue
+    if ($cmd) {
+        return $cmd.Source
+    }
+    $winget = Join-Path $env:LOCALAPPDATA "Microsoft\WinGet\Packages\Ngrok.Ngrok_Microsoft.Winget.Source_8wekyb3d8bbwe\ngrok.exe"
+    if (Test-Path $winget) {
+        return $winget
+    }
+    $local = Join-Path $DataRoot "bin\ngrok.exe"
+    if (Test-Path $local) {
+        return $local
+    }
+    return ""
+}
+
+function Resolve-NgrokDefaultConfig {
+    $candidates = @()
+    if ($env:NGROK_CONFIG) {
+        $candidates += $env:NGROK_CONFIG
+    }
+    if ($env:LOCALAPPDATA) {
+        $candidates += (Join-Path $env:LOCALAPPDATA "ngrok\ngrok.yml")
+    }
+    if ($env:USERPROFILE) {
+        $candidates += (Join-Path $env:USERPROFILE ".ngrok2\ngrok.yml")
+    }
+    foreach ($candidate in $candidates) {
+        if ($candidate -and (Test-Path $candidate)) {
+            return $candidate
+        }
+    }
+    return ""
+}
+
 function Get-SecretsPath {
     return (Join-Path $DataRoot "secrets\alexandria.secrets.json")
 }
@@ -128,8 +174,16 @@ function Ensure-Secrets {
             created_at = (Get-Date).ToUniversalTime().ToString("o")
             mcp_bearer_token = (New-UrlToken -Bytes 32)
             mcp_path_secret = (New-UrlToken -Bytes 24)
+            mcp_oauth_owner_pin = (New-UrlToken -Bytes 12)
         }
         $secrets | ConvertTo-Json | Set-Content -Path $secretsPath -Encoding UTF8
+    }
+    else {
+        $secrets = Get-Content -Path $secretsPath -Raw | ConvertFrom-Json
+        if (-not ($secrets.PSObject.Properties.Name -contains "mcp_oauth_owner_pin")) {
+            $secrets | Add-Member -NotePropertyName "mcp_oauth_owner_pin" -NotePropertyValue (New-UrlToken -Bytes 12)
+            $secrets | ConvertTo-Json | Set-Content -Path $secretsPath -Encoding UTF8
+        }
     }
     try {
         $acl = Get-Acl -Path $secretsPath
@@ -192,7 +246,9 @@ function Start-Mcp {
         "--port", [string]$McpPort,
         "--engine-base-url", "http://127.0.0.1:$HookPort",
         "--secrets-file", $secretsPath,
-        "--audit-log", $audit
+        "--audit-log", $audit,
+        "--oauth-enabled",
+        "--require-oauth-for-tools"
     )
     if ($LogPayloads) {
         $args += "--log-payloads"
@@ -247,11 +303,74 @@ function Start-QuickTunnel {
     Write-Host "ChatGPT MCP URL written to $DataRoot\chatgpt_mcp_url.txt"
 }
 
+function Start-NgrokTunnel {
+    Ensure-Secrets | Out-Null
+    $ngrok = Resolve-Ngrok
+    if (-not $ngrok) {
+        throw "ngrok is not on PATH or in the expected winget/data-root locations. Install it with: winget install --id Ngrok.Ngrok"
+    }
+    if (-not (Test-PortOpen -Port $McpPort)) {
+        Start-Hooks
+        Start-Mcp
+    }
+    Stop-PidFile -Path (Join-Path $DataRoot "pids\cloudflared.pid")
+    $pidPath = Join-Path $DataRoot "pids\ngrok.pid"
+    $stdout = Join-Path $DataRoot "logs\ngrok.stdout.log"
+    $stderr = Join-Path $DataRoot "logs\ngrok.stderr.log"
+    Stop-PidFile -Path $pidPath
+    Remove-Item -LiteralPath $stdout,$stderr -Force -ErrorAction SilentlyContinue
+    $apiPort = Get-FreeLoopbackPort
+    Set-Content -Path (Join-Path $DataRoot "pids\ngrok_api_port.txt") -Value $apiPort -Encoding ASCII
+    $target = "http://127.0.0.1:$McpPort"
+    $ngrokConfig = Join-Path $DataRoot "pids\ngrok_alexandria.yml"
+    @"
+version: 3
+agent:
+  web_addr: 127.0.0.1:$apiPort
+"@ | Set-Content -Path $ngrokConfig -Encoding ASCII
+    $ngrokArgs = @()
+    $defaultConfig = Resolve-NgrokDefaultConfig
+    if ($defaultConfig) {
+        $ngrokArgs += @("--config", $defaultConfig)
+    }
+    $ngrokArgs += @("--config", $ngrokConfig, "http", $target, "--log", "stdout", "--log-format", "json")
+    $proc = Start-Process -FilePath $ngrok -ArgumentList $ngrokArgs -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+    Set-Content -Path $pidPath -Value $proc.Id -Encoding ASCII
+    $url = ""
+    for ($i = 0; $i -lt 40; $i++) {
+        Start-Sleep -Milliseconds 500
+        if ($proc.HasExited) {
+            break
+        }
+        try {
+            $api = Invoke-RestMethod -Uri "http://127.0.0.1:$apiPort/api/tunnels" -Method Get -TimeoutSec 2
+            $https = @($api.tunnels | Where-Object { $_.public_url -like "https://*" -and [string]$_.config.addr -eq $target } | Select-Object -First 1)
+            if ($https) {
+                $url = [string]$https.public_url
+                break
+            }
+        }
+        catch {
+        }
+    }
+    if (-not $url) {
+        throw "Could not find ngrok HTTPS URL. Check $stderr"
+    }
+    $secrets = Ensure-Secrets
+    $chatgptUrl = "$url/mcp/$($secrets.mcp_path_secret)"
+    Set-Content -Path (Join-Path $DataRoot "chatgpt_mcp_url.txt") -Value $chatgptUrl -Encoding UTF8
+    [Environment]::SetEnvironmentVariable("ALEXANDRIA_CHATGPT_MCP_URL", $chatgptUrl, "User")
+    $env:ALEXANDRIA_CHATGPT_MCP_URL = $chatgptUrl
+    Write-Host "ChatGPT MCP URL written to $DataRoot\chatgpt_mcp_url.txt"
+}
+
 function Configure-Codex {
     $secrets = Ensure-Secrets
     [Environment]::SetEnvironmentVariable("ALEXANDRIA_MCP_TOKEN", [string]$secrets.mcp_bearer_token, "User")
+    [Environment]::SetEnvironmentVariable("ALEXANDRIA_MCP_OAUTH_PIN", [string]$secrets.mcp_oauth_owner_pin, "User")
     $env:ALEXANDRIA_MCP_TOKEN = [string]$secrets.mcp_bearer_token
-    Write-Host "Set user env var ALEXANDRIA_MCP_TOKEN. Restart Codex to inherit it."
+    $env:ALEXANDRIA_MCP_OAUTH_PIN = [string]$secrets.mcp_oauth_owner_pin
+    Write-Host "Set user env vars ALEXANDRIA_MCP_TOKEN and ALEXANDRIA_MCP_OAUTH_PIN. Restart Codex to inherit them."
 }
 
 function Print-Status {
@@ -292,8 +411,15 @@ switch ($Command) {
         Start-QuickTunnel
         Print-Status
     }
+    "ngrok" {
+        Start-NgrokTunnel
+        Print-Status
+    }
     "stop-tunnel" {
         Stop-PidFile -Path (Join-Path $DataRoot "pids\cloudflared.pid")
+        Stop-PidFile -Path (Join-Path $DataRoot "pids\ngrok.pid")
+        Remove-Item -LiteralPath (Join-Path $DataRoot "pids\ngrok_api_port.txt") -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath (Join-Path $DataRoot "pids\ngrok_alexandria.yml") -Force -ErrorAction SilentlyContinue
         Print-Status
     }
     "print-chatgpt" {
