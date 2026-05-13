@@ -9,7 +9,7 @@
 <h1 align="center">IVY — Local LLM Systems Lab</h1>
 
 <p align="center">
-  Making strong open LLMs usable on constrained consumer hardware through MoE placement, prompt packing, hot-session cache reuse, tool-call reliability testing, and policy-gated memory-to-context packets.
+  Making strong open LLMs usable on constrained consumer hardware through MoE placement, prompt packing, hot-session cache reuse, tool-call reliability testing, and policy-gated context-memory sidecars.
 </p>
 
 <p align="center">
@@ -35,7 +35,7 @@
 | Tool reliability (benchmark) | 25-case benchmark: 96% raw strict pass, 100% final pass with validator/retry |
 | Cache reuse (agent demo) | Phase 1.1: all steps `partial_reuse` (13) vs Phase 1: all `cold_or_lost_reuse` (15); avg `prompt_ms` **6322.6 → 2854.2** (2.2x faster) |
 | Passive + opt-in memory | SQLite ledger + FTS5 + deterministic hashed-vector fallback; MoME v0 experiment runner exists, no default prompt injection |
-| Memory-to-context control plane | `MoME-MoCE-Exp`: ACCA packet ABI, route proofs, taint/exposure gates, Ivy-real v2 **119/119**, stress Rust batch **62/62**, warm route mean **1.694 ms** |
+| Memory-to-context control plane | `MoME-MoCE-Exp` + `ivy-context-memory`: ACCA packets, route proofs, taint/exposure gates, agent hooks, MCP/API/daemon paths; Ivy-real v2 **119/119**, external generalization gates passing, plugin benchmark **6/6**, focused tests **28 passed** |
 | Fast prose path | Q2/IQ2 remains useful, but is not trusted for raw tool use |
 | KV eviction | Circular KV Lite is simulation/observability-only for this model |
 
@@ -55,6 +55,7 @@ IVY focuses on the parts that decide whether a local model is actually usable:
 - reproducible benchmark harnesses
 - passive memory retrieval and opt-in MoME packet experiments before default prompt injection
 - policy-gated memory-to-context compilation through MoME/MoCE + ACCA packets
+- Codex/OpenCode context-memory sidecar behavior through CLI, HTTP, MCP, daemon, and lifecycle hooks
 - structured autoresearch loops
 
 Test machine:
@@ -210,9 +211,9 @@ Naive retrieval had high recall but poor precision: it pulled stale and decoy re
 | Exact-anchor only | 119 | 3 | 1.0 | 0 | 0 | 0 |
 | Compact ACCA | 119 | 119 | 1.0 | 0 | 0 | 0 |
 
-### Speed Result
+### Historical CP9.1 Speed Result
 
-The Rust candidate backend was first correct but slow because Python spawned Rust and Rust rebuilt the corpus per query. CP9.1 added batch preload: Rust indexes the dataset once, then Python keeps proof/gate/packet authority.
+The CP9.1 Rust candidate backend was the first major latency breakthrough. Before that point, Python spawned Rust and Rust rebuilt the corpus per query. CP9.1 added batch preload: Rust indexed the dataset once, then Python kept proof/gate/packet authority. This is no longer the latest project state; the CP102-era context-memory plugin and daemon results are summarized in the next section.
 
 ![MoME/MoCE stress speed comparison](assets/mome-moce-speed.svg)
 
@@ -224,16 +225,60 @@ The Rust candidate backend was first correct but slow because Python spawned Rus
 | Stress indexed | 0 ms | about 120 ms | about 55 ms | about 486 ms | 62/62 |
 | Stress Rust batch | 4483.781 ms | 1.694 ms | 1.859 ms | 3.744 ms | 62/62 |
 
-### Current Limitation
+### Current Status After CP102
 
-Selected-evidence parity between Rust and indexed Python is 1.0, but raw candidate-set Jaccard is still low on the large stress corpus. That is recorded as the next optimization target. The likely next build is a persistent Rust index daemon or library binding so arbitrary one-off stress queries are warm without batch preload.
+The MoME/MoCE work now includes a usable local context-memory plugin for Codex/OpenCode-style agents. The plugin keeps the large memory outside the model, compiles only a small ACCA packet for the current task, and records verified outcomes through explicit write barriers.
+
+```mermaid
+flowchart LR
+  S["Repos / docs / notes / sessions"] --> Store[".ivy-context-memory store"]
+  Store --> Build["ACCA corpus + persisted indexes"]
+  T["Agent task"] --> Hook["before_task / before_edit hook"]
+  Hook --> Router["MoME/MoCE router"]
+  Build --> Router
+  Router --> Packet["Small packet v2"]
+  Router --> Proof["Route proof"]
+  Packet --> Agent["Codex / OpenCode / local agent"]
+  Agent --> Tests["Edits + tests"]
+  Tests --> After["after_test / after_task hook"]
+  After --> Barrier["write barrier"]
+  Barrier --> Store
+```
+
+| Surface | Current result |
+|---|---|
+| Plugin benchmark | **6/6** expected behaviors, avg query wall **15.535 ms**, avg router **2.478 ms** |
+| Hot repeated plugin queries | about **7.5-7.7 ms** wall time |
+| Daemon path | post-warm query wall **10.142 ms**, router **4.638 ms** |
+| Agent lifecycle | session ingest, packet v2, hooks, adapter lifecycle, batch ingest, freshness scan, long-session drill, readiness doctor |
+| Answer A/B | packet-v2 memory **3/3**, no-memory **0/3** on the targeted agent-memory answer cases |
+| External generalization | combined external gate **9/9**; no-exact-anchor, semantic paraphrase, source-removal, and negative-control gates pass |
+| Capacity claim | rated for **10M tokens** as sharded external memory, not as a single prompt-window claim |
+| Focused tests | **28 passed** in the latest CP93-CP102 lifecycle track |
+
+The strongest current framing is: **ACCA is an auditable authority-constrained context compiler for agent memory.** MoME/MoCE is the external expert architecture around it.
 
 Key docs:
 
 - [`MoME-MoCE-Exp/README.md`](MoME-MoCE-Exp/README.md)
-- [`MoME-MoCE-Exp/docs/AUTORESEARCH_TRACK_RECORD_2026-05-10.md`](MoME-MoCE-Exp/docs/AUTORESEARCH_TRACK_RECORD_2026-05-10.md)
-- [`MoME-MoCE-Exp/docs/CP7_CP9_STATUS_2026-05-10.md`](MoME-MoCE-Exp/docs/CP7_CP9_STATUS_2026-05-10.md)
+- [`plugins/ivy-context-memory/README.md`](plugins/ivy-context-memory/README.md)
+- [`MoME-MoCE-Exp/docs/AUTORESEARCH_LOOP_SCOREBOARD.md`](MoME-MoCE-Exp/docs/AUTORESEARCH_LOOP_SCOREBOARD.md)
+- [`MoME-MoCE-Exp/docs/PLUGIN_BENCHMARK_SCOREBOARD.md`](MoME-MoCE-Exp/docs/PLUGIN_BENCHMARK_SCOREBOARD.md)
+- [`MoME-MoCE-Exp/docs/PLUGIN_SUPERCHARGE_TRACK_RECORD_2026-05-11.md`](MoME-MoCE-Exp/docs/PLUGIN_SUPERCHARGE_TRACK_RECORD_2026-05-11.md)
 - [`MoME-MoCE-Exp/HANDOFF_CONTEXT.md`](MoME-MoCE-Exp/HANDOFF_CONTEXT.md)
+
+Quick daemon path:
+
+```powershell
+cd C:\ivy
+powershell -ExecutionPolicy Bypass -File .\MoME-MoCE-Exp\scripts\start_context_memory_daemon.ps1
+```
+
+One-shot query path:
+
+```powershell
+python .\plugins\ivy-context-memory\scripts\ivy_context_memory.py query --query "What should I know before changing the MoME router?" --text
+```
 
 ## Phase 2D Guarded Preview (MoME v0)
 
@@ -566,6 +611,7 @@ Decision: observability/simulation-only for now.
 ivy/
   assets/                      # README logos
   MoME-MoCE-Exp/               # Memory-to-context compiler experiment, ACCA packets, Rust index
+  plugins/ivy-context-memory/  # Codex/OpenCode-facing local context-memory sidecar
   docs/                        # Current state, results, specs, figures
   docs/figures/                # GitHub-friendly visualizations
   manifests/                   # Runtime and experiment manifests
@@ -582,18 +628,20 @@ Useful docs:
 - [`ivy/docs/TOOL_SAFETY.md`](ivy/docs/TOOL_SAFETY.md)
 - [`ivy/docs/results/Q4KM_TOOL_BENCHMARK_25.md`](ivy/docs/results/Q4KM_TOOL_BENCHMARK_25.md)
 - [`MoME-MoCE-Exp/README.md`](MoME-MoCE-Exp/README.md)
+- [`plugins/ivy-context-memory/README.md`](plugins/ivy-context-memory/README.md)
 
 ---
 
 ## Roadmap
 
-1. Expand Q4_K_M tool testing from 25 cases to a larger adversarial suite.
-2. Make the MoME/MoCE Rust index always warm through a persistent daemon or library binding.
-3. Add answer-level model evals that consume only ACCA packets and cite selected evidence IDs.
-4. Add optional slot save/restore or session persistence experiment.
-5. Build execution gating around validator verdicts and human-confirmation requirements.
-6. Keep Q2/IQ2 available as a fast prose/research lane, not the default tool lane.
-7. Expand reports so every run produces pass/warn/fail recommendations.
+1. Merge the MoME/MoCE context-memory branch as a checkpointed research/build episode.
+2. Run a fresh-machine replay: install plugin, ingest sources, warm daemon, query, remember, and compare packet hashes.
+3. Wire `ivy-context-memory` into the normal Codex/OpenCode pre-task and post-verification workflow.
+4. Expand answer-level A/B tests where the final model must use ACCA packets correctly, not just retrieve the right evidence.
+5. Grow external generalization corpora beyond IVY docs while keeping negative controls and source-removal gates.
+6. Keep lowering plugin wall latency without weakening authority, freshness, conflict, or abstention behavior.
+7. Expand Q4_K_M tool testing from 25 cases to a larger adversarial suite.
+8. Keep Q2/IQ2 available as a fast prose/research lane, not the default tool lane.
 
 ---
 
@@ -609,4 +657,4 @@ Useful docs:
 
 ## Summary
 
-IVY has turned a pile of local model experiments into a reproducible systems workflow: benchmark model tracks, tune MoE placement, measure prompt packing, validate output safety, exploit hot prompt/KV reuse, and now compile messy memory into safe compact context packets. The current best local agent path is Qwen3.6-35B-A3B Q4_K_M through stock `llama.cpp` with a fixed-slot hot-session runner, with MoME/MoCE + ACCA emerging as the memory-to-context control plane around it.
+IVY has turned a pile of local model experiments into a reproducible systems workflow: benchmark model tracks, tune MoE placement, measure prompt packing, validate output safety, exploit hot prompt/KV reuse, and compile messy memory into safe compact context packets. The current best local agent path is Qwen3.6-35B-A3B Q4_K_M through stock `llama.cpp` with a fixed-slot hot-session runner. The newest useful layer is `ivy-context-memory`: a local ACCA sidecar that lets Codex/OpenCode-style agents query, warm, inspect, and write verified memory without stuffing raw history into the model prompt.

@@ -8,6 +8,7 @@ q4km_opt/
 q4km_autoresearch/
 q4km_hot_cache/
 capability_bench/
+.ivy-context-memory/
 
 # --- Slot save / restore artifacts ---
 **/slot_saves/
@@ -27,6 +28,13 @@ response.json
 raw_outputs/
 __pycache__/
 .venv/
+
+# Generated README export artifacts.
+artifacts/ivy_github_readme.pdf
+artifacts/ivy_github_readme_render.html
+
+# Generated MoME/MoCE study packet artifacts.
+MoME-MoCE-Exp/docs/study_packet/
 
 # --- Local benchmark/scratch folders (top-level) ---
 baseline_confirm/

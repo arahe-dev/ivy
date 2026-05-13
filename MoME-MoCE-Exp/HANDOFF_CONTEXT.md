@@ -4,9 +4,10 @@ Date: 2026-05-13
 
 ## Current Checkpoint
 
-The MoME/MoCE experiment is now in the Alexandria dogfood layer, well past CP102-era engine work. CP7/CP8/CP9/CP9.1 remain historical milestones, but they are no longer the current state.
+The MoME/MoCE experiment is now in the Alexandria dogfood layer, past the CP102-era context-memory sidecar phase. CP7/CP8/CP9/CP9.1 remain historical milestones; CP102 remains the local memory sidecar baseline.
 
 - D-ACCA/helper-lazy is the current deterministic memory-to-context engine.
+- The `ivy-context-memory` plugin/daemon remains the Codex/OpenCode-facing ACCA sidecar foundation.
 - The dogfood hook service exposes health, memory import, packet build, route proof, search, feedback, and local forget hooks.
 - Alexandria harnesses validate raw engine responses and emit stable dashboard/frontend view models.
 - A no-build `alexandria_simple/` console exists for local use.
@@ -17,8 +18,10 @@ The MoME/MoCE experiment is now in the Alexandria dogfood layer, well past CP102
 
 Primary status doc:
 
-- `docs/CP7_CP9_STATUS_2026-05-10.md`
-- `docs/AUTORESEARCH_TRACK_RECORD_2026-05-10.md`
+- `docs/AUTORESEARCH_LOOP_SCOREBOARD.md`
+- `docs/PLUGIN_BENCHMARK_SCOREBOARD.md`
+- `docs/PLUGIN_SUPERCHARGE_TRACK_RECORD_2026-05-11.md`
+- `plugins/ivy-context-memory/README.md`
 
 Primary continuation doc:
 
@@ -42,7 +45,29 @@ stress rust batch: 62/62, required-only precision 1.0, route mean 1.694 ms, prel
 model demo:        ACCA 8/8, naive BM25 forbidden hits 1 in representative demo
 v2 naive BM25:     precision 0.2376, forbidden hits 12
 v2 ACCA compact:   precision 1.0, forbidden hits 0
-pytest current:    34 passed
+Plugin benchmark:             6/6 expected behaviors
+Plugin benchmark latency:     avg query wall 15.535 ms, avg router 2.478 ms
+Hot repeated plugin wall:     about 7.5-7.7 ms
+Regression gate:              passed
+Regression gate plugin wall:  19.351 ms
+Regression gate plugin route: 3.747 ms
+Daemon post-warm query wall:  10.142 ms
+Daemon post-warm router:      4.638 ms
+External generalization:      9/9 combined gate
+No-exact-anchor gate:         9/9
+Semantic paraphrase gate:     9/9
+Semantic + no-exact gate:     9/9
+Negative controls:            5/5 abstain, avg selected 0.0
+Source-removal gate:          8/8 abstain, avg selected 0.0
+Agent session ingest:         verified
+Agent hook packet v2:         verified
+Agent answer A/B:             packet-v2 memory 3/3, no-memory 0/3
+Batch session ingest:         verified, single rebuild
+Long-session drill:           1000 records -> 3 deltas, 3.179 ms packet wall
+Agent memory doctor:          verified
+Focused tests:                28 passed
+Capacity rating:              10M tokens as sharded external memory, not one prompt
+pytest current:                39 passed
 ```
 
 ## Litter / Phone Access Setup
@@ -119,8 +144,9 @@ Then force-close and reopen Litter on the phone so it does not reuse stale SSH b
 
 ## Next Engineering Steps
 
-1. Make CP9 a real optional backend: compile Rust once, call it directly, and compare Rust/Python candidate parity.
-2. Improve raw Rust/Python candidate parity. Selected evidence parity is 1.0, but candidate Jaccard is still low on stress.
-3. Replace benchmark batch preload with a persistent Rust process or library binding for arbitrary interactive queries.
-4. Expand Ivy-real v3 using actual sanitized run outputs and failure logs.
-5. Add answer-level model checks that consume only the frontier packet and cite selected evidence IDs.
+1. Run a fresh-machine replay: install plugin, ingest sources, warm daemon, query, remember, and compare packet hashes.
+2. Wire `ivy-context-memory` into the normal Codex/OpenCode pre-task and post-verification workflow.
+3. Expand answer-level A/B tests where the final model must use ACCA packets correctly, not just retrieve the right evidence.
+4. Grow external generalization corpora beyond IVY docs while keeping negative controls and source-removal gates.
+5. Lower plugin wall latency further without weakening authority, freshness, conflict, safety, or abstention behavior.
+6. Decide whether Rust should become a persistent service/library for larger corpora, or remain a historical benchmark backend while the Python plugin path is optimized.

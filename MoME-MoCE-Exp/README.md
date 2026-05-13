@@ -23,15 +23,17 @@ flowchart LR
 
 ## Current Checkpoint
 
-The experiment has moved past CP102 into the Alexandria dogfood layer:
+The experiment has moved past CP102 into the Alexandria dogfood layer. The CP102 `ivy-context-memory` plugin/daemon remains the Codex/OpenCode-facing ACCA sidecar baseline, while the active frontier is the Alexandria harness, dogfood hooks, and MCP bridge.
 
 - D-ACCA/helper-lazy remains the deterministic engine for admissible memory packets and route proofs;
+- ACCA packets and route proofs remain the core ABI: selected evidence, rejected evidence, answerability, authority/freshness/safety gates, taint/exposure labels, and conflict behavior;
+- session capture and memory deltas make verified agent work reusable without storing raw chat history in model context;
 - 1000-case plus edge-case black-box packet tests have compared D-ACCA, rule, DD-rule, speculative DD, lazy speculative DD, helper-lazy, and BM25 variants;
 - Alexandria harnesses now validate the engine/frontend boundary and emit stable dashboard view models;
 - `alexandria_simple/` provides a no-build local console over the dogfood hooks;
 - `scripts/alexandria_mcp_server.py` exposes Alexandria as a private MCP bridge for Codex and ChatGPT Developer Mode;
 - runtime memory data, logs, secrets, and tunnel URL are stored outside git under `C:\ivy-data\alexandria`;
-- current focused verification: `pytest` 34 passed for MoME/MoCE, dogfood hooks, harness, and MCP bridge.
+- current focused verification: `pytest` 39 passed for MoME/MoCE, dogfood hooks, harness, and MCP bridge.
 
 ## Why This Is Not Just RAG
 
@@ -62,6 +64,26 @@ The core problem is context governance: avoid stale memory, decoys, unsafe recor
 | Stress Rust batch | 62 | 62 | 1.0 | 0 | 0 |
 | Model-facing demo ACCA | 8 | 8 | 1.0 | 0 | 0 |
 
+### CP102 Plugin / Agent Lifecycle
+
+| Surface | Current result |
+|---|---:|
+| Plugin benchmark | `6 / 6` |
+| Avg plugin query wall | `15.535 ms` |
+| Avg plugin router latency | `2.478 ms` |
+| Hot repeated plugin wall | `~7.5-7.7 ms` |
+| Regression gate plugin wall | `19.351 ms` |
+| Regression gate plugin router | `3.747 ms` |
+| Daemon post-warm query wall | `10.142 ms` |
+| Daemon post-warm router | `4.638 ms` |
+| External generalization gate | `9 / 9` |
+| External negative controls | `5 / 5`, avg selected `0.0` |
+| External source-removal gate | `8 / 8`, avg selected `0.0` |
+| Agent answer A/B | packet-v2 memory `3 / 3`, no-memory `0 / 3` |
+| Long-session drill | `1000` records -> `3` deltas, `3.179 ms` packet wall |
+| Focused tests | `28 passed` |
+| Capacity rating | `10M` tokens as sharded external memory, not one prompt |
+
 ### Retrieval Baseline Comparison
 
 | Mode | Cases | Passed | Required Precision | Forbidden Hits | Stale Extra | Decoy Extra |
@@ -79,7 +101,7 @@ xychart-beta
   bar [0.2376, 0.2447, 1.0, 1.0]
 ```
 
-### Speed
+### Historical CP9.1 Speed
 
 | Dataset / Backend | Upfront Preload | Warm Route Mean | Warm Route P50 | Warm Route Max |
 |---|---:|---:|---:|---:|
@@ -97,9 +119,30 @@ xychart-beta
   bar [307.263, 120.0, 1.694]
 ```
 
-The big win is on repeated queries against a loaded corpus: Rust batch is roughly 70x faster than Python indexed on the 2M-token stress set. The remaining gap is arbitrary one-off queries, which still need a persistent Rust daemon or library binding.
+The CP9.1 win was repeated queries against a loaded corpus: Rust batch was roughly 70x faster than Python indexed on the 2M-token stress set. That result is still useful, but it is now a historical benchmark below the CP102 plugin/daemon lifecycle.
 
 ## Main Commands
+
+Start the current context-memory daemon path:
+
+```powershell
+cd C:\ivy
+powershell -ExecutionPolicy Bypass -File .\MoME-MoCE-Exp\scripts\start_context_memory_daemon.ps1
+```
+
+Query the current plugin directly:
+
+```powershell
+python .\plugins\ivy-context-memory\scripts\ivy_context_memory.py query --query "What should I know before changing the MoME router?" --text
+python .\plugins\ivy-context-memory\scripts\ivy_context_memory.py agent-doctor
+```
+
+Run the current plugin benchmark/regression path:
+
+```powershell
+python MoME-MoCE-Exp\scripts\run_context_memory_plugin_benchmark.py --reset
+python MoME-MoCE-Exp\scripts\run_context_memory_regression_gate.py
+```
 
 Generate datasets:
 
@@ -149,16 +192,23 @@ Generated `out/` artifacts are intentionally ignored by git. The test suite rege
 | `scripts/generate_ivy_real_v2_dataset.py` | Expanded Ivy-real v2 generator |
 | `scripts/run_candidate_backend_comparison.py` | Indexed vs Rust backend parity and speed report |
 | `scripts/run_model_facing_demo.py` | No-memory vs naive BM25 vs ACCA packet prompt artifacts |
+| `scripts/run_context_memory_plugin_benchmark.py` | Current plugin behavior/latency benchmark |
+| `scripts/run_context_memory_regression_gate.py` | Combined context-memory regression gate |
+| `scripts/start_context_memory_daemon.ps1` | Warm daemon bootstrap for local agent use |
+| `../plugins/ivy-context-memory/` | Codex/OpenCode-facing local context-memory sidecar |
 | `rust/acca_index/` | Rust sparse candidate index |
 | `schemas/route_proof.schema.json` | Route proof ABI |
 | `schemas/frontier_context_packet.schema.json` | Frontier packet ABI |
-| `docs/AUTORESEARCH_TRACK_RECORD_2026-05-10.md` | Latest track record and sidecar research notes |
+| `docs/AUTORESEARCH_LOOP_SCOREBOARD.md` | Current CP102-era scoreboard |
+| `docs/PLUGIN_BENCHMARK_SCOREBOARD.md` | Current plugin benchmark scoreboard |
+| `docs/PLUGIN_SUPERCHARGE_TRACK_RECORD_2026-05-11.md` | Plugin lifecycle track record through CP102 |
 | `HANDOFF_CONTEXT.md` | Short continuation context |
 
 ## Next Work
 
-1. Build a persistent Rust index daemon or library binding so arbitrary one-off stress queries are warm without batch preload.
-2. Improve raw Rust/Python candidate Jaccard while preserving selected-evidence parity.
-3. Add answer-level model evals that consume only the frontier packet and cite selected evidence IDs.
-4. Expand Ivy-real v3 from sanitized real run logs, failures, command history, and memory-injection traces.
-5. Add observability reports for gate decisions, taint/exposure counts, token savings, and candidate drift.
+1. Run a fresh-machine replay: install plugin, ingest sources, warm daemon, query, remember, and compare packet hashes.
+2. Wire `ivy-context-memory` into the normal Codex/OpenCode pre-task and post-verification workflow.
+3. Expand answer-level A/B tests where the final model must use ACCA packets correctly, not just retrieve the right evidence.
+4. Grow external generalization corpora beyond IVY docs while keeping negative controls and source-removal gates.
+5. Lower plugin wall latency further without weakening authority, freshness, conflict, safety, or abstention behavior.
+6. Decide whether Rust should become a persistent service/library for larger corpora, or remain a historical benchmark backend while the Python plugin path is optimized.

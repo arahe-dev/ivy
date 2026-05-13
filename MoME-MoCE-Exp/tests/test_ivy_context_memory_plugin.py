@@ -1,0 +1,698 @@
+from __future__ import annotations
+
+import importlib.util
+import json
+import os
+import subprocess
+import sys
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+
+PLUGIN_SCRIPT = Path(__file__).resolve().parents[2] / "plugins" / "ivy-context-memory" / "scripts" / "ivy_context_memory.py"
+
+
+def load_plugin_module():
+    spec = importlib.util.spec_from_file_location("ivy_context_memory_plugin", PLUGIN_SCRIPT)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def framed(payload: dict) -> bytes:
+    body = json.dumps(payload).encode("utf-8")
+    return f"Content-Length: {len(body)}\r\n\r\n".encode("ascii") + body
+
+
+def parse_framed_messages(blob: bytes) -> list[dict]:
+    messages = []
+    offset = 0
+    while offset < len(blob):
+        header_end = blob.index(b"\r\n\r\n", offset)
+        headers = blob[offset:header_end].decode("ascii")
+        length = 0
+        for line in headers.splitlines():
+            if line.lower().startswith("content-length:"):
+                length = int(line.split(":", 1)[1].strip())
+        body_start = header_end + 4
+        body_end = body_start + length
+        messages.append(json.loads(blob[body_start:body_end].decode("utf-8")))
+        offset = body_end
+    return messages
+
+
+def test_plugin_remember_build_query_roundtrip(tmp_path: Path) -> None:
+    plugin = load_plugin_module()
+    store = tmp_path / "store"
+    init = plugin.init_store(store)
+    assert init["ok"]
+
+    remembered = plugin.remember(
+        store,
+        text="CP28 showed contradiction-aware packets won final-answer A/B on conflict cases.",
+        source_path="root/notes/cp28.md",
+        tags=["cp28", "final-answer"],
+        authority="medium",
+    )
+    assert remembered["ok"]
+    assert remembered["build"]["corpus_items"] == 1
+    assert remembered["build"]["index"]["items"] == 1
+
+    result = plugin.query_store(store, query="What did CP28 show about final answer packet formats?")
+    assert result["ok"]
+    assert result["selected_count"] == 1
+    assert result["prefilter"]["enabled"] is True
+    assert result["prefilter"]["candidate_count"] == 1
+    assert result["router_candidate_k"] == 16
+    assert "contradiction-aware" in result["packet_text"].lower()
+    assert result["query"] == "What did CP28 show about final answer packet formats?"
+    assert result["wall_ms"] >= result["latency_ms"]
+    assert {"prefilter", "corpus", "router_init", "route", "render", "packet_write", "total"} <= set(result["timings_ms"])
+
+
+def test_plugin_rejects_secret_like_note(tmp_path: Path) -> None:
+    plugin = load_plugin_module()
+    store = tmp_path / "store"
+    plugin.init_store(store)
+    try:
+        plugin.remember(
+            store,
+            text="api key token should not enter memory",
+            source_path="root/notes/secret.md",
+            tags=["secret"],
+        )
+        raise AssertionError("secret-like notes should be rejected")
+    except ValueError as exc:
+        assert "secret" in str(exc).lower()
+
+
+def test_session_ingest_derives_deltas_and_redacts_secret_text(tmp_path: Path) -> None:
+    plugin = load_plugin_module()
+    store = tmp_path / "store"
+    payload = {
+        "session_id": "cp83_session_capture",
+        "source": "codex",
+        "workspace": "C:\\ivy",
+        "task": "Build CP83-CP87 agent memory integration.",
+        "records": [
+            {"event_type": "message", "role": "user", "text": "Start the next memory integration checkpoint."},
+            {
+                "event_type": "decision",
+                "role": "assistant",
+                "text": "CP83 stores normalized Codex/OpenCode chat events as agent_session v0.1.",
+            },
+            {
+                "event_type": "test_result",
+                "role": "assistant",
+                "text": "CP84 session ingest roundtrip passed pytest coverage.",
+                "passed": True,
+            },
+            {"event_type": "message", "role": "user", "text": "api_key=sk-test-should-not-persist"},
+            {
+                "event_type": "outcome",
+                "role": "assistant",
+                "text": "CP85 memory deltas convert durable decisions and verification into retrievable notes.",
+            },
+        ],
+    }
+
+    result = plugin.ingest_session(store, payload)
+    current_status = plugin.status(store)
+    session_text = Path(result["session_path"]).read_text(encoding="utf-8")
+    queried = plugin.query_store(store, query="What does CP83 store for Codex OpenCode sessions?")
+
+    assert result["ok"] is True
+    assert result["delta_count"] == 3
+    assert result["remembered_notes"] == 3
+    assert current_status["sessions"] == 1
+    assert current_status["memory_deltas"] == 3
+    assert current_status["notes"] == 3
+    assert "sk-test-should-not-persist" not in session_text
+    assert "api_key=[REDACTED]" in session_text
+    assert queried["selected_count"] >= 1
+    assert "agent_session v0.1" in queried["packet_text"]
+
+
+def test_agent_hooks_return_packet_v2_and_remember_after_task(tmp_path: Path) -> None:
+    plugin = load_plugin_module()
+    store = tmp_path / "store"
+    plugin.ingest_session(
+        store,
+        {
+            "session_id": "cp87_agent_hooks",
+            "task": "Expose agent hook contracts.",
+            "records": [
+                {
+                    "event_type": "decision",
+                    "text": "CP87 exposes before_task, before_edit, after_test, after_task, remember, and supersede hooks.",
+                }
+            ],
+        },
+    )
+
+    before = plugin.agent_hook(store, hook="before_task", task="Which hooks does CP87 expose?")
+    after = plugin.agent_hook(
+        store,
+        hook="after_task",
+        task="Finish CP87 hook verification.",
+        payload={
+            "session_id": "cp87_after_task",
+            "records": [
+                {
+                    "event_type": "outcome",
+                    "text": "CP87 hook contract is verified through CLI, HTTP, and MCP-callable surfaces.",
+                }
+            ],
+        },
+    )
+    packet = plugin.context_packet_v2(store, query="What CP87 result mentions CLI HTTP MCP callable surfaces?", hook="before_edit")
+
+    assert before["schema_version"] == "ivy_context_memory.context_packet.v0.2"
+    assert before["hook"] == "before_task"
+    assert before["packet"]["selected_ids"]
+    assert before["policy"]["schema_version"] == "ivy_context_memory.agent_policy.v0.1"
+    assert after["delta_count"] == 1
+    assert packet["hook"] == "before_edit"
+    assert "CLI, HTTP, and MCP" in packet["packet"]["text"]
+
+
+def test_session_ingest_can_defer_rebuild(tmp_path: Path) -> None:
+    plugin = load_plugin_module()
+    store = tmp_path / "store"
+
+    result = plugin.ingest_session(
+        store,
+        {
+            "session_id": "cp92_deferred_build",
+            "records": [
+                {
+                    "event_type": "decision",
+                    "text": "CP92 can defer rebuilds while still writing session deltas and safe notes.",
+                }
+            ],
+        },
+        build=False,
+    )
+    current_status = plugin.status(store)
+
+    assert result["delta_count"] == 1
+    assert result["remembered_notes"] == 1
+    assert current_status["notes"] == 1
+    assert current_status["memory_deltas"] == 1
+    assert current_status["corpus_items"] == 0
+
+
+def test_session_batch_ingest_rebuilds_once(tmp_path: Path, monkeypatch) -> None:
+    plugin = load_plugin_module()
+    store = tmp_path / "store"
+    original_build_store = plugin.build_store
+    calls = {"count": 0}
+
+    def counted_build_store(*args, **kwargs):
+        calls["count"] += 1
+        return original_build_store(*args, **kwargs)
+
+    monkeypatch.setattr(plugin, "build_store", counted_build_store)
+    result = plugin.ingest_session_batch(
+        store,
+        {
+            "sessions": [
+                {"session_id": "cp98_a", "records": [{"event_type": "decision", "text": "CP98 batch ingest writes first delta."}]},
+                {"session_id": "cp98_b", "records": [{"event_type": "outcome", "text": "CP98 batch ingest rebuilds once after all notes."}]},
+            ]
+        },
+    )
+    current_status = plugin.status(store)
+
+    assert result["ok"] is True
+    assert result["sessions"] == 2
+    assert result["delta_count"] == 2
+    assert result["remembered_notes"] == 2
+    assert calls["count"] == 1
+    assert current_status["notes"] == 2
+    assert current_status["memory_deltas"] == 2
+    assert current_status["corpus_items"] == 2
+
+
+def test_freshness_scan_detects_modified_source_after_build(tmp_path: Path) -> None:
+    plugin = load_plugin_module()
+    source = tmp_path / "source"
+    source.mkdir()
+    doc = source / "README.md"
+    doc.write_text("CP99 freshness scan source starts current.", encoding="utf-8")
+    store = tmp_path / "store"
+    plugin.add_source(store, source, build=True)
+    future = datetime.now(UTC) + timedelta(seconds=60)
+    os.utime(doc, (future.timestamp(), future.timestamp()))
+
+    scan = plugin.source_freshness_scan(store, limit=5)
+
+    assert scan["ok"] is True
+    assert scan["fresh"] is False
+    assert scan["changed_count_visible"] == 1
+    assert scan["changed_files"][0]["path"].endswith("README.md")
+
+
+def test_agent_memory_doctor_reports_lifecycle_readiness(tmp_path: Path) -> None:
+    plugin = load_plugin_module()
+    store = tmp_path / "store"
+    plugin.remember(
+        store,
+        text="CP101 agent doctor checks lifecycle hooks, MCP tools, dataset, index, and write-barrier readiness.",
+        source_path="root/notes/cp101.md",
+        tags=["cp101", "doctor"],
+    )
+
+    doctor = plugin.agent_memory_doctor(store)
+
+    assert doctor["ok"] is True
+    assert doctor["checks"]["mcp_lifecycle_tools_available"] is True
+    assert "ivy_memory_session_batch_ingest" in doctor["available_mcp_tools"]
+    assert "ivy_memory_freshness_scan" in doctor["available_mcp_tools"]
+
+
+def test_plugin_remember_preserves_staleness_and_conflicts(tmp_path: Path) -> None:
+    plugin = load_plugin_module()
+    store = tmp_path / "store"
+    remembered = plugin.remember(
+        store,
+        text="CP41 old result said plugin builds always require a full rebuild.",
+        source_path="root/notes/cp41-old.md",
+        tags=["cp41"],
+        authority="low",
+        staleness="stale",
+        conflicts_with=["note_current_cp41"],
+    )
+
+    item = plugin.note_to_corpus_item(remembered["note"])
+    assert item["staleness"] == "stale"
+    assert item["conflicts_with"] == ["note_current_cp41"]
+
+
+def test_plugin_ingest_skips_generated_outputs(tmp_path: Path) -> None:
+    plugin = load_plugin_module()
+    source = tmp_path / "source"
+    (source / "out").mkdir(parents=True)
+    (source / "README.md").write_text("CP29 source memory should be visible to the plugin query index.", encoding="utf-8")
+    (source / "out" / "generated.md").write_text("Generated output should not be indexed as live source memory.", encoding="utf-8")
+
+    store = tmp_path / "store"
+    added = plugin.add_source(store, source, build=True)
+
+    assert added["build"]["corpus_items"] == 1
+    assert added["build"]["index"]["items"] == 1
+
+
+def test_direct_agent_note_can_beat_generic_source_doc(tmp_path: Path) -> None:
+    plugin = load_plugin_module()
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "README.md").write_text(
+        "CP28 final answer packet formats are mentioned in this generic project runbook.",
+        encoding="utf-8",
+    )
+
+    store = tmp_path / "store"
+    plugin.add_source(store, source, build=False)
+    plugin.remember(
+        store,
+        text="CP28 showed contradiction-aware packets won final-answer A/B on conflict cases.",
+        source_path="root/notes/cp28.md",
+        tags=["cp28", "final-answer"],
+        authority="medium",
+    )
+    result = plugin.query_store(store, query="What did CP28 show about final answer packet formats?")
+
+    assert result["selected_ids"][0].startswith("note_")
+    assert result["variant"] == result["packet_mode"]
+
+
+def test_warm_store_primes_query_caches(tmp_path: Path) -> None:
+    plugin = load_plugin_module()
+    store = tmp_path / "store"
+    plugin.remember(
+        store,
+        text="CP28 showed contradiction-aware packets won final-answer A/B on conflict cases.",
+        source_path="root/notes/cp28.md",
+        tags=["cp28", "final-answer"],
+        authority="medium",
+    )
+
+    warmed = plugin.warm_store(store, queries=["What did CP28 show about final answer packet formats?"])
+
+    assert warmed["ok"] is True
+    assert warmed["warmed_queries"] == 1
+    assert warmed["query_index_cache_entries"] >= 1
+    assert warmed["item_feature_cache_entries"] >= 1
+    assert warmed["corpus_item_cache_entries"] >= 1
+
+
+def test_repeated_build_uses_fingerprint_cache(tmp_path: Path) -> None:
+    plugin = load_plugin_module()
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "README.md").write_text("CP32 cache source memory should build once and then reuse.", encoding="utf-8")
+
+    store = tmp_path / "store"
+    first = plugin.add_source(store, source, build=True)
+    second = plugin.build_store(store)
+    current_status = plugin.status(store)
+
+    assert first["build"]["cache"]["status"] == "miss"
+    assert second["cache"]["status"] == "hit"
+    assert second["corpus_items"] == first["build"]["corpus_items"]
+    assert current_status["build_cache"]["exists"] is True
+    assert current_status["build_cache"]["file_count"] == 1
+    assert "process_caches" in current_status
+
+
+def test_changed_source_reuses_unchanged_file_chunks(tmp_path: Path) -> None:
+    plugin = load_plugin_module()
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "a.md").write_text("CP40 chunk cache source A should remain unchanged across builds.", encoding="utf-8")
+    (source / "b.md").write_text("CP40 chunk cache source B will change after the first build.", encoding="utf-8")
+
+    store = tmp_path / "store"
+    first = plugin.add_source(store, source, build=True)
+    (source / "b.md").write_text("CP40 chunk cache source B changed and should be reprocessed.", encoding="utf-8")
+    second = plugin.build_store(store)
+
+    assert first["build"]["chunk_cache"]["miss_files"] == 2
+    assert second["cache"]["status"] == "miss"
+    assert second["chunk_cache"]["hit_files"] == 1
+    assert second["chunk_cache"]["miss_files"] == 1
+
+
+def test_mcp_stdio_lists_and_calls_status(tmp_path: Path) -> None:
+    store = tmp_path / "store"
+    payload = b"".join(
+        [
+            framed({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+            framed({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}),
+            framed({"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "ivy_memory_status", "arguments": {}}}),
+        ]
+    )
+
+    proc = subprocess.run(
+        [sys.executable, str(PLUGIN_SCRIPT), "--store", str(store), "mcp"],
+        input=payload,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+    )
+    messages = parse_framed_messages(proc.stdout)
+
+    assert messages[0]["result"]["serverInfo"]["name"] == "ivy-context-memory"
+    tool_names = {tool["name"] for tool in messages[1]["result"]["tools"]}
+    assert {
+        "ivy_memory_query",
+        "ivy_memory_remember",
+        "ivy_memory_session_ingest",
+        "ivy_memory_session_batch_ingest",
+        "ivy_memory_agent_hook",
+        "ivy_memory_freshness_scan",
+        "ivy_memory_agent_doctor",
+        "ivy_memory_warm",
+        "ivy_memory_status",
+    } <= tool_names
+    assert messages[2]["result"]["structuredContent"]["ok"] is True
+
+
+def test_mcp_stdio_session_ingest_then_agent_hook(tmp_path: Path) -> None:
+    store = tmp_path / "store"
+    payload = b"".join(
+        [
+            framed({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+            framed(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "ivy_memory_session_ingest",
+                        "arguments": {
+                            "session_id": "cp88_policy_surface",
+                            "task": "Wire agent memory policy through MCP.",
+                            "records": [
+                                {
+                                    "event_type": "decision",
+                                    "text": "CP88 policy says verified memory is advisory and current repo state outranks memory.",
+                                }
+                            ],
+                        },
+                    },
+                }
+            ),
+            framed(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 3,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "ivy_memory_agent_hook",
+                        "arguments": {"hook": "before_task", "task": "What does CP88 say about memory precedence?"},
+                    },
+                }
+            ),
+        ]
+    )
+
+    proc = subprocess.run(
+        [sys.executable, str(PLUGIN_SCRIPT), "--store", str(store), "mcp"],
+        input=payload,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+    )
+    messages = parse_framed_messages(proc.stdout)
+    ingested = messages[1]["result"]["structuredContent"]
+    hooked = messages[2]["result"]["structuredContent"]
+
+    assert ingested["ok"] is True
+    assert ingested["delta_count"] == 1
+    assert hooked["schema_version"] == "ivy_context_memory.context_packet.v0.2"
+    assert hooked["packet"]["selected_ids"]
+    assert "current repo state outranks memory" in hooked["packet"]["text"]
+
+
+def test_mcp_stdio_batch_ingest_then_doctor(tmp_path: Path) -> None:
+    store = tmp_path / "store"
+    payload = b"".join(
+        [
+            framed({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+            framed(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "ivy_memory_session_batch_ingest",
+                        "arguments": {
+                            "sessions": [
+                                {
+                                    "session_id": "cp98_mcp_batch",
+                                    "records": [
+                                        {
+                                            "event_type": "decision",
+                                            "text": "CP98 MCP batch ingest rebuilds once and keeps lifecycle memory queryable.",
+                                        }
+                                    ],
+                                }
+                            ]
+                        },
+                    },
+                }
+            ),
+            framed({"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "ivy_memory_agent_doctor", "arguments": {}}}),
+        ]
+    )
+
+    proc = subprocess.run(
+        [sys.executable, str(PLUGIN_SCRIPT), "--store", str(store), "mcp"],
+        input=payload,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+    )
+    messages = parse_framed_messages(proc.stdout)
+    batch = messages[1]["result"]["structuredContent"]
+    doctor = messages[2]["result"]["structuredContent"]
+
+    assert batch["ok"] is True
+    assert batch["sessions"] == 1
+    assert doctor["ok"] is True
+    assert doctor["checks"]["mcp_lifecycle_tools_available"] is True
+
+
+def test_mcp_stdio_remember_then_query(tmp_path: Path) -> None:
+    store = tmp_path / "store"
+    payload = b"".join(
+        [
+            framed({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+            framed(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "ivy_memory_remember",
+                        "arguments": {
+                            "text": "CP35 proves MCP clients can remember and query IVY memory in one session.",
+                            "source_path": "root/notes/cp35.md",
+                            "tags": ["cp35", "mcp"],
+                        },
+                    },
+                }
+            ),
+            framed(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 3,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "ivy_memory_query",
+                        "arguments": {"query": "What does CP35 prove about MCP clients?"},
+                    },
+                }
+            ),
+        ]
+    )
+
+    proc = subprocess.run(
+        [sys.executable, str(PLUGIN_SCRIPT), "--store", str(store), "mcp"],
+        input=payload,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+    )
+    messages = parse_framed_messages(proc.stdout)
+    remembered = messages[1]["result"]["structuredContent"]
+    queried = messages[2]["result"]["structuredContent"]
+
+    assert remembered["ok"] is True
+    assert queried["ok"] is True
+    assert queried["selected_ids"][0].startswith("note_")
+    assert "CP35 proves MCP clients" in queried["packet_text"]
+
+
+def test_mcp_stdio_warm_primes_caches(tmp_path: Path) -> None:
+    store = tmp_path / "store"
+    payload = b"".join(
+        [
+            framed({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+            framed(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 2,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "ivy_memory_remember",
+                        "arguments": {
+                            "text": "CP62 exposes ivy_memory_warm so MCP clients can preheat IVY memory caches.",
+                            "source_path": "root/notes/cp62.md",
+                            "tags": ["cp62", "warm", "mcp"],
+                        },
+                    },
+                }
+            ),
+            framed(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 3,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "ivy_memory_warm",
+                        "arguments": {"queries": ["What does CP62 expose for MCP clients?"]},
+                    },
+                }
+            ),
+            framed({"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "ivy_memory_status", "arguments": {}}}),
+        ]
+    )
+
+    proc = subprocess.run(
+        [sys.executable, str(PLUGIN_SCRIPT), "--store", str(store), "mcp"],
+        input=payload,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+    )
+    messages = parse_framed_messages(proc.stdout)
+    warmed = messages[2]["result"]["structuredContent"]
+    current_status = messages[3]["result"]["structuredContent"]
+
+    assert warmed["ok"] is True
+    assert warmed["warmed_queries"] == 1
+    assert warmed["query_index_cache_entries"] >= 1
+    assert warmed["item_feature_cache_entries"] >= 1
+    assert warmed["corpus_item_cache_entries"] >= 1
+    assert current_status["process_caches"]["query_index_cache_entries"] >= 1
+    assert current_status["process_caches"]["item_feature_cache_entries"] >= 1
+    assert current_status["process_caches"]["corpus_item_cache_entries"] >= 1
+
+
+def test_mcp_stdio_lists_and_reads_resources(tmp_path: Path) -> None:
+    store = tmp_path / "store"
+    payload = b"".join(
+        [
+            framed({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+            framed({"jsonrpc": "2.0", "id": 2, "method": "resources/list", "params": {}}),
+            framed({"jsonrpc": "2.0", "id": 3, "method": "resources/read", "params": {"uri": "ivy-memory://status"}}),
+            framed({"jsonrpc": "2.0", "id": 4, "method": "resources/read", "params": {"uri": "ivy-memory://track-record"}}),
+        ]
+    )
+
+    proc = subprocess.run(
+        [sys.executable, str(PLUGIN_SCRIPT), "--store", str(store), "mcp"],
+        input=payload,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+    )
+    messages = parse_framed_messages(proc.stdout)
+    resource_uris = {resource["uri"] for resource in messages[1]["result"]["resources"]}
+    status_text = messages[2]["result"]["contents"][0]["text"]
+    track_record_text = messages[3]["result"]["contents"][0]["text"]
+
+    assert "ivy-memory://status" in resource_uris
+    assert "ivy-memory://latest-packet" in resource_uris
+    assert json.loads(status_text)["ok"] is True
+    assert "Commit Ledger" in track_record_text
+
+
+def test_mcp_stdio_lists_and_gets_prompts(tmp_path: Path) -> None:
+    store = tmp_path / "store"
+    payload = b"".join(
+        [
+            framed({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
+            framed({"jsonrpc": "2.0", "id": 2, "method": "prompts/list", "params": {}}),
+            framed(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 3,
+                    "method": "prompts/get",
+                    "params": {
+                        "name": "query_ivy_memory_before_task",
+                        "arguments": {"task": "build the next context memory checkpoint"},
+                    },
+                }
+            ),
+        ]
+    )
+
+    proc = subprocess.run(
+        [sys.executable, str(PLUGIN_SCRIPT), "--store", str(store), "mcp"],
+        input=payload,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+    )
+    messages = parse_framed_messages(proc.stdout)
+    prompt_names = {prompt["name"] for prompt in messages[1]["result"]["prompts"]}
+    prompt_text = messages[2]["result"]["messages"][0]["content"]["text"]
+
+    assert "query_ivy_memory_before_task" in prompt_names
+    assert "ivy_memory_query" in prompt_text
+    assert "build the next context memory checkpoint" in prompt_text

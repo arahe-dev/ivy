@@ -1,0 +1,45 @@
+{
+  "name": "ivy-context-memory",
+  "version": "0.1.0",
+  "description": "Local ACCA context and memory sidecar for Codex, OpenCode, and other coding agents.",
+  "author": {
+    "name": "IVY",
+    "email": "local@ivy.invalid",
+    "url": "https://github.com/arahe-dev/ivy"
+  },
+  "homepage": "https://github.com/arahe-dev/ivy/tree/main/plugins/ivy-context-memory",
+  "repository": "https://github.com/arahe-dev/ivy",
+  "license": "MIT",
+  "keywords": [
+    "context",
+    "memory",
+    "acca",
+    "mome",
+    "moce",
+    "codex",
+    "opencode"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "IVY Context Memory",
+    "shortDescription": "Query an external ACCA memory store before agent work.",
+    "longDescription": "Provides a local memory/context sidecar that ingests repos, docs, and safe notes into ACCA-shaped evidence, then returns small audited context packets for Codex, OpenCode, or any OpenAI-compatible coding agent.",
+    "developerName": "IVY",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read",
+      "Write",
+      "Local"
+    ],
+    "websiteURL": "https://github.com/arahe-dev/ivy",
+    "privacyPolicyURL": "https://github.com/arahe-dev/ivy",
+    "termsOfServiceURL": "https://github.com/arahe-dev/ivy",
+    "defaultPrompt": [
+      "Query IVY memory for this task.",
+      "Remember this implementation result.",
+      "Ingest this repo into IVY memory."
+    ],
+    "brandColor": "#2563EB"
+  }
+}

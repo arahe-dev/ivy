@@ -6,6 +6,7 @@ import json
 import re
 import time
 import urllib.parse
+from dataclasses import replace
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -468,6 +469,36 @@ class DogfoodHooks:
             artifact_dir=None,
             max_union_items=max_union_items,
         )
+        if not bundle["selected_ids"] and max_union_items > 0 and query not in advice.queries:
+            fallback_advice = replace(advice, queries=[query])
+            fallback_bundle = route_librarian_bundle(
+                router,
+                fallback_advice,
+                case_id=f"{route_id}__original",
+                artifact_dir=None,
+                max_union_items=max_union_items,
+            )
+            if fallback_bundle["selected_ids"]:
+                advice = replace(
+                    advice,
+                    queries=[*advice.queries, query],
+                    side_tracks=[
+                        *advice.side_tracks,
+                        "Dogfood verifier fallback routed the original user query after helper draft selected no evidence.",
+                    ],
+                )
+                bundle = {
+                    "selected_ids": fallback_bundle["selected_ids"],
+                    "decision": fallback_bundle["decision"],
+                    "latency_ms": round(bundle["latency_ms"] + max(0.0, fallback_bundle["latency_ms"] - advice.latency_ms), 3),
+                    "routes": [*bundle["routes"], *fallback_bundle["routes"]],
+                    "artifact_errors": [*bundle["artifact_errors"], *fallback_bundle["artifact_errors"]],
+                    "artifact_entries": [*bundle["artifact_entries"], *fallback_bundle["artifact_entries"]],
+                    "intent_guard_rejections": [
+                        *bundle["intent_guard_rejections"],
+                        *fallback_bundle["intent_guard_rejections"],
+                    ],
+                }
         selected_items = []
         for item_id in bundle["selected_ids"]:
             item = router.items_by_id.get(item_id)
