@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "alexandria.engine_packet.schema.json",
+  "title": "Alexandria Engine Packet Response",
+  "type": "object",
+  "required": [
+    "service_version",
+    "route_id",
+    "strategy",
+    "decision",
+    "confidence",
+    "selected_ids",
+    "latency_ms",
+    "packet",
+    "artifact_errors"
+  ],
+  "properties": {
+    "service_version": { "type": "string" },
+    "route_id": { "type": "string", "minLength": 1 },
+    "strategy": { "enum": ["d-acca", "helper-lazy"] },
+    "decision": { "type": "string", "minLength": 1 },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 100 },
+    "selected_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "latency_ms": { "type": "number", "minimum": 0 },
+    "packet": {
+      "type": "object",
+      "required": ["packet_version", "role", "query", "evidence", "context_budget", "constraints"],
+      "properties": {
+        "packet_version": { "type": "string" },
+        "role": { "const": "frontier_model_context_packet" },
+        "query": { "type": "string" },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "source_family": { "type": "string" },
+              "authority": { "type": "string" },
+              "staleness": { "type": "string" },
+              "safety_label": { "type": "string" },
+              "exposure_policy": { "type": "string" },
+              "text": { "type": "string" }
+            }
+          }
+        },
+        "context_budget": { "type": "object" },
+        "constraints": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "artifact_errors": { "type": "array" }
+  }
+}

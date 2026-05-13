@@ -23,15 +23,17 @@ flowchart LR
 
 ## Current Checkpoint
 
-The current active work is the CP102-era context-memory sidecar. CP9/CP9.1 remain important historical Rust-index milestones, but the current active system is `plugins/ivy-context-memory`: a Codex/OpenCode-facing ACCA sidecar with CLI, HTTP, MCP, warm daemon, session ingest, lifecycle hooks, batch ingest, freshness scan, long-session drill, readiness doctor, and answer-level A/B tests.
+The experiment has moved past CP102 into the Alexandria dogfood layer. The CP102 `ivy-context-memory` plugin/daemon remains the Codex/OpenCode-facing ACCA sidecar baseline, while the active frontier is the Alexandria harness, dogfood hooks, and MCP bridge.
 
-Current CP102-era state:
-
-- ACCA packets and route proofs remain the core ABI: selected evidence, rejected evidence, answerability, authority/freshness/safety gates, taint/exposure labels, and conflict behavior.
-- The plugin keeps large memory outside the prompt and returns a small audited packet for the current task.
-- Session capture and memory deltas make verified agent work reusable without storing raw chat history in model context.
-- MCP/API/daemon paths make the memory sidecar usable from Codex, OpenCode, and local agent loops.
-- Autoresearch gates now cover IVY docs, external generalization packs, no-exact-anchor ablations, paraphrases, negative controls, and source-removal sensitivity.
+- D-ACCA/helper-lazy remains the deterministic engine for admissible memory packets and route proofs;
+- ACCA packets and route proofs remain the core ABI: selected evidence, rejected evidence, answerability, authority/freshness/safety gates, taint/exposure labels, and conflict behavior;
+- session capture and memory deltas make verified agent work reusable without storing raw chat history in model context;
+- 1000-case plus edge-case black-box packet tests have compared D-ACCA, rule, DD-rule, speculative DD, lazy speculative DD, helper-lazy, and BM25 variants;
+- Alexandria harnesses now validate the engine/frontend boundary and emit stable dashboard view models;
+- `alexandria_simple/` provides a no-build local console over the dogfood hooks;
+- `scripts/alexandria_mcp_server.py` exposes Alexandria as a private MCP bridge for Codex and ChatGPT Developer Mode;
+- runtime memory data, logs, secrets, and tunnel URL are stored outside git under `C:\ivy-data\alexandria`;
+- current focused verification: `pytest` 39 passed for MoME/MoCE, dogfood hooks, harness, and MCP bridge.
 
 ## Why This Is Not Just RAG
 

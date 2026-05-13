@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Alexandria Simple</title>
+    <link rel="icon" href="/assets/alexandria/svg/alexandria-favicon.svg" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <img src="/assets/alexandria/svg/alexandria-wordmark-primary.svg" alt="Alexandria" />
+        <span class="divider"></span>
+        <span class="subtitle">simple hooks console</span>
+      </div>
+      <div class="connection">
+        <span id="statusDot" class="dot"></span>
+        <span id="statusText">Not connected</span>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="panel hero">
+        <div>
+          <h1>Use the memory engine without the big dashboard.</h1>
+          <p>
+            This page talks directly to the same D-ACCA hooks: health, hooks, memories, ingest, packet,
+            proof, search, feedback, and forget.
+          </p>
+        </div>
+        <div class="api-box">
+          <label for="apiBase">Hook service URL</label>
+          <div class="row">
+            <input id="apiBase" value="http://127.0.0.1:8766" spellcheck="false" />
+            <button id="saveApiBtn">Save</button>
+            <button id="refreshBtn" class="primary">Connect</button>
+          </div>
+          <p class="hint">Launcher default: http://127.0.0.1:8766</p>
+        </div>
+      </section>
+
+      <section class="grid metrics" aria-label="Live status">
+        <div class="metric">
+          <span>Memory records</span>
+          <strong id="memoryCount">0</strong>
+        </div>
+        <div class="metric">
+          <span>Selected evidence</span>
+          <strong id="selectedCount">0</strong>
+        </div>
+        <div class="metric">
+          <span>Confidence</span>
+          <strong id="confidence">0%</strong>
+        </div>
+        <div class="metric">
+          <span>Latency</span>
+          <strong id="latency">-</strong>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <div>
+            <h2>1. Ask for a packet</h2>
+            <p>Build model-visible context from whatever memory is currently admitted.</p>
+          </div>
+          <button id="seedBtn">Load dogfood memory</button>
+        </div>
+        <textarea id="queryInput" rows="3">How should Alexandria connect the website to D-ACCA hooks?</textarea>
+        <div class="toolbar">
+          <button id="packetHelperBtn" class="primary">Build helper-lazy packet</button>
+          <button id="packetDirectBtn">Build d-acca packet</button>
+          <button id="copyPacketBtn">Copy model packet</button>
+        </div>
+        <div id="routeSummary" class="summary muted">No packet built yet.</div>
+      </section>
+
+      <section class="two-col">
+        <div class="panel">
+          <h2>2. Ingest memory</h2>
+          <label for="memoryText">Memory text</label>
+          <textarea id="memoryText" rows="5" placeholder="Paste a fact, decision, preference, runbook step, or source note."></textarea>
+          <div class="form-grid">
+            <label>
+              ID
+              <input id="memoryId" placeholder="optional_stable_id" />
+            </label>
+            <label>
+              Tags
+              <input id="memoryTags" placeholder="alexandria, hooks, frontend" />
+            </label>
+            <label>
+              Family
+              <select id="sourceFamily">
+                <option>doc_memory</option>
+                <option>runbook</option>
+                <option>workflow_trace</option>
+                <option>source_code</option>
+                <option>safety_policy</option>
+                <option>debug_failure</option>
+              </select>
+            </label>
+            <label>
+              Authority
+              <select id="authority">
+                <option>high</option>
+                <option>medium</option>
+                <option>low</option>
+                <option>decoy</option>
+              </select>
+            </label>
+          </div>
+          <button id="ingestBtn" class="primary">Ingest memory</button>
+        </div>
+
+        <div class="panel">
+          <h2>3. Search and feedback</h2>
+          <label for="searchInput">Search memory</label>
+          <div class="row">
+            <input id="searchInput" placeholder="signalcli, route proof, hooks..." />
+            <button id="searchBtn">Search</button>
+          </div>
+          <div class="feedback">
+            <button data-rating="useful">Useful</button>
+            <button data-rating="wrong">Wrong</button>
+            <button data-rating="stale">Stale</button>
+            <button data-rating="missed">Missed</button>
+            <button data-rating="private">Private</button>
+          </div>
+          <label for="forgetInput">Forget memory IDs</label>
+          <div class="row">
+            <input id="forgetInput" placeholder="comma separated ids" />
+            <button id="forgetBtn" class="danger">Forget</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="two-col wide">
+        <div class="panel">
+          <div class="section-head compact">
+            <h2>Admitted evidence</h2>
+            <span id="routeId" class="pill">no route</span>
+          </div>
+          <div id="evidenceList" class="list empty">No evidence admitted yet.</div>
+        </div>
+
+        <div class="panel">
+          <h2>Memory records</h2>
+          <div id="memoryList" class="list empty">No memories loaded.</div>
+        </div>
+      </section>
+
+      <section class="two-col wide">
+        <div class="panel">
+          <h2>Model packet</h2>
+          <pre id="packetJson">{}</pre>
+        </div>
+        <div class="panel">
+          <h2>Route proof</h2>
+          <pre id="proofJson">{}</pre>
+        </div>
+      </section>
+
+      <section class="two-col wide">
+        <div class="panel">
+          <h2>Search results</h2>
+          <div id="searchResults" class="list empty">No search run yet.</div>
+        </div>
+        <div class="panel">
+          <h2>Log</h2>
+          <div id="log" class="log"></div>
+        </div>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1420" height="360" viewBox="0 0 1420 360">
+  <defs>
+    <style>
+      .wordmark {
+        font-family: Georgia, 'Times New Roman', serif;
+        font-weight: 700;
+        letter-spacing: -11px;
+      }
+      .label {
+        font-family: Inter, Arial, sans-serif;
+        font-weight: 700;
+        letter-spacing: .08em;
+      }
+      .ui {
+        font-family: Inter, Arial, sans-serif;
+      }
+    </style>
+  </defs>
+  
+  
+  <text class="wordmark" x="55" y="250" font-size="220" fill="#121214">Alexandr&#305;a</text>
+  
+    <g transform="translate(1008.00 73.00) scale(0.720)"
+       fill="none" stroke="#C98A2E" stroke-width="3.31" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M40 8 C26 8 16 17 16 31" />
+      <path d="M48 10 C63 15 72 29 69 45" />
+      <path d="M25 30 C27 18 39 14 49 19 C60 24 63 35 60 49" />
+      <path d="M34 35 C36 27 43 24 50 28 C57 32 58 41 55 52" />
+      <path d="M43 42 C43 36 49 35 51 40 C53 45 48 56 45 64" />
+      <path d="M19 43 C20 55 26 66 36 73" />
+      <path d="M67 55 C61 70 50 79 36 82" />
+      <path d="M30 50 C33 63 43 69 53 67" />
+    </g>
+    
+
+</svg>

@@ -1,18 +1,20 @@
 # MoME/MoCE Handoff Context
 
-Date: 2026-05-12
+Date: 2026-05-13
 
 ## Current Checkpoint
 
-The MoME/MoCE experiment is now in the CP102-era context-memory sidecar phase. CP9/CP9.1 are historical milestones, not the current frontier. The current build includes `ivy-context-memory`: a Codex/OpenCode-facing local memory sidecar with ACCA packets, route proofs, write barriers, MCP/API/daemon surfaces, session ingest, lifecycle hooks, batch ingest, freshness scan, long-session drill, readiness doctor, and answer-level A/B checks.
+The MoME/MoCE experiment is now in the Alexandria dogfood layer, past the CP102-era context-memory sidecar phase. CP7/CP8/CP9/CP9.1 remain historical milestones; CP102 remains the local memory sidecar baseline.
 
-Current state:
-
-- Core ACCA routing remains deterministic and authority-constrained: selected evidence, rejected evidence, route proof, answerability, taint/exposure labels, and stale/current conflict behavior.
-- CP9.1 Rust batch remains a useful historical speed result, but the active path is the plugin/daemon lifecycle around `plugins/ivy-context-memory`.
-- CP45-CP82 added real-conversation autoresearch, a 10M-token sharded-memory capacity rating, external generalization gates, no-exact-anchor ablations, paraphrase gates, negative controls, and source-removal sensitivity checks.
-- CP83-CP92 added agent session capture, memory deltas, packet v2, before/after hooks, daemon/MCP surfaces, and burn-in.
-- CP93-CP102 added adapter lifecycle, targeted answer-quality A/B, batch session ingest, freshness scan, long-session drill, readiness doctor, and refreshed usage docs.
+- D-ACCA/helper-lazy is the current deterministic memory-to-context engine.
+- The `ivy-context-memory` plugin/daemon remains the Codex/OpenCode-facing ACCA sidecar foundation.
+- The dogfood hook service exposes health, memory import, packet build, route proof, search, feedback, and local forget hooks.
+- Alexandria harnesses validate raw engine responses and emit stable dashboard/frontend view models.
+- A no-build `alexandria_simple/` console exists for local use.
+- `scripts/alexandria_mcp_server.py` now exposes Alexandria over MCP for Codex and ChatGPT Developer Mode.
+- Runtime state for the MCP/app setup is outside git at `C:\ivy-data\alexandria`.
+- Current MCP ports: D-ACCA hooks on `127.0.0.1:8767`, MCP bridge on `127.0.0.1:8790`.
+- ChatGPT tunnel URL, when active, is stored at `C:\ivy-data\alexandria\chatgpt_mcp_url.txt`.
 
 Primary status doc:
 
@@ -24,12 +26,25 @@ Primary status doc:
 Primary continuation doc:
 
 - `docs/NEXT_CHAT_HANDOFF.md`
+- `docs/ALEXANDRIA_MCP_APP_SETUP.md`
 
 ## Verified Results
 
 ```text
-Ivy-real v2 ACCA:             119/119, required-only precision 1.0, forbidden hits 0
-Stress Rust batch:            62/62, required-only precision 1.0, route mean 1.694 ms
+ivy_real scan:     30/30, required-only precision 1.0, artifact_errors 0
+ivy_real indexed:  30/30, required-only precision 1.0, artifact_errors 0
+smoke indexed:     62/62, required-only precision 1.0, artifact_errors 0
+medium indexed:    62/62, required-only precision 1.0, artifact_errors 0
+stress indexed:    62/62, required-only precision 1.0, artifact_errors 0
+stress scan:       62/62, required-only precision 1.0, artifact_errors 0
+rust ivy_real:     recall@32 1.0, failed_cases 0
+rust stress:       recall@32 1.0, failed_cases 0
+ivy_real_v2 idx:   119/119, required-only precision 1.0, forbidden hits 0
+ivy_real_v2 rust:  119/119, required-only precision 1.0, forbidden hits 0
+stress rust batch: 62/62, required-only precision 1.0, route mean 1.694 ms, preload 4483.781 ms
+model demo:        ACCA 8/8, naive BM25 forbidden hits 1 in representative demo
+v2 naive BM25:     precision 0.2376, forbidden hits 12
+v2 ACCA compact:   precision 1.0, forbidden hits 0
 Plugin benchmark:             6/6 expected behaviors
 Plugin benchmark latency:     avg query wall 15.535 ms, avg router 2.478 ms
 Hot repeated plugin wall:     about 7.5-7.7 ms
@@ -52,6 +67,7 @@ Long-session drill:           1000 records -> 3 deltas, 3.179 ms packet wall
 Agent memory doctor:          verified
 Focused tests:                28 passed
 Capacity rating:              10M tokens as sharded external memory, not one prompt
+pytest current:                39 passed
 ```
 
 ## Litter / Phone Access Setup
